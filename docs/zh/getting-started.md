@@ -40,14 +40,14 @@ QEMU + gem5 MI300X 联合仿真项目的快速入门指南。
 | 宿主机系统 | Linux x86_64，支持 KVM（已在 WSL2 6.6.x 验证） |
 | Docker | 守护进程运行中，当前用户在 `docker` 组 |
 | KVM | `/dev/kvm` 可访问 |
-| QEMU | 系统安装的 QEMU 10.1+，并提供 `vfio-user-pci` |
+| QEMU | 由 `qemu` 子模块编译（`just build-qemu`），或使用系统安装且提供 `vfio-user-pci` 的 QEMU 10.1+ |
 | 磁盘空间 | 至少 120 GB（55G 磁盘镜像 + 构建中间产物） |
 | 内存 | 建议 16 GB 以上（gem5 编译和运行都比较占内存） |
 | 工具 | `git`、`screen`、`unzip`、[`just`](https://github.com/casey/just) 1.27+ |
 
 构建、启动和检查任务都定义在仓库根目录的 `justfile` 中。在仓库根目录运行 `just` 可以列出全部任务。
 
-## 编译 gem5 与检查 QEMU
+## 编译 gem5 与 QEMU
 
 ### 构建运行时 Docker 镜像
 
@@ -90,18 +90,21 @@ docker run --rm \
 
 产出：`build/VEGA_X86/gem5.opt`（约 1.1 GB）。
 
-### 检查系统 QEMU
+### 编译 QEMU
 
-QEMU 是宿主机依赖，不再作为源码子模块提供。系统需要安装带内置
-`vfio-user-pci` 设备的**原版 QEMU 10.1+**。
+`qemu` 子模块跟踪 [gevico/qemu](https://github.com/gevico/qemu) 的 `gevico/cosim-gpu` 分支，该分支基于 QEMU v11.1.2 发布版本。联合仿真使用其中内置的 `vfio-user-pci` 设备。
 
 ```bash
-qemu-system-x86_64 --version
-qemu-system-x86_64 -device help | grep vfio-user-pci
+just build-qemu        # 使用宿主机全部 CPU；`just build-qemu 4` 限制并行任务数
 ```
 
-非默认安装可通过 `--qemu-bin PATH` 传给启动脚本；构建磁盘镜像时可设置
-`QEMU_BIN`。
+该任务在 `qemu/build` 中配置启用 KVM 的 `x86_64-softmmu`，完成编译，并检查 `qemu/build/qemu-system-x86_64` 是否提供 `vfio-user-pci`。宿主机需要安装 QEMU 的编译依赖（`ninja`、`pkg-config`、`glib-2.0`、`pixman`、`slirp`、`flex`、`bison`，以及带 `venv` 的 Python 3）。
+
+`just launch` 和 `just build-disk` 按以下顺序选择 QEMU：
+
+1. `--qemu-bin PATH`（启动时）或环境变量 `QEMU_BIN`
+2. 子模块编译出的 `qemu/build/qemu-system-x86_64`
+3. `PATH` 中的 `qemu-system-x86_64`（原版 QEMU 10.1+ 同样可用）
 
 ## 构建磁盘镜像
 

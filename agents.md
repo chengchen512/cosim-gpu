@@ -33,7 +33,7 @@ just build-all
 Individual steps when needed:
 
 ```bash
-qemu-system-x86_64 -device help | grep vfio-user-pci
+just build-qemu
 just docker-image
 just build-gem5
 just build-m5
@@ -60,8 +60,11 @@ modprobe amdgpu ip_block_mask=0x67 ppfeaturemask=0 dpm=0 audio=0 ras_enable=0 di
 
 ## Architecture
 
-System QEMU (Q35+KVM) communicates with gem5's MI300X model through the standard
-vfio-user protocol over a Unix socket. No project-specific QEMU source is used.
+QEMU (Q35+KVM) communicates with gem5's MI300X model through the standard
+vfio-user protocol over a Unix socket. The `qemu` submodule tracks the
+`gevico/cosim-gpu` branch of gevico/qemu (QEMU v11.1.2, no co-simulation
+patches);
+`just build-qemu` builds it, and the launcher falls back to the system QEMU.
 Guest RAM and VRAM are shared through `/dev/shm/cosim-guest-ram` and
 `/dev/shm/mi300x-vram`. BAR layout: 0+1=VRAM, 2+3=Doorbell, 4=MSI-X, 5=MMIO.
 

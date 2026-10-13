@@ -825,8 +825,9 @@ This section documents the key architectural decisions and critical bug-fix insi
 
 ### vfio-user Transport Boundary
 
-The vfio-user transport keeps the QEMU side on a stock, system-installed binary
-and concentrates the GPU model integration in gem5. The design is based on
+The vfio-user transport keeps the QEMU side on a stock QEMU release (v11.1.2
+from the `qemu` submodule, or any system-installed QEMU 10.1+) and concentrates
+the GPU model integration in gem5. The design is based on
 three factors:
 
 1. **No custom QEMU code**: Any stock QEMU 10.1+ build can connect to gem5 directly via the built-in `vfio-user-pci` device.

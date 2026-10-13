@@ -2,8 +2,9 @@
 # ==========================================================================
 # QEMU + gem5 MI300X Co-simulation Launcher
 #
-# gem5 runs inside Docker (GPU-only, no kernel), while a system-installed
-# QEMU runs on the host with KVM and connects through standard vfio-user.
+# gem5 runs inside Docker (GPU-only, no kernel), while QEMU runs on the host
+# with KVM and connects through standard vfio-user. QEMU comes from the qemu
+# submodule build (just build-qemu) when present, else from PATH.
 #
 # Usage:
 #   ./scripts/cosim_launch.sh                              # vfio-user
@@ -36,7 +37,15 @@ GEM5_CONFIG="${GEM5_DIR}/configs/example/gpufs/mi300_cosim.py"
 GEM5_DOCKER_IMAGE="${GEM5_DOCKER_IMAGE:-gem5-run:local}"
 GEM5_CONTAINER="$(cosim_container_name "$COSIM_RUN_ID")"
 
-QEMU_BIN="${QEMU_BIN:-$(command -v qemu-system-x86_64 2>/dev/null || true)}"
+# QEMU: $QEMU_BIN, else the qemu submodule build, else PATH
+QEMU_SUBMODULE_BIN="${COSIM_DIR}/qemu/build/qemu-system-x86_64"
+if [[ -z "${QEMU_BIN:-}" ]]; then
+    if [[ -x "$QEMU_SUBMODULE_BIN" ]]; then
+        QEMU_BIN="$QEMU_SUBMODULE_BIN"
+    else
+        QEMU_BIN="$(command -v qemu-system-x86_64 2>/dev/null || true)"
+    fi
+fi
 DISK_IMAGE="${RESOURCES_DIR}/src/x86-ubuntu-gpu-ml/disk-image/x86-ubuntu-rocm70"
 KERNEL="${RESOURCES_DIR}/src/x86-ubuntu-gpu-ml/vmlinux-rocm70"
 
@@ -86,7 +95,8 @@ Usage: $0 [options]
 Options:
   --disk-image PATH       Disk image  (default: auto-detect in gem5-resources)
   --kernel PATH           vmlinux     (default: auto-detect in gem5-resources)
-  --qemu-bin PATH         QEMU binary (default: qemu-system-x86_64 from PATH)
+  --qemu-bin PATH         QEMU binary (default: qemu/build/qemu-system-x86_64,
+                          else qemu-system-x86_64 from PATH)
   --gem5-bin PATH         gem5 binary (default: build/VEGA_X86/gem5.opt)
   --gem5-docker IMAGE     Docker image for gem5 (default: gem5-run:local)
   --socket-path PATH      Unix socket (default: /tmp/gem5-mi300x.sock)
@@ -181,9 +191,12 @@ C_GEM5_CONFIG="/gem5/configs/example/gpufs/mi300_cosim.py"
 # ---- Validation ----
 
 [[ -f "$GEM5_BIN" ]]   || error "gem5 not found: $GEM5_BIN\n  Build: scons build/VEGA_X86/gem5.opt -j\$(nproc)"
-[[ -n "$QEMU_BIN" && -x "$QEMU_BIN" ]] || error "qemu-system-x86_64 not found. Install QEMU 10.1+ or pass --qemu-bin."
+[[ -n "$QEMU_BIN" && -x "$QEMU_BIN" ]] || \
+    error "qemu-system-x86_64 not found.\n" \
+          " Build: just build-qemu (or install QEMU 10.1+, or pass --qemu-bin)"
 "$QEMU_BIN" -device help 2>/dev/null | grep 'vfio-user-pci' >/dev/null || \
-    error "QEMU does not provide vfio-user-pci. Install QEMU 10.1+ or pass a compatible --qemu-bin."
+    error "QEMU does not provide vfio-user-pci: $QEMU_BIN\n" \
+          " Build: just build-qemu (or pass a QEMU 10.1+ --qemu-bin)"
 [[ -f "$DISK_IMAGE" ]] || error "Disk image not found: $DISK_IMAGE\n  Build: ./scripts/run_mi300x_fs.sh build-disk"
 [[ -f "$KERNEL" ]]     || error "Kernel not found: $KERNEL\n  Build: ./scripts/run_mi300x_fs.sh build-disk"
 [[ -r /dev/kvm ]]      || error "/dev/kvm not available. KVM is required for QEMU."

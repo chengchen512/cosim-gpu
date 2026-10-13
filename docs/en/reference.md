@@ -90,7 +90,7 @@ console=ttyS0,115200 root=/dev/vda1 modprobe.blacklist=amdgpu
 | gem5 Build Target | VEGA_X86 |
 | GPU Device | MI300X (gfx942, DeviceID 0x74A0) |
 | Coherence Protocol | GPU_VIPER |
-| QEMU | System-installed QEMU 10.1+ with `vfio-user-pci` |
+| QEMU | v11.1.2 from the `qemu` submodule (gevico/qemu `gevico/cosim-gpu`), or a system QEMU 10.1+ with `vfio-user-pci` |
 
 ### Docker Images
 

@@ -40,7 +40,7 @@ on a simulated GPU without physical hardware.
 | Host OS | Linux x86_64 with KVM (tested on WSL2 6.6.x) |
 | Docker | Running daemon, user in `docker` group |
 | KVM | `/dev/kvm` accessible |
-| QEMU | System-installed QEMU 10.1+ with `vfio-user-pci` |
+| QEMU | Built from the `qemu` submodule (`just build-qemu`), or a system QEMU 10.1+ with `vfio-user-pci` |
 | just | [just](https://github.com/casey/just) 1.27+ task runner |
 | Disk space | ~120 GB (55G disk image + build artifacts) |
 | RAM | 16 GB+ recommended |
@@ -79,9 +79,12 @@ Run `just` to list every recipe. Common ones:
 git clone --recurse-submodules git@github.com:gevico/cosim-gpu.git
 cd cosim-gpu
 
-# 2. Verify the host QEMU installation (no QEMU source submodule is required)
-qemu-system-x86_64 --version
-qemu-system-x86_64 -device help | grep vfio-user-pci
+# 2. Build QEMU from the qemu submodule (gevico/qemu, gevico/cosim-gpu branch)
+cd qemu
+./configure --target-list=x86_64-softmmu --enable-kvm --disable-docs
+make -j"$(nproc)"
+./build/qemu-system-x86_64 -device help | grep vfio-user-pci
+cd ..
 
 # 3. Build Docker image (adds json-c needed by ext/libvfio-user)
 cd scripts && docker build -t gem5-run:local -f Dockerfile.run . && cd ..
@@ -149,7 +152,8 @@ EOF
 
 ```
 cosim-gpu/
-|-- gem5/                    # gem5 simulator (submodule, cosim-gpu branch)
+|-- qemu/                    # QEMU (submodule, gevico/cosim-gpu branch, v11.1.2)
+|-- gem5/                    # gem5 simulator (submodule, gevico/cosim-gpu branch)
 |   |-- src/dev/amdgpu/      # MI300X GPU device model & vfio-user bridge
 |   |-- ext/libvfio-user/    # libvfio-user library (Nutanix)
 |   `-- configs/example/gpufs/mi300_cosim.py  # cosim configuration
@@ -176,7 +180,9 @@ cosim-gpu/
 
 ### QEMU Side (stock `vfio-user-pci`)
 
-Uses QEMU's built-in `vfio-user-pci` device (no custom QEMU code). QEMU connects
+Uses QEMU's built-in `vfio-user-pci` device. The `qemu` submodule tracks the
+`gevico/cosim-gpu` branch of gevico/qemu, which is based on the QEMU v11.1.2 release
+and carries no custom co-simulation code. QEMU connects
 to gem5's vfio-user server and maps all BARs through the standard vfio-user protocol:
 - **BAR0+1**: VRAM (64-bit, prefetchable, shared memory backed)
 - **BAR2+3**: Doorbell (64-bit, forwarded to gem5 via vfio-user)
@@ -214,8 +220,8 @@ Detailed technical documentation is available in [`docs/`](docs/README.md):
 
 This project is licensed under the [Apache License 2.0](LICENSE).
 
-Note: The submodules are governed by their own licenses. QEMU is a host runtime
-dependency and is not vendored by this repository.
+Note: The submodules (QEMU, gem5, gem5-resources) are governed by their own
+licenses.
 
 ## Acknowledgments
 

@@ -823,8 +823,8 @@ GPU N: [N * vram_size, (N+1) * vram_size)
 
 ### vfio-user 传输边界
 
-vfio-user 传输层让 QEMU 侧保持为系统安装的原版二进制，并将 GPU 模型集成
-集中在 gem5 中。设计基于三个因素：
+vfio-user 传输层让 QEMU 侧保持为原版 QEMU 发布版本（`qemu` 子模块中的 v11.1.2，
+或系统安装的任意 QEMU 10.1+），并将 GPU 模型集成集中在 gem5 中。设计基于三个因素：
 
 1. **无需自定义 QEMU 代码**：任何原生 QEMU 10.1+ 构建都可以通过内置的 `vfio-user-pci` 设备直接连接 gem5。
 2. **协议标准化**：BAR 映射、配置空间、中断和 DMA 全部由 vfio-user 规范定义，减少了协议层面的 bug 可能性。

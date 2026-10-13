@@ -39,7 +39,7 @@
 | 宿主机系统 | Linux x86_64，支持 KVM（已在 WSL2 6.6.x 验证） |
 | Docker | 守护进程运行中，当前用户在 `docker` 组 |
 | KVM | `/dev/kvm` 可访问 |
-| QEMU | 系统安装的 QEMU 10.1+，并提供 `vfio-user-pci` |
+| QEMU | 由 `qemu` 子模块编译（`just build-qemu`），或使用系统安装且提供 `vfio-user-pci` 的 QEMU 10.1+ |
 | just | [just](https://github.com/casey/just) 1.27+ 任务运行工具 |
 | 磁盘空间 | 约 120 GB（55G 磁盘镜像 + 构建中间产物） |
 | 内存 | 建议 16 GB 以上 |
@@ -78,9 +78,12 @@ just launch
 git clone --recurse-submodules git@github.com:gevico/cosim-gpu.git
 cd cosim-gpu
 
-# 2. 验证宿主机 QEMU（无需 QEMU 源码子模块）
-qemu-system-x86_64 --version
-qemu-system-x86_64 -device help | grep vfio-user-pci
+# 2. 从 qemu 子模块编译 QEMU（gevico/qemu 的 gevico/cosim-gpu 分支）
+cd qemu
+./configure --target-list=x86_64-softmmu --enable-kvm --disable-docs
+make -j"$(nproc)"
+./build/qemu-system-x86_64 -device help | grep vfio-user-pci
+cd ..
 
 # 3. 构建 Docker 镜像（添加 ext/libvfio-user 编译所需的 json-c）
 cd scripts && docker build -t gem5-run:local -f Dockerfile.run . && cd ..
@@ -148,7 +151,8 @@ EOF
 
 ```
 cosim-gpu/
-|-- gem5/                    # gem5 simulator (submodule, cosim-gpu branch)
+|-- qemu/                    # QEMU (submodule, gevico/cosim-gpu branch, v11.1.2)
+|-- gem5/                    # gem5 simulator (submodule, gevico/cosim-gpu branch)
 |   |-- src/dev/amdgpu/      # MI300X GPU device model & vfio-user bridge
 |   |-- ext/libvfio-user/    # libvfio-user library (Nutanix)
 |   `-- configs/example/gpufs/mi300_cosim.py  # cosim configuration
@@ -194,7 +198,7 @@ cosim-gpu/
 
 本项目采用 [Apache License 2.0](LICENSE) 许可证。
 
-注意：各子模块遵循各自的许可证。QEMU 仅作为宿主机运行时依赖，本仓库不再内置其源码。
+注意：各子模块（QEMU、gem5、gem5-resources）遵循各自的许可证。
 
 ## 致谢
 

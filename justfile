@@ -21,10 +21,23 @@ default:
 # Build
 # ---------------------------------------------------------------------------
 
-# Initialize the gem5 and gem5-resources submodules
+# Initialize the qemu, gem5 and gem5-resources submodules
 [group('build')]
 submodules:
-    git submodule update --init --recursive gem5 gem5-resources
+    git submodule update --init --recursive qemu gem5 gem5-resources
+
+# Build QEMU (x86_64-softmmu with KVM and vfio-user-pci) from the qemu submodule
+[group('build')]
+build-qemu jobs=build_jobs:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    cd qemu
+    if [ ! -f build/build.ninja ]; then
+        ./configure --target-list=x86_64-softmmu --enable-kvm --disable-docs
+    fi
+    make -j{{ jobs }}
+    ./build/qemu-system-x86_64 -device help | grep -q vfio-user-pci
+    echo "QEMU built: qemu/build/qemu-system-x86_64"
 
 # Build the gem5 runtime Docker image (adds json-c for libvfio-user)
 [group('build')]
@@ -46,7 +59,7 @@ build-m5: docker-image
         scons build/x86/out/m5
     cp gem5/util/m5/build/x86/out/m5 {{ m5_dest }}
 
-# Build the guest disk image and kernel (needs KVM, system QEMU, ~60 GB disk)
+# Build the guest disk image and kernel (needs KVM, QEMU, ~60 GB disk)
 [group('build')]
 build-disk:
     ./scripts/run_mi300x_fs.sh build-disk
@@ -64,7 +77,7 @@ build-tests:
 
 # Build everything needed to launch co-simulation
 [group('build')]
-build-all: build-gem5 build-m5 build-disk build-app
+build-all: build-qemu build-gem5 build-m5 build-disk build-app
 
 # Show which build artifacts are present
 [group('build')]
