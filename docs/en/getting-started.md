@@ -40,7 +40,7 @@ For a deeper dive into the memory architecture and BAR layout, see [Architecture
 | Host OS | Linux x86_64 with KVM support (verified on WSL2 6.6.x) |
 | Docker | Daemon running, current user in `docker` group |
 | KVM | `/dev/kvm` accessible |
-| QEMU | System-installed QEMU 10.1+ with `vfio-user-pci` |
+| QEMU | Built from the `qemu` submodule (`just build-qemu`), or a system QEMU 10.1+ with `vfio-user-pci` |
 | Disk Space | At least 120 GB (55G disk image + build artifacts) |
 | Memory | 16 GB or more recommended (gem5 compilation and runtime are memory-intensive) |
 | Tools | `git`, `screen`, `unzip`, [`just`](https://github.com/casey/just) 1.27+ |
@@ -48,7 +48,7 @@ For a deeper dive into the memory architecture and BAR layout, see [Architecture
 All build, launch and check tasks are recipes in the top-level `justfile`. Run
 `just` in the repository root to list them.
 
-## Building gem5 and Checking QEMU
+## Building gem5 and QEMU
 
 ### Build the Runtime Docker Image
 
@@ -91,18 +91,26 @@ docker run --rm \
 
 Output: `build/VEGA_X86/gem5.opt` (approximately 1.1 GB).
 
-### Check the System QEMU
+### Build QEMU
 
-QEMU is a host dependency rather than a source submodule. A **stock QEMU 10.1+**
-with the built-in `vfio-user-pci` device is required.
+The `qemu` submodule tracks the `gevico/cosim-gpu` branch of
+[gevico/qemu](https://github.com/gevico/qemu), which is based on the QEMU
+v11.1.2 release. Co-simulation uses its built-in `vfio-user-pci` device.
 
 ```bash
-qemu-system-x86_64 --version
-qemu-system-x86_64 -device help | grep vfio-user-pci
+just build-qemu        # uses all host CPUs; `just build-qemu 4` limits jobs
 ```
 
-Pass a non-default installation to the launcher with `--qemu-bin PATH`, or set
-`QEMU_BIN` when building the disk image.
+The recipe configures `x86_64-softmmu` with KVM in `qemu/build`, builds it,
+and checks that `qemu/build/qemu-system-x86_64` provides `vfio-user-pci`. QEMU's
+build dependencies (`ninja`, `pkg-config`, `glib-2.0`, `pixman`, `slirp`,
+`flex`, `bison`, Python 3 with `venv`) must be installed on the host.
+
+`just launch` and `just build-disk` use QEMU in this order:
+
+1. `--qemu-bin PATH` (launch) or the `QEMU_BIN` environment variable
+2. `qemu/build/qemu-system-x86_64` from the submodule build
+3. `qemu-system-x86_64` from `PATH` (a stock QEMU 10.1+ also works)
 
 ## Building the Disk Image
 

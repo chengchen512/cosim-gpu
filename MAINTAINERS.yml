@@ -211,8 +211,11 @@ QEMU Frontend:
     - scripts/cosim_launch.sh
     - scripts/cosim_lib.sh
     - scripts/cosim_preflight.sh
+  files-regex:
+    - ^qemu$
   labels:
     - "area: QEMU frontend"
   description: >-
-    Launching the QEMU virtual machine, connecting it to accelerator
-    backends over vfio-user, shared memory setup, and session cleanup.
+    The QEMU fork (gevico/qemu, gevico/cosim-gpu branch) that runs the virtual
+    machine, launching it, connecting it to accelerator backends over
+    vfio-user, shared memory setup, and session cleanup.

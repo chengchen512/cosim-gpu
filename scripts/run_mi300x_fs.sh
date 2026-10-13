@@ -10,7 +10,7 @@
 #
 # Usage:
 #   ./scripts/run_mi300x_fs.sh build-gem5          # Build gem5 via Docker
-#   ./scripts/run_mi300x_fs.sh build-disk           # Build disk image (needs KVM + system QEMU)
+#   ./scripts/run_mi300x_fs.sh build-disk           # Build disk image (KVM)
 #   ./scripts/run_mi300x_fs.sh build-app [name]     # Build GPU test app (default: square)
 #   ./scripts/run_mi300x_fs.sh build-all            # Full setup from scratch
 #   ./scripts/run_mi300x_fs.sh run [app]            # Run with stdlib config (KVM)
@@ -34,8 +34,15 @@ KERNEL="${RESOURCES_DIR}/src/x86-ubuntu-gpu-ml/vmlinux-rocm70"
 SQUARE_APP="${RESOURCES_DIR}/src/gpu/square/bin.default/square.default"
 GEM5_BIN="${GEM5_DIR}/build/VEGA_X86/gem5.opt"
 
-# QEMU is a host dependency, not a project submodule.
-QEMU_BIN="${QEMU_BIN:-$(command -v qemu-system-x86_64 2>/dev/null || true)}"
+# QEMU: $QEMU_BIN, else the qemu submodule build, else PATH
+QEMU_SUBMODULE_BIN="${COSIM_DIR}/qemu/build/qemu-system-x86_64"
+if [ -z "${QEMU_BIN:-}" ]; then
+    if [ -x "$QEMU_SUBMODULE_BIN" ]; then
+        QEMU_BIN="$QEMU_SUBMODULE_BIN"
+    else
+        QEMU_BIN="$(command -v qemu-system-x86_64 2>/dev/null || true)"
+    fi
+fi
 
 # Logs
 LOGS_DIR="${COSIM_DIR}/logs"
@@ -150,7 +157,8 @@ build_disk_image() {
     info "This takes ~30 min and needs ~60GB disk space"
 
     if [ -z "$QEMU_BIN" ] || [ ! -x "$QEMU_BIN" ]; then
-        error "qemu-system-x86_64 not found. Install QEMU or set QEMU_BIN."
+        error "qemu-system-x86_64 not found. Run: just build-qemu" \
+              "(or install QEMU, or set QEMU_BIN)"
     fi
     command -v unzip >/dev/null || \
         error "unzip not found. Install: sudo apt install unzip"
@@ -356,11 +364,12 @@ show_status() {
         warn "Docker:          not installed"
     fi
 
-    # Host QEMU
+    # QEMU
     if [ -n "$QEMU_BIN" ] && [ -x "$QEMU_BIN" ]; then
         info "QEMU binary:     $QEMU_BIN"
     else
-        warn "QEMU binary:     not found (install qemu-system-x86_64 or set QEMU_BIN)"
+        warn "QEMU binary:     not found" \
+             "(run: just build-qemu, or set QEMU_BIN)"
     fi
 }
 
@@ -383,7 +392,8 @@ Commands:
 Environment variables:
   GPU_APP_BUILD_IMAGE  Docker image for GPU app build
                      (default: $GPU_APP_BUILD_IMAGE)
-  QEMU_BIN            System QEMU binary used to build the disk image
+  QEMU_BIN            QEMU binary used to build the disk image
+                     (default: qemu/build/qemu-system-x86_64, else PATH)
 
 Layout:
   gem5 source:       $GEM5_DIR
