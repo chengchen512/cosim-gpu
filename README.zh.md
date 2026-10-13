@@ -164,6 +164,7 @@ cosim-gpu/
 - [快速入门](docs/zh/getting-started.md) — 从编译到运行首个 HIP 测试的全流程
 - [架构文档](docs/zh/architecture.md) — 系统设计、内存共享、地址翻译
 - [参考手册](docs/zh/reference.md) — 参数表、故障排查、调试命令
+- [贡献指南](docs/zh/contributing.md) — 补丁要求与 checkpatch CI 检查
 
 ## 版本矩阵
 

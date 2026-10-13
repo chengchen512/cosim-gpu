@@ -76,7 +76,9 @@ ip_block_mask=0x67 ppfeaturemask=0 dpm=0 audio=0 ras_enable=0 discovery=2
 ## Commit Rules
 
 - gem5: pre-commit hooks apply; use tags from `MAINTAINERS.yaml`.
-- Top-level cosim-gpu: no project-specific hooks.
+- Top-level cosim-gpu: every non-merge commit must pass
+  `./scripts/check_patch.sh` (QEMU `checkpatch.pl` rules, enforced by the
+  `Checkpatch` CI job). See `docs/en/contributing.md`.
 - Sign commits with `Signed-off-by` from `git config user.name` and
   `git config user.email`.
 

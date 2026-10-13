@@ -194,6 +194,7 @@ Detailed technical documentation is available in [`docs/`](docs/README.md):
 - [Getting Started](docs/en/getting-started.md) — build, launch, and run your first HIP test
 - [Architecture](docs/en/architecture.md) — system design, memory sharing, address translation
 - [Reference](docs/en/reference.md) — parameters, troubleshooting, debugging commands
+- [Contributing](docs/en/contributing.md) — patch requirements and the checkpatch CI check
 
 ## License
 
