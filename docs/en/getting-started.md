@@ -43,7 +43,10 @@ For a deeper dive into the memory architecture and BAR layout, see [Architecture
 | QEMU | System-installed QEMU 10.1+ with `vfio-user-pci` |
 | Disk Space | At least 120 GB (55G disk image + build artifacts) |
 | Memory | 16 GB or more recommended (gem5 compilation and runtime are memory-intensive) |
-| Tools | `git`, `screen`, `unzip` |
+| Tools | `git`, `screen`, `unzip`, [`just`](https://github.com/casey/just) 1.27+ |
+
+All build, launch and check tasks are recipes in the top-level `justfile`. Run
+`just` in the repository root to list them.
 
 ## Building gem5 and Checking QEMU
 
@@ -64,11 +67,14 @@ The gem5 binary links against Ubuntu 24.04 libraries and must be compiled in a c
 
 > **Note:** The vfio-user backend requires `libjson-c-dev` (build-time) and `libjson-c5` (runtime). The `gem5-run:local` image already includes this dependency.
 
-**Option 1: Orchestration Script**
+**Option 1: just Recipe**
 
 ```bash
-./scripts/run_mi300x_fs.sh build-gem5
+just build-gem5        # uses all host CPUs
+just build-gem5 2      # limit parallelism, e.g. when linking is OOM-killed
 ```
+
+The recipe builds the `gem5-run:local` image first, then compiles gem5 in it.
 
 **Option 2: Build inside Docker (Manual)**
 
@@ -105,10 +111,11 @@ The disk image contains Ubuntu 24.04 + ROCm 7.0 + kernel 6.8.0-79-generic with a
 ### Automated Build
 
 ```bash
-./scripts/run_mi300x_fs.sh build-disk
+just build-m5          # recommended: avoids git clone inside the guest VM
+just build-disk
 ```
 
-If `gem5-resources` is not initialized, the script initializes its submodule before the build begins.
+If `gem5-resources` is not initialized, `just build-disk` initializes its submodule before the build begins.
 
 ### Manual Build
 
@@ -130,21 +137,23 @@ cd gem5-resources/src/x86-ubuntu-gpu-ml
 
 ## Launching Co-simulation
 
-### Option 1: One-click Launch Script (Recommended)
+### Option 1: One-click Launch (Recommended)
 
 ```bash
-./scripts/cosim_launch.sh
+just launch
 ```
 
-This script automatically starts the gem5 container, waits for readiness, fixes permissions, starts QEMU, and enters the serial console in interactive mode.
+This recipe runs `scripts/cosim_launch.sh`, which starts the gem5 container, waits for readiness, fixes permissions, starts QEMU, and enters the serial console in interactive mode.
 
-Common options:
+Common options (passed through to `scripts/cosim_launch.sh`):
 
 ```bash
-./scripts/cosim_launch.sh --gem5-debug MI300XCosim   # enable gem5 debug output
-./scripts/cosim_launch.sh --vram-size 32GiB          # custom VRAM size
-./scripts/cosim_launch.sh --num-cus 80               # custom CU count
+just launch --gem5-debug MI300XCosim   # enable gem5 debug output
+just launch --vram-size 32GiB          # custom VRAM size
+just launch --num-cus 80               # custom CU count
 ```
+
+Related recipes: `just preflight` lists leftover co-simulation resources, and `just clean-orphans` deletes them.
 
 ### Option 2: Manual Step-by-step Launch
 
@@ -446,7 +455,7 @@ PASSED!
 You can also use the `square` test program included in gem5-resources. Compile it on the host:
 
 ```bash
-./scripts/run_mi300x_fs.sh build-app square
+just build-app square
 ```
 
 Then copy the compiled binary into the guest (via `scp -P 2222` or by mounting the disk image) and run it:
@@ -486,13 +495,13 @@ The co-simulation workflow described above uses QEMU for fast KVM-accelerated bo
 **2. Build a GPU test application:**
 
 ```bash
-./scripts/run_mi300x_fs.sh build-app square
+just build-app square
 ```
 
 **3. Run the simulation:**
 
 ```bash
-./scripts/run_mi300x_fs.sh run \
+just run-fs \
     ../gem5-resources/src/gpu/square/bin.default/square.default
 ```
 

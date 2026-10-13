@@ -300,7 +300,7 @@ The driver checks `(amdgpu_ip_block_mask & (1 << i))` where `i` is the discovery
 Usage:
 
 ```bash
-./scripts/cosim_launch.sh --gem5-debug MI300XCosim
+just launch --gem5-debug MI300XCosim
 # or manual:
 build/VEGA_X86/gem5.opt --debug-flags=MI300XCosim,AMDGPUDevice ...
 ```
@@ -471,6 +471,7 @@ To use a different mirror, edit the URI in the patch file and re-apply.
 | `configs/example/gpufs/mi300_cosim.py` | vfio-user cosim system configuration |
 | `configs/example/gem5_library/x86-mi300x-gpu.py` | Standalone stdlib simulation config |
 | `configs/example/gpufs/mi300.py` | Legacy standalone simulation config |
+| `justfile` | Task runner entry point for build, launch, test and check recipes |
 | `scripts/cosim_launch.sh` | Cosim orchestration (Docker + QEMU launch) |
 | `scripts/run_mi300x_fs.sh` | Build orchestration (compile, disk image, run) |
 | `scripts/Dockerfile.run` | Runtime Docker image definition |

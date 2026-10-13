@@ -41,27 +41,36 @@ on a simulated GPU without physical hardware.
 | Docker | Running daemon, user in `docker` group |
 | KVM | `/dev/kvm` accessible |
 | QEMU | System-installed QEMU 10.1+ with `vfio-user-pci` |
+| just | [just](https://github.com/casey/just) 1.27+ task runner |
 | Disk space | ~120 GB (55G disk image + build artifacts) |
 | RAM | 16 GB+ recommended |
 
 ## Quick Start
 
-### Option A: Script-based
+### Option A: just recipes
 
 ```bash
 git clone --recurse-submodules git@github.com:gevico/cosim-gpu.git
 cd cosim-gpu
 
-# Build gem5 + disk image (~2h total, needs KVM + Docker + ~60GB disk)
-# This auto-builds the Docker image with json-c (needed by ext/libvfio-user)
-./scripts/run_mi300x_fs.sh build-all
-
-# Build runtime Docker image (for running gem5 inside Docker)
-cd scripts && docker build -t gem5-run:local -f Dockerfile.run . && cd ..
+# Build the runtime Docker image, gem5, m5, disk image and the square app
+# (~2h total, needs KVM + Docker + ~60GB disk)
+just build-all
 
 # Launch co-simulation
-./scripts/cosim_launch.sh
+just launch
 ```
+
+Run `just` to list every recipe. Common ones:
+
+| Recipe | Purpose |
+|---|---|
+| `just build-gem5 [jobs]` | Build gem5 in the runtime image (`just build-gem5 1` if linking is OOM-killed) |
+| `just build-disk` | Build the guest disk image and kernel |
+| `just launch [options]` | Launch QEMU + gem5; options go to `scripts/cosim_launch.sh` |
+| `just test <filter>` / `just test --all` | Run guest GPU tests in fresh sessions |
+| `just status` | Show which build artifacts are present |
+| `just check` | Run checkpatch, ShellCheck and the MAINTAINERS.yml check |
 
 ### Option B: Manual step-by-step
 
@@ -150,10 +159,15 @@ cosim-gpu/
 |   |-- cosim_launch.sh      # one-click cosim launcher
 |   |-- run_mi300x_fs.sh     # build orchestration
 |   |-- cosim_guest_setup.sh # guest-side GPU setup
+|   |-- checkpatch.pl        # patch style checker (from QEMU)
+|   |-- get_maintainer.py    # MAINTAINERS.yml lookup (from Zephyr)
+|   |-- ci/                  # reviewer assignment for GitHub Actions
 |   `-- Dockerfile.run       # gem5 runtime Docker image
 |-- docs/                    # technical documentation (zh + en)
 |   |-- en/                  # English
 |   `-- zh/                  # Chinese
+|-- justfile                 # task runner entry point (`just --list`)
+|-- MAINTAINERS.yml          # areas, maintainers and review assignment
 |-- LICENSE                  # Apache 2.0
 `-- README.md                # this file
 ```
@@ -194,6 +208,7 @@ Detailed technical documentation is available in [`docs/`](docs/README.md):
 - [Getting Started](docs/en/getting-started.md) — build, launch, and run your first HIP test
 - [Architecture](docs/en/architecture.md) — system design, memory sharing, address translation
 - [Reference](docs/en/reference.md) — parameters, troubleshooting, debugging commands
+- [Contributing](docs/en/contributing.md) — patch requirements, checkpatch, and maintainer review
 
 ## License
 

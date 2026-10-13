@@ -190,7 +190,8 @@ C_GEM5_CONFIG="/gem5/configs/example/gpufs/mi300_cosim.py"
 
 docker info >/dev/null 2>&1 || error "Docker not running"
 docker image inspect "$GEM5_DOCKER_IMAGE" >/dev/null 2>&1 || \
-    error "Docker image '$GEM5_DOCKER_IMAGE' not found.\n  Build: cd scripts && docker build -t gem5-run:local -f Dockerfile.run ."
+    error "Docker image '$GEM5_DOCKER_IMAGE' not found.\n" \
+          " Build: just docker-image"
 
 # ---- Session and manifest setup ----
 

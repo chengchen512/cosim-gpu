@@ -27,13 +27,15 @@ jobs:
           command -v docker || { echo "::error::Docker not found"; exit 1; }
           echo "KVM and Docker available"
 
+      - uses: extractions/setup-just@v4
+        with:
+          just-version: 1.51.0
+
       - name: Build images
-        run: |
-          docker build -t gem5-build:local -f scripts/Dockerfile.run scripts/
-          docker build -t gem5-run:local -f scripts/Dockerfile.run scripts/
+        run: just docker-image
 
       - name: Run cosim integration tests
-        run: ./scripts/run_cosim_tests.sh --all
+        run: just test --all
 
       - name: Upload test logs
         if: always()

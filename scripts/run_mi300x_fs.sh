@@ -42,7 +42,7 @@ LOGS_DIR="${COSIM_DIR}/logs"
 BUILD_DISK_LOG="${LOGS_DIR}/build-disk.log"
 
 # Docker images
-GEM5_BUILD_IMAGE="gem5-build:local"
+GEM5_BUILD_IMAGE="${GEM5_RUN_IMAGE:-gem5-run:local}"
 GPU_APP_BUILD_IMAGE="${GPU_APP_BUILD_IMAGE:-ghcr.io/gem5/gpu-fs}"
 
 # gem5 config files
@@ -224,15 +224,15 @@ run_simulation() {
 
     info "Running MI300X FS simulation (stdlib config)"
 
-    [ -f "$GEM5_BIN" ]   || error "gem5 not built. Run: $0 build-gem5"
+    [ -f "$GEM5_BIN" ]   || error "gem5 not built. Run: just build-gem5"
     [ -f "$STDLIB_CONFIG" ] || error "Config missing: $STDLIB_CONFIG"
-    [ -f "$DISK_IMAGE" ] || error "Disk image missing. Run: $0 build-disk"
-    [ -f "$KERNEL" ]     || error "Kernel missing. Run: $0 build-disk"
+    [ -f "$DISK_IMAGE" ] || error "Disk image missing. Run: just build-disk"
+    [ -f "$KERNEL" ]     || error "Kernel missing. Run: just build-disk"
     check_kvm            || error "KVM required. The stdlib config uses KvmCPU."
 
     local app_args=()
     if [ -n "$app" ]; then
-        [ -f "$app" ] || error "App not found: $app. Run: $0 build-app"
+        [ -f "$app" ] || error "App not found: $app. Run: just build-app"
         info "  App: $app"
         app_args=("--app" "$(to_container_path "$app")")
     else
@@ -265,11 +265,11 @@ run_simulation_legacy() {
     info "Running MI300X FS simulation (legacy config)"
     info "  App: $app"
 
-    [ -f "$GEM5_BIN" ]   || error "gem5 not built. Run: $0 build-gem5"
+    [ -f "$GEM5_BIN" ]   || error "gem5 not built. Run: just build-gem5"
     [ -f "$LEGACY_CONFIG" ] || error "Config missing: $LEGACY_CONFIG"
-    [ -f "$DISK_IMAGE" ] || error "Disk image missing. Run: $0 build-disk"
-    [ -f "$KERNEL" ]     || error "Kernel missing. Run: $0 build-disk"
-    [ -f "$app" ]        || error "App not found: $app. Run: $0 build-app"
+    [ -f "$DISK_IMAGE" ] || error "Disk image missing. Run: just build-disk"
+    [ -f "$KERNEL" ]     || error "Kernel missing. Run: just build-disk"
+    [ -f "$app" ]        || error "App not found: $app. Run: just build-app"
     check_kvm            || error "KVM required. Legacy config uses X86KvmCPU."
 
     cd "$GEM5_DIR"
@@ -295,14 +295,14 @@ show_status() {
     if [ -f "$GEM5_BIN" ]; then
         info "gem5 binary:     $GEM5_BIN"
     else
-        warn "gem5 binary:     MISSING (run: $0 build-gem5)"
+        warn "gem5 binary:     MISSING (run: just build-gem5)"
     fi
 
     # gem5-resources
     if [ -d "$RESOURCES_DIR" ]; then
         info "gem5-resources:  $RESOURCES_DIR"
     else
-        warn "gem5-resources:  MISSING (run: $0 build-all)"
+        warn "gem5-resources:  MISSING (run: just build-all)"
     fi
 
     # Disk image
@@ -311,21 +311,21 @@ show_status() {
         size="$(du -h "$DISK_IMAGE" | cut -f1)"
         info "Disk image:      $DISK_IMAGE (${size})"
     else
-        warn "Disk image:      MISSING (run: $0 build-disk)"
+        warn "Disk image:      MISSING (run: just build-disk)"
     fi
 
     # Kernel
     if [ -f "$KERNEL" ]; then
         info "Kernel:          $KERNEL"
     else
-        warn "Kernel:          MISSING (run: $0 build-disk)"
+        warn "Kernel:          MISSING (run: just build-disk)"
     fi
 
     # Square app
     if [ -f "$SQUARE_APP" ]; then
         info "Square app:      $SQUARE_APP"
     else
-        warn "Square app:      MISSING (run: $0 build-app)"
+        warn "Square app:      MISSING (run: just build-app)"
     fi
 
     echo ""
@@ -337,11 +337,13 @@ show_status() {
     # Docker
     if command -v docker >/dev/null && docker info >/dev/null 2>&1; then
         info "Docker:          running"
-        # Check for build images
-        if docker image inspect "$GEM5_BUILD_IMAGE" >/dev/null 2>&1; then
-            info "  Build image:   $GEM5_BUILD_IMAGE"
+        # Check for the runtime image (used by just build-gem5 and launch)
+        local run_image="${GEM5_RUN_IMAGE:-gem5-run:local}"
+        if docker image inspect "$run_image" >/dev/null 2>&1; then
+            info "  Runtime image: $run_image"
         else
-            warn "  Build image:   $GEM5_BUILD_IMAGE (not built, run: $0 build-gem5)"
+            warn "  Runtime image: $run_image" \
+                 "(not built, run: just docker-image)"
         fi
         if docker image inspect "$GPU_APP_BUILD_IMAGE" >/dev/null 2>&1; then
             info "  GPU app image: $GPU_APP_BUILD_IMAGE"
@@ -390,9 +392,9 @@ Layout:
   Kernel:            $KERNEL
   Square app:        $SQUARE_APP
 
-Quick start:
-  $0 build-all
-  $0 run
+Quick start (just recipes, see \`just --list\`):
+  just build-all
+  just run-fs
 USAGE
 }
 
@@ -407,7 +409,7 @@ main() {
             build_disk_image
             build_gpu_app "${1:-square}"
             info "All components built!"
-            info "Run: $0 run"
+            info "Run: just run-fs"
             ;;
         build-gem5)
             build_gem5

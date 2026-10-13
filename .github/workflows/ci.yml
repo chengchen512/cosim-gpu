@@ -11,37 +11,81 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  JUST_VERSION: 1.51.0
+
 jobs:
+  checkpatch:
+    name: Checkpatch
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: extractions/setup-just@v4
+        with:
+          just-version: ${{ env.JUST_VERSION }}
+      - name: Run checkpatch on new commits
+        env:
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          PUSH_BEFORE: ${{ github.event.before }}
+        run: |
+          base="${PR_BASE:-$PUSH_BEFORE}"
+          if [ -z "$base" ] || ! git cat-file -e "${base}^{commit}" 2>/dev/null; then
+            base="HEAD^"
+          fi
+          just checkpatch "$base"
+
+  maintainers:
+    name: Maintainers
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: extractions/setup-just@v4
+        with:
+          just-version: ${{ env.JUST_VERSION }}
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Install Python dependencies
+        run: pip install -r scripts/ci/requirements.txt
+      - name: Validate MAINTAINERS.yml and file coverage
+        run: just maintainers-check
+
   shellcheck:
     name: ShellCheck
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: extractions/setup-just@v4
+        with:
+          just-version: ${{ env.JUST_VERSION }}
       - name: Run ShellCheck
-        run: shellcheck scripts/*.sh tests/run_tests.sh tests/test_modprobe_params.sh
+        run: just shellcheck
 
   modprobe-params:
     name: Modprobe Params (Regression #9)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: extractions/setup-just@v4
+        with:
+          just-version: ${{ env.JUST_VERSION }}
       - name: Init gem5-resources submodule only
         run: |
           git config --global url."https://github.com/".insteadOf "git@github.com:"
           git submodule update --init --depth 1 gem5-resources
       - name: Verify cosim modprobe parameters
-        run: bash tests/test_modprobe_params.sh
+        run: just modprobe-params
 
   kernel-compile:
     name: GPU Kernel Compile
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: extractions/setup-just@v4
+        with:
+          just-version: ${{ env.JUST_VERSION }}
       - name: Compile GPU kernels
-        run: |
-          docker run --rm \
-            -u "$(id -u):$(id -g)" \
-            -v "${{ github.workspace }}/tests:/tests" \
-            -w /tests \
-            ghcr.io/gem5/gpu-fs:latest \
-            make
+        run: just build-tests
