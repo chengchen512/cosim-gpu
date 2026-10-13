@@ -59,7 +59,8 @@ just checkpatch <base-commit>
 that have problems, prefixed with the commit hash and the patch line number,
 and exits with a non-zero status when any commit has an error.
 
-`just check` runs `just checkpatch` together with ShellCheck.
+`just check` runs `just checkpatch` together with ShellCheck and the
+`MAINTAINERS.yml` check described below.
 
 Run `scripts/checkpatch.pl` directly for other inputs:
 
@@ -115,6 +116,75 @@ not built into or distributed with the co-simulation binaries.
 To update the script from QEMU, copy the new upstream
 `scripts/checkpatch.pl`, apply the changes in the table above again, and
 update the QEMU commit recorded in this section.
+
+## Maintainers and Review Assignment
+
+`MAINTAINERS.yml` divides the repository into areas, such as the QEMU frontend,
+each accelerator backend, the guest image, and the build system. Each area
+lists its files and the GitHub IDs of its maintainers and collaborators. The
+file format follows Zephyr's `MAINTAINERS.yml` and is documented in the comment
+at the top of the file.
+
+### Looking Up Maintainers
+
+`scripts/get_maintainer.py` (from Zephyr) reads `MAINTAINERS.yml`. Install its
+Python dependencies once:
+
+```bash
+pip install -r scripts/ci/requirements.txt
+```
+
+Then query it through just:
+
+```bash
+just maintainers scripts/cosim_launch.sh tests/   # areas for paths
+just maintainers-commits origin/main..            # areas touched by commits
+just maintainers-areas                            # all areas and maintainers
+```
+
+`python3 scripts/get_maintainer.py --help` lists the other subcommands, such as
+`orphaned` and `count`.
+
+### Checks
+
+| Check | Where | Fails when |
+|-------|-------|------------|
+| `just maintainers-check` | `Maintainers` job in `ci.yml` | `MAINTAINERS.yml` has an unknown key, a bad status, a malformed list, a glob that matches no file, a directory glob without a trailing `/`, an invalid regex, or a maintained area without maintainers; or a tracked file belongs to no area |
+| `scripts/ci/check_maintainer_changes.py` | `assigner.yml` | A pull request adds a maintainer or collaborator who lacks at least triage access to the repository |
+
+Every tracked file must belong to an area. When a commit adds a file outside the
+existing areas, update `MAINTAINERS.yml` in the same commit.
+
+### Automatic Assignment
+
+`.github/workflows/assigner.yml` runs `scripts/ci/set_assignees.py` (from
+Zephyr) when a pull request to `main` is opened, updated, reopened, or marked
+ready for review:
+
+- The labels of every affected area are added to the pull request.
+- The maintainers and collaborators of every affected area are requested as
+  reviewers, except the pull request author and people who removed themselves
+  from the review request.
+- The maintainers of the area with the most changed files are assigned. If the
+  author is the only maintainer of that area, the next area is used.
+  `Documentation` maintainers are assigned only when no other area is affected.
+- When `MAINTAINERS.yml` changes, the maintainers of every changed area are
+  also requested as reviewers.
+
+When an issue is labeled, the maintainers of the area that owns those labels
+are assigned to it.
+
+The workflow uses `pull_request_target` and runs the scripts from the `main`
+branch. It reads only `MAINTAINERS.yml` from the pull request, and only as
+data, so pull requests from forks cannot change what the workflow executes.
+
+### Adding a Maintainer
+
+1. Give the person at least triage access to the GitHub repository.
+2. Add their GitHub ID under `maintainers` or `collaborators` of the area in
+   `MAINTAINERS.yml`.
+3. Open a pull request. The current maintainers of that area are requested as
+   reviewers, and the access check fails if step 1 was skipped.
 
 ## False Positives
 

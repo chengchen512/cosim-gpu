@@ -37,6 +37,22 @@ jobs:
           fi
           just checkpatch "$base"
 
+  maintainers:
+    name: Maintainers
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: extractions/setup-just@v4
+        with:
+          just-version: ${{ env.JUST_VERSION }}
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Install Python dependencies
+        run: pip install -r scripts/ci/requirements.txt
+      - name: Validate MAINTAINERS.yml and file coverage
+        run: just maintainers-check
+
   shellcheck:
     name: ShellCheck
     runs-on: ubuntu-latest

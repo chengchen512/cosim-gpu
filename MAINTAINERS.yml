@@ -1,0 +1,218 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# This file records who maintains which part of cosim-gpu. It is parsed by
+# scripts/get_maintainer.py and used by the "Maintainers" CI job and the
+# "Pull Request/Issue Assigner" workflow. The format follows Zephyr's
+# MAINTAINERS.yml.
+#
+# File format
+# ###########
+#
+# "Area title" (quotes are only needed for titles with special characters,
+#  like colons):
+#     status:
+#         One of the following:
+#
+#         * maintained:
+#             The area has a maintainer who looks after it.
+#
+#         * odd fixes:
+#             The area gets odd fixes and may have collaborators.
+#
+#         * unmaintained:
+#             Nobody looks after the area.
+#
+#         * obsolete:
+#             Old code that has been replaced by something better.
+#
+#     maintainers:
+#         List of GitHub handles of the people who maintain the area.
+#
+#     collaborators:
+#         GitHub handles of very involved contributors who know the area
+#         well and review changes to it.
+#
+#     inform:
+#         GitHub handles of people to keep informed about changes.
+#
+#     labels:
+#         GitHub labels to add to pull requests that modify the area.
+#
+#     files:
+#         Paths and/or glob patterns relative to the repository root.
+#         A pattern ending in '/' matches every file in that directory;
+#         other patterns must match exactly. Directory paths always end
+#         in '/'. Submodules are single gitlink paths, so list them with
+#         'files-regex' (e.g. '^gem5$').
+#
+#     files-regex:
+#         Regular expressions matched against repository paths. They may
+#         match anywhere unless anchored with ^ and $.
+#
+#     files-exclude, files-regex-exclude:
+#         Like 'files' and 'files-regex', but matching files are removed
+#         from the area.
+#
+#     file-groups:
+#         Groups of files inside the area with their own collaborators:
+#         - name: <group name>
+#           description: <text>
+#           collaborators: [<GitHub handle>, ...]
+#           files: [...]
+#           files-regex: [...]
+#           files-exclude: [...]
+#           files-regex-exclude: [...]
+#
+#     description: >-
+#         Plain-English description of the area.
+#
+# Every area needs 'files', 'files-regex' or 'file-groups'. Every tracked
+# file must belong to at least one area; `just maintainers-check` enforces
+# this in CI.
+#
+# Workflow
+# ########
+#
+# When a pull request to main is opened or updated:
+#
+#     * The maintainers of the most affected area are assigned to it.
+#
+#     * The maintainers and collaborators of every affected area are
+#       requested as reviewers, except the pull request author.
+#
+#     * The labels of every affected area are added to it.
+#
+# When MAINTAINERS.yml itself changes, the maintainers of the changed areas
+# are requested as reviewers, and every newly added maintainer or
+# collaborator must have at least triage access to the repository.
+#
+# Areas are sorted by name.
+
+"Accelerator Backend: gem5 MI300X GPU":
+  status: maintained
+  maintainers:
+    - zevorn
+  files:
+    - scripts/Dockerfile.run
+    - scripts/run_mi300x_fs.sh
+  files-regex:
+    - ^gem5$
+  labels:
+    - "area: gem5 GPU backend"
+  description: >-
+    gem5 MI300X GPU model used as the accelerator backend behind the QEMU
+    vfio-user device, its runtime Docker image, and the standalone gem5
+    full-system flow.
+
+"Accelerator Backend: SST Multi-node":
+  status: maintained
+  maintainers:
+    - zevorn
+  files:
+    - configs/sst/
+  labels:
+    - "area: SST"
+  description: >-
+    SST configurations that connect several simulated accelerators into a
+    multi-node topology.
+
+Agent Skills:
+  status: maintained
+  maintainers:
+    - zevorn
+  files:
+    - .agents/
+    - agents.md
+    - CLAUDE.md
+  labels:
+    - "area: agent skills"
+  description: >-
+    Vendored agent workflows and the agent rules for this repository.
+
+Build System and CI:
+  status: maintained
+  maintainers:
+    - zevorn
+  files:
+    - .github/
+    - .gitignore
+    - .gitmodules
+    - justfile
+  labels:
+    - "area: build/CI"
+  description: >-
+    The just task runner, GitHub Actions workflows, and repository-wide
+    Git configuration.
+
+Documentation:
+  status: maintained
+  maintainers:
+    - zevorn
+  files:
+    - docs/
+    - LICENSE
+    - README.md
+    - README.zh.md
+    - plan-issue-3.md
+  labels:
+    - "area: documentation"
+  description: >-
+    Project documentation in English and Chinese.
+
+Guest Image:
+  status: maintained
+  maintainers:
+    - zevorn
+  files:
+    - scripts/cosim_guest_setup.sh
+    - scripts/patches/
+  files-regex:
+    - ^gem5-resources$
+  labels:
+    - "area: guest image"
+  description: >-
+    The guest disk image, kernel and driver setup that the learning
+    environment boots, built from gem5-resources.
+
+Guest Tests:
+  status: maintained
+  maintainers:
+    - zevorn
+  files:
+    - scripts/run_cosim_tests.sh
+    - tests/
+  labels:
+    - "area: tests"
+  description: >-
+    HIP test programs that run inside the guest and the host-side runner
+    that boots a fresh session for each test.
+
+Patch Checking and Maintainers:
+  status: maintained
+  maintainers:
+    - zevorn
+  files:
+    - MAINTAINERS.yml
+    - scripts/check_patch.sh
+    - scripts/checkpatch.pl
+    - scripts/ci/
+    - scripts/get_maintainer.py
+  labels:
+    - "area: process"
+  description: >-
+    checkpatch rules, this maintainers file, and the tooling that assigns
+    reviewers from it.
+
+QEMU Frontend:
+  status: maintained
+  maintainers:
+    - zevorn
+  files:
+    - scripts/cosim_launch.sh
+    - scripts/cosim_lib.sh
+    - scripts/cosim_preflight.sh
+  labels:
+    - "area: QEMU frontend"
+  description: >-
+    Launching the QEMU virtual machine, connecting it to accelerator
+    backends over vfio-user, shared memory setup, and session cleanup.

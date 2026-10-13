@@ -124,6 +124,38 @@ shellcheck:
 modprobe-params:
     bash tests/test_modprobe_params.sh
 
+# Validate MAINTAINERS.yml and require every tracked file to belong to an area
+[group('check')]
+maintainers-check:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    orphaned="$(python3 scripts/get_maintainer.py orphaned)"
+    if [ -n "$orphaned" ]; then
+        echo "Files not covered by any area in MAINTAINERS.yml:" >&2
+        echo "$orphaned" >&2
+        exit 1
+    fi
+    echo "MAINTAINERS.yml: valid, every tracked file belongs to an area"
+
 # Run all host-side checks that need no submodules, Docker, or KVM
 [group('check')]
-check: checkpatch shellcheck
+check: checkpatch shellcheck maintainers-check
+
+# ---------------------------------------------------------------------------
+# Maintainers
+# ---------------------------------------------------------------------------
+
+# Show the areas, maintainers and collaborators for PATHs
+[group('maintainers')]
+maintainers +paths:
+    @python3 scripts/get_maintainer.py path "$@"
+
+# Show the areas touched by a commit range (default: HEAD~..)
+[group('maintainers')]
+maintainers-commits range="HEAD~..":
+    @python3 scripts/get_maintainer.py commits "$1"
+
+# List all areas with their maintainers and collaborators
+[group('maintainers')]
+maintainers-areas:
+    @python3 scripts/get_maintainer.py areas

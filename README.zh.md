@@ -69,7 +69,7 @@ just launch
 | `just launch [选项]` | 启动 QEMU + gem5；选项传给 `scripts/cosim_launch.sh` |
 | `just test <过滤条件>` / `just test --all` | 在新的仿真会话中运行 Guest GPU 测试 |
 | `just status` | 显示已有的构建产物 |
-| `just check` | 运行 checkpatch 和 ShellCheck |
+| `just check` | 运行 checkpatch、ShellCheck 和 MAINTAINERS.yml 检查 |
 
 ### 方案 B：手动分步构建
 
@@ -159,11 +159,14 @@ cosim-gpu/
 |   |-- run_mi300x_fs.sh     # build orchestration
 |   |-- cosim_guest_setup.sh # guest-side GPU setup
 |   |-- checkpatch.pl        # patch style checker (from QEMU)
+|   |-- get_maintainer.py    # MAINTAINERS.yml lookup (from Zephyr)
+|   |-- ci/                  # reviewer assignment for GitHub Actions
 |   `-- Dockerfile.run       # gem5 runtime Docker image
 |-- docs/                    # technical documentation (zh + en)
 |   |-- en/                  # English
 |   `-- zh/                  # Chinese
 |-- justfile                 # task runner entry point (`just --list`)
+|-- MAINTAINERS.yml          # areas, maintainers and review assignment
 |-- LICENSE                  # Apache 2.0
 `-- README.md
 ```
@@ -175,7 +178,7 @@ cosim-gpu/
 - [快速入门](docs/zh/getting-started.md) — 从编译到运行首个 HIP 测试的全流程
 - [架构文档](docs/zh/architecture.md) — 系统设计、内存共享、地址翻译
 - [参考手册](docs/zh/reference.md) — 参数表、故障排查、调试命令
-- [贡献指南](docs/zh/contributing.md) — 补丁要求与 checkpatch CI 检查
+- [贡献指南](docs/zh/contributing.md) — 补丁要求、checkpatch 检查与维护者审查
 
 ## 版本矩阵
 

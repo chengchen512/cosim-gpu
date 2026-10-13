@@ -37,7 +37,7 @@ just checkpatch <base-commit>
 
 `just checkpatch` 运行 `scripts/check_patch.sh`。该脚本只输出存在问题的提交，每条报告以提交哈希和补丁行号开头；任一提交出现错误时，脚本以非零状态退出。
 
-`just check` 会同时运行 `just checkpatch` 和 ShellCheck。
+`just check` 会同时运行 `just checkpatch`、ShellCheck 和下文介绍的 `MAINTAINERS.yml` 检查。
 
 其他输入可以直接使用 `scripts/checkpatch.pl` 检查：
 
@@ -84,6 +84,56 @@ just checkpatch <base-commit>
 该脚本保留上游的 GPL-2.0 许可证。它是开发工具，不会编译进联合仿真程序，也不会随联合仿真程序分发。
 
 从 QEMU 更新该脚本时，复制新的上游 `scripts/checkpatch.pl`，重新应用上表中的修改，并更新本节记录的 QEMU 提交。
+
+## 维护者与审查分配
+
+`MAINTAINERS.yml` 把仓库划分为多个领域，例如 QEMU 前端、各个加速器后端、Guest 镜像和构建系统。每个领域列出所属文件以及维护者和协作者的 GitHub ID。文件格式沿用 Zephyr 的 `MAINTAINERS.yml`，格式说明位于文件开头的注释中。
+
+### 查询维护者
+
+`scripts/get_maintainer.py`（来自 Zephyr）读取 `MAINTAINERS.yml`。先安装一次 Python 依赖：
+
+```bash
+pip install -r scripts/ci/requirements.txt
+```
+
+然后通过 just 查询：
+
+```bash
+just maintainers scripts/cosim_launch.sh tests/   # 查询路径所属领域
+just maintainers-commits origin/main..            # 查询提交涉及的领域
+just maintainers-areas                            # 列出全部领域和维护者
+```
+
+`python3 scripts/get_maintainer.py --help` 列出其他子命令，例如 `orphaned` 和 `count`。
+
+### 检查
+
+| 检查 | 位置 | 失败条件 |
+|------|------|----------|
+| `just maintainers-check` | `ci.yml` 中的 `Maintainers` 任务 | `MAINTAINERS.yml` 出现未知字段、错误的状态值、格式错误的列表、不匹配任何文件的通配模式、缺少结尾 `/` 的目录通配模式、无效的正则表达式，或者处于 maintained 状态却没有维护者的领域；或者某个受版本控制的文件不属于任何领域 |
+| `scripts/ci/check_maintainer_changes.py` | `assigner.yml` | 拉取请求新增的维护者或协作者在仓库中没有 triage 及以上权限 |
+
+每个受版本控制的文件都必须属于某个领域。提交在现有领域之外新增文件时，在同一个提交中更新 `MAINTAINERS.yml`。
+
+### 自动分配
+
+指向 `main` 的拉取请求被创建、更新、重新打开或标记为可审查时，`.github/workflows/assigner.yml` 运行 `scripts/ci/set_assignees.py`（来自 Zephyr）：
+
+- 为拉取请求添加所有受影响领域的标签。
+- 请求所有受影响领域的维护者和协作者审查，拉取请求作者和主动退出审查的人除外。
+- 把修改文件最多的领域的维护者设为负责人。作者是该领域唯一的维护者时，改用下一个领域。只有在没有其他领域受影响时，才把 `Documentation` 的维护者设为负责人。
+- `MAINTAINERS.yml` 发生变化时，同时请求所有变化领域的维护者审查。
+
+问题被添加标签时，把拥有这些标签的领域的维护者设为负责人。
+
+该工作流使用 `pull_request_target`，运行 `main` 分支上的脚本。它只把拉取请求中的 `MAINTAINERS.yml` 当作数据读取，因此来自派生仓库的拉取请求无法改变工作流执行的内容。
+
+### 添加维护者
+
+1. 在 GitHub 仓库中为该用户授予 triage 及以上权限。
+2. 在 `MAINTAINERS.yml` 对应领域的 `maintainers` 或 `collaborators` 下添加该用户的 GitHub ID。
+3. 提交拉取请求。系统会请求该领域现有维护者审查；如果跳过了第 1 步，权限检查会失败。
 
 ## 误报
 

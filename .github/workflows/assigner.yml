@@ -1,0 +1,101 @@
+# Assign maintainers, request reviewers and add area labels from
+# MAINTAINERS.yml. Runs with the base branch code, so pull request content
+# is only read as data (the pull request's MAINTAINERS.yml).
+name: Pull Request/Issue Assigner
+
+on:
+  pull_request_target:
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - ready_for_review
+    branches:
+      - main
+  issues:
+    types:
+      - labeled
+
+permissions:
+  contents: read
+
+concurrency:
+  group: assigner-${{ github.event.pull_request.number || github.event.issue.number }}
+  cancel-in-progress: true
+
+jobs:
+  assignment:
+    name: Pull Request/Issue Assignment
+    if: >
+      github.event_name == 'issues' ||
+      github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+
+    steps:
+      - name: Check out source code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Install Python dependencies
+        run: pip install -r scripts/ci/requirements.txt
+
+      - name: Fetch MAINTAINERS.yml from pull request
+        if: github.event_name == 'pull_request_target'
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          SERVER_URL: ${{ github.server_url }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          git fetch "$SERVER_URL/$REPOSITORY" "pull/$PR_NUMBER/head"
+          if git cat-file -e FETCH_HEAD:MAINTAINERS.yml 2>/dev/null; then
+            git show FETCH_HEAD:MAINTAINERS.yml > "$RUNNER_TEMP/pr_MAINTAINERS.yml"
+          fi
+
+      - name: Run assignment script
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          EVENT_NAME: ${{ github.event_name }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          OWNER: ${{ github.event.repository.owner.login }}
+          REPO: ${{ github.event.repository.name }}
+        run: |
+          flags=(-v -o "$OWNER" -r "$REPO" -M MAINTAINERS.yml)
+          if [ "$EVENT_NAME" = "pull_request_target" ]; then
+            flags+=(-P "$PR_NUMBER")
+            if [ -f "$RUNNER_TEMP/pr_MAINTAINERS.yml" ]; then
+              flags+=(--updated-maintainer-file "$RUNNER_TEMP/pr_MAINTAINERS.yml")
+            fi
+          else
+            flags+=(-I "$ISSUE_NUMBER")
+          fi
+          python3 scripts/ci/set_assignees.py "${flags[@]}"
+
+      - name: Check maintainer file changes
+        if: github.event_name == 'pull_request_target'
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          if [ ! -f "$RUNNER_TEMP/pr_MAINTAINERS.yml" ]; then
+            echo "Pull request removes MAINTAINERS.yml"
+            exit 1
+          fi
+          if cmp -s MAINTAINERS.yml "$RUNNER_TEMP/pr_MAINTAINERS.yml"; then
+            echo "MAINTAINERS.yml unchanged"
+            exit 0
+          fi
+          python3 scripts/ci/check_maintainer_changes.py \
+            --repo "$REPOSITORY" --annotate-file MAINTAINERS.yml \
+            MAINTAINERS.yml "$RUNNER_TEMP/pr_MAINTAINERS.yml"

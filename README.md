@@ -70,7 +70,7 @@ Run `just` to list every recipe. Common ones:
 | `just launch [options]` | Launch QEMU + gem5; options go to `scripts/cosim_launch.sh` |
 | `just test <filter>` / `just test --all` | Run guest GPU tests in fresh sessions |
 | `just status` | Show which build artifacts are present |
-| `just check` | Run checkpatch and ShellCheck |
+| `just check` | Run checkpatch, ShellCheck and the MAINTAINERS.yml check |
 
 ### Option B: Manual step-by-step
 
@@ -160,11 +160,14 @@ cosim-gpu/
 |   |-- run_mi300x_fs.sh     # build orchestration
 |   |-- cosim_guest_setup.sh # guest-side GPU setup
 |   |-- checkpatch.pl        # patch style checker (from QEMU)
+|   |-- get_maintainer.py    # MAINTAINERS.yml lookup (from Zephyr)
+|   |-- ci/                  # reviewer assignment for GitHub Actions
 |   `-- Dockerfile.run       # gem5 runtime Docker image
 |-- docs/                    # technical documentation (zh + en)
 |   |-- en/                  # English
 |   `-- zh/                  # Chinese
 |-- justfile                 # task runner entry point (`just --list`)
+|-- MAINTAINERS.yml          # areas, maintainers and review assignment
 |-- LICENSE                  # Apache 2.0
 `-- README.md                # this file
 ```
@@ -205,7 +208,7 @@ Detailed technical documentation is available in [`docs/`](docs/README.md):
 - [Getting Started](docs/en/getting-started.md) — build, launch, and run your first HIP test
 - [Architecture](docs/en/architecture.md) — system design, memory sharing, address translation
 - [Reference](docs/en/reference.md) — parameters, troubleshooting, debugging commands
-- [Contributing](docs/en/contributing.md) — patch requirements and the checkpatch CI check
+- [Contributing](docs/en/contributing.md) — patch requirements, checkpatch, and maintainer review
 
 ## License
 

@@ -77,6 +77,9 @@ ip_block_mask=0x67 ppfeaturemask=0 dpm=0 audio=0 ras_enable=0 discovery=2
 - Top-level cosim-gpu: every non-merge commit must pass `just checkpatch`
   (QEMU `checkpatch.pl` rules, enforced by the `Checkpatch` CI job). See
   `docs/en/contributing.md`.
+- Every tracked file must belong to an area in `MAINTAINERS.yml`; update it
+  in the same commit that adds files outside existing areas, and run
+  `just maintainers-check`.
 - Sign commits with `Signed-off-by` from `git config user.name` and
   `git config user.email`.
 
