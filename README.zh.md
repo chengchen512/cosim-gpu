@@ -40,27 +40,36 @@
 | Docker | 守护进程运行中，当前用户在 `docker` 组 |
 | KVM | `/dev/kvm` 可访问 |
 | QEMU | 系统安装的 QEMU 10.1+，并提供 `vfio-user-pci` |
+| just | [just](https://github.com/casey/just) 1.27+ 任务运行工具 |
 | 磁盘空间 | 约 120 GB（55G 磁盘镜像 + 构建中间产物） |
 | 内存 | 建议 16 GB 以上 |
 
 ## 快速开始
 
-### 方案 A：脚本一键构建
+### 方案 A：使用 just
 
 ```bash
 git clone --recurse-submodules git@github.com:gevico/cosim-gpu.git
 cd cosim-gpu
 
-# 构建 gem5 + 磁盘镜像（总计约 2 小时，需要 KVM + Docker + 约 60GB 磁盘空间）
-# 会自动构建包含 json-c 的 Docker 镜像（ext/libvfio-user 编译依赖）
-./scripts/run_mi300x_fs.sh build-all
-
-# 构建运行时 Docker 镜像（用于在 Docker 内运行 gem5）
-cd scripts && docker build -t gem5-run:local -f Dockerfile.run . && cd ..
+# 构建运行时 Docker 镜像、gem5、m5、磁盘镜像和 square 程序
+#（总计约 2 小时，需要 KVM + Docker + 约 60GB 磁盘空间）
+just build-all
 
 # 启动联合仿真
-./scripts/cosim_launch.sh
+just launch
 ```
+
+运行 `just` 可以列出全部任务。常用任务：
+
+| 任务 | 用途 |
+|---|---|
+| `just build-gem5 [jobs]` | 在运行时镜像中编译 gem5（链接阶段内存不足时使用 `just build-gem5 1`） |
+| `just build-disk` | 构建 Guest 磁盘镜像和内核 |
+| `just launch [选项]` | 启动 QEMU + gem5；选项传给 `scripts/cosim_launch.sh` |
+| `just test <过滤条件>` / `just test --all` | 在新的仿真会话中运行 Guest GPU 测试 |
+| `just status` | 显示已有的构建产物 |
+| `just check` | 运行 checkpatch 和 ShellCheck |
 
 ### 方案 B：手动分步构建
 
@@ -149,10 +158,12 @@ cosim-gpu/
 |   |-- cosim_launch.sh      # one-click cosim launcher
 |   |-- run_mi300x_fs.sh     # build orchestration
 |   |-- cosim_guest_setup.sh # guest-side GPU setup
+|   |-- checkpatch.pl        # patch style checker (from QEMU)
 |   `-- Dockerfile.run       # gem5 runtime Docker image
 |-- docs/                    # technical documentation (zh + en)
 |   |-- en/                  # English
 |   `-- zh/                  # Chinese
+|-- justfile                 # task runner entry point (`just --list`)
 |-- LICENSE                  # Apache 2.0
 `-- README.md
 ```

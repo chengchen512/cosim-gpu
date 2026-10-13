@@ -23,33 +23,31 @@ Add reusable workflows under `.agents/skills/` instead, then update this mapping
 
 ## Build
 
+All build, launch, test and check tasks are recipes in the top-level `justfile`
+(`just --list`). Use the recipes instead of calling the scripts directly.
+
 ```bash
-./scripts/run_mi300x_fs.sh build-all
-cd scripts && docker build -t gem5-run:local -f Dockerfile.run . && cd ..
+just build-all
 ```
 
-Manual path when needed:
+Individual steps when needed:
 
 ```bash
 qemu-system-x86_64 -device help | grep vfio-user-pci
-cd scripts && docker build -t gem5-run:local -f Dockerfile.run . && cd ..
-cd gem5 && docker run --rm -v "$(pwd):/gem5" -w /gem5 \
-    gem5-run:local \
-    scons build/VEGA_X86/gem5.opt -j4
-cd ..
-docker run --rm -v "$(pwd)/gem5:/gem5" -w /gem5 gem5-run:local \
-    bash -c "cd util/m5 && scons build/x86/out/m5"
-cp gem5/util/m5/build/x86/out/m5 gem5-resources/src/x86-ubuntu-gpu-ml/files/
-./scripts/run_mi300x_fs.sh build-disk
+just docker-image
+just build-gem5
+just build-m5
+just build-disk
 ```
 
-Use `-j1` for gem5 linking if the host is OOM-killed.
+Use `just build-gem5 1` for gem5 linking if the host is OOM-killed.
 
 ## Launch
 
 ```bash
-./scripts/cosim_launch.sh
-./scripts/cosim_launch.sh --gem5-debug MI300XCosim
+just launch
+just launch --gem5-debug MI300XCosim
+just test --all
 ```
 
 After guest boot, `cosim-gpu-setup.service` copies the ROM and loads `amdgpu`.
@@ -76,9 +74,9 @@ ip_block_mask=0x67 ppfeaturemask=0 dpm=0 audio=0 ras_enable=0 discovery=2
 ## Commit Rules
 
 - gem5: pre-commit hooks apply; use tags from `MAINTAINERS.yaml`.
-- Top-level cosim-gpu: every non-merge commit must pass
-  `./scripts/check_patch.sh` (QEMU `checkpatch.pl` rules, enforced by the
-  `Checkpatch` CI job). See `docs/en/contributing.md`.
+- Top-level cosim-gpu: every non-merge commit must pass `just checkpatch`
+  (QEMU `checkpatch.pl` rules, enforced by the `Checkpatch` CI job). See
+  `docs/en/contributing.md`.
 - Sign commits with `Signed-off-by` from `git config user.name` and
   `git config user.email`.
 

@@ -26,16 +26,18 @@
 
 ```bash
 git fetch origin
-./scripts/check_patch.sh
+just checkpatch
 ```
 
 检查指定版本之后的提交：
 
 ```bash
-./scripts/check_patch.sh <base-commit>
+just checkpatch <base-commit>
 ```
 
-`scripts/check_patch.sh` 只输出存在问题的提交，每条报告以提交哈希和补丁行号开头；任一提交出现错误时，脚本以非零状态退出。
+`just checkpatch` 运行 `scripts/check_patch.sh`。该脚本只输出存在问题的提交，每条报告以提交哈希和补丁行号开头；任一提交出现错误时，脚本以非零状态退出。
+
+`just check` 会同时运行 `just checkpatch` 和 ShellCheck。
 
 其他输入可以直接使用 `scripts/checkpatch.pl` 检查：
 
@@ -55,7 +57,7 @@ git fetch origin
 
 ## 持续集成
 
-`.github/workflows/ci.yml` 中的 `Checkpatch` 任务在每个指向 `main` 的拉取请求和每次推送到 `main` 时运行 `scripts/check_patch.sh`：
+`.github/workflows/ci.yml` 中的 `Checkpatch` 任务在每个指向 `main` 的拉取请求和每次推送到 `main` 时运行 `just checkpatch`：
 
 | 事件 | 检查的提交 |
 |------|------------|

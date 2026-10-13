@@ -46,18 +46,20 @@ Check every commit on the current branch that is not yet on `origin/main`:
 
 ```bash
 git fetch origin
-./scripts/check_patch.sh
+just checkpatch
 ```
 
 Check commits since a specific revision:
 
 ```bash
-./scripts/check_patch.sh <base-commit>
+just checkpatch <base-commit>
 ```
 
-`scripts/check_patch.sh` prints only the commits that have problems, prefixed
-with the commit hash and the patch line number, and exits with a non-zero
-status when any commit has an error.
+`just checkpatch` runs `scripts/check_patch.sh`, which prints only the commits
+that have problems, prefixed with the commit hash and the patch line number,
+and exits with a non-zero status when any commit has an error.
+
+`just check` runs `just checkpatch` together with ShellCheck.
 
 Run `scripts/checkpatch.pl` directly for other inputs:
 
@@ -78,9 +80,8 @@ tree.
 
 ## Continuous Integration
 
-The `Checkpatch` job in `.github/workflows/ci.yml` runs
-`scripts/check_patch.sh` on every pull request to `main` and every push to
-`main`:
+The `Checkpatch` job in `.github/workflows/ci.yml` runs `just checkpatch` on
+every pull request to `main` and every push to `main`:
 
 | Event | Checked commits |
 |-------|-----------------|

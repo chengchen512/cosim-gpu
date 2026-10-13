@@ -300,7 +300,7 @@ MI300X 检测顺序（ROCm 7.0 DKMS，来自 dmesg）：
 用法：
 
 ```bash
-./scripts/cosim_launch.sh --gem5-debug MI300XCosim
+just launch --gem5-debug MI300XCosim
 # 或手动：
 build/VEGA_X86/gem5.opt --debug-flags=MI300XCosim,AMDGPUDevice ...
 ```
@@ -471,6 +471,7 @@ git apply -R ../scripts/patches/0001-user-data-cn-mirror.patch
 | `configs/example/gpufs/mi300_cosim.py` | vfio-user cosim 系统配置 |
 | `configs/example/gem5_library/x86-mi300x-gpu.py` | 独立 stdlib 仿真配置 |
 | `configs/example/gpufs/mi300.py` | Legacy 独立仿真配置 |
+| `justfile` | 构建、启动、测试和检查任务的统一入口 |
 | `scripts/cosim_launch.sh` | cosim 编排（Docker + QEMU 启动） |
 | `scripts/run_mi300x_fs.sh` | 构建编排（编译、磁盘镜像、运行） |
 | `scripts/Dockerfile.run` | 运行时 Docker 镜像定义 |

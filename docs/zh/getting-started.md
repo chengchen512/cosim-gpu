@@ -43,7 +43,9 @@ QEMU + gem5 MI300X 联合仿真项目的快速入门指南。
 | QEMU | 系统安装的 QEMU 10.1+，并提供 `vfio-user-pci` |
 | 磁盘空间 | 至少 120 GB（55G 磁盘镜像 + 构建中间产物） |
 | 内存 | 建议 16 GB 以上（gem5 编译和运行都比较占内存） |
-| 工具 | `git`、`screen`、`unzip` |
+| 工具 | `git`、`screen`、`unzip`、[`just`](https://github.com/casey/just) 1.27+ |
+
+构建、启动和检查任务都定义在仓库根目录的 `justfile` 中。在仓库根目录运行 `just` 可以列出全部任务。
 
 ## 编译 gem5 与检查 QEMU
 
@@ -64,11 +66,14 @@ gem5 二进制链接了 Ubuntu 24.04 的库，需要在兼容环境中编译。
 
 > **注意：** vfio-user 后端依赖 `libjson-c-dev`（编译时）和 `libjson-c5`（运行时）。`gem5-run:local` 镜像已包含此依赖，无需额外安装。
 
-**方式一：编排脚本**
+**方式一：just 任务**
 
 ```bash
-./scripts/run_mi300x_fs.sh build-gem5
+just build-gem5        # 使用宿主机全部 CPU
+just build-gem5 2      # 限制并行度，例如链接阶段内存不足时
 ```
+
+该任务先构建 `gem5-run:local` 镜像，再在镜像中编译 gem5。
 
 **方式二：Docker 内手动编译**
 
@@ -105,10 +110,11 @@ qemu-system-x86_64 -device help | grep vfio-user-pci
 ### 自动构建
 
 ```bash
-./scripts/run_mi300x_fs.sh build-disk
+just build-m5          # 推荐：避免在 Guest 虚拟机内 git clone
+just build-disk
 ```
 
-若 `gem5-resources` 尚未初始化，脚本会先初始化该子模块再开始构建。
+若 `gem5-resources` 尚未初始化，`just build-disk` 会先初始化该子模块再开始构建。
 
 ### 手动构建
 
@@ -130,21 +136,23 @@ cd gem5-resources/src/x86-ubuntu-gpu-ml
 
 ## 启动联合仿真
 
-### 方式一：一键启动脚本（推荐）
+### 方式一：一键启动（推荐）
 
 ```bash
-./scripts/cosim_launch.sh
+just launch
 ```
 
-此脚本会自动完成以下所有步骤（启动 gem5 容器、等待就绪、修复权限、启动 QEMU），并以交互模式进入 QEMU 串口控制台。
+该任务运行 `scripts/cosim_launch.sh`，自动完成以下所有步骤（启动 gem5 容器、等待就绪、修复权限、启动 QEMU），并以交互模式进入 QEMU 串口控制台。
 
-可用参数：
+可用参数（传给 `scripts/cosim_launch.sh`）：
 
 ```bash
-./scripts/cosim_launch.sh --gem5-debug MI300XCosim   # 开启 gem5 调试输出
-./scripts/cosim_launch.sh --vram-size 32GiB          # 自定义 VRAM 大小
-./scripts/cosim_launch.sh --num-cus 80               # 自定义 CU 数量
+just launch --gem5-debug MI300XCosim   # 开启 gem5 调试输出
+just launch --vram-size 32GiB          # 自定义 VRAM 大小
+just launch --num-cus 80               # 自定义 CU 数量
 ```
+
+相关任务：`just preflight` 列出残留的联合仿真资源，`just clean-orphans` 删除这些资源。
 
 ### 方式二：手动分步启动
 
@@ -446,7 +454,7 @@ PASSED!
 也可以使用 gem5-resources 自带的 `square` 测试程序。需要先在宿主机编译：
 
 ```bash
-./scripts/run_mi300x_fs.sh build-app square
+just build-app square
 ```
 
 然后将编译产物拷入客户机（通过 `scp -P 2222` 或直接挂载磁盘镜像），在客户机内运行：
@@ -486,13 +494,13 @@ PASSED!
 **2. 编译 GPU 测试应用：**
 
 ```bash
-./scripts/run_mi300x_fs.sh build-app square
+just build-app square
 ```
 
 **3. 运行仿真：**
 
 ```bash
-./scripts/run_mi300x_fs.sh run \
+just run-fs \
     ../gem5-resources/src/gpu/square/bin.default/square.default
 ```
 
