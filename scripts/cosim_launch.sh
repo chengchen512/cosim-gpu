@@ -190,15 +190,18 @@ C_GEM5_CONFIG="/gem5/configs/example/gpufs/mi300_cosim.py"
 
 # ---- Validation ----
 
-[[ -f "$GEM5_BIN" ]]   || error "gem5 not found: $GEM5_BIN\n  Build: scons build/VEGA_X86/gem5.opt -j\$(nproc)"
+[[ -f "$GEM5_BIN" ]]   || \
+    error "gem5 not found: $GEM5_BIN\n" " Build: just build-gem5"
 [[ -n "$QEMU_BIN" && -x "$QEMU_BIN" ]] || \
     error "qemu-system-x86_64 not found.\n" \
           " Build: just build-qemu (or install QEMU 10.1+, or pass --qemu-bin)"
 "$QEMU_BIN" -device help 2>/dev/null | grep 'vfio-user-pci' >/dev/null || \
     error "QEMU does not provide vfio-user-pci: $QEMU_BIN\n" \
           " Build: just build-qemu (or pass a QEMU 10.1+ --qemu-bin)"
-[[ -f "$DISK_IMAGE" ]] || error "Disk image not found: $DISK_IMAGE\n  Build: ./scripts/run_mi300x_fs.sh build-disk"
-[[ -f "$KERNEL" ]]     || error "Kernel not found: $KERNEL\n  Build: ./scripts/run_mi300x_fs.sh build-disk"
+[[ -f "$DISK_IMAGE" ]] || \
+    error "Disk image not found: $DISK_IMAGE\n" " Build: just build-disk"
+[[ -f "$KERNEL" ]]     || \
+    error "Kernel not found: $KERNEL\n" " Build: just build-disk"
 [[ -r /dev/kvm ]]      || error "/dev/kvm not available. KVM is required for QEMU."
 
 docker info >/dev/null 2>&1 || error "Docker not running"
