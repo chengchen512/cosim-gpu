@@ -183,6 +183,17 @@ check-gem5-hooks +files:
 check-gem5-message message:
     pre-commit run --hook-stage commit-msg --commit-msg-filename "$1"
 
+# Validate the focused gem5 workflow
+[group('check')]
+check-gem5-ci:
+    actionlint .github/workflows/build.yml gem5/.github/workflows/mi300x-ci.yaml
+
+# Exercise MI300X pool ownership and its GPU_VIPER memory protocol
+[group('check')]
+test-gem5-mi300x output case="all":
+    mkdir -p "$1"
+    docker run --rm --platform {{ container_platform }} -u "$(id -u):$(id -g)" -v "$PWD/gem5:/gem5:ro" -v "$1:/results" -w /gem5 {{ gem5_run_image }} python3 tests/mi300x/verify.py --gem5 /gem5/{{ gem5_build_dir }}/gem5.opt --output /results --case "$2"
+
 # Run checkpatch.pl on every commit since BASE (default: merge base with origin/main)
 [group('check')]
 checkpatch base="":
