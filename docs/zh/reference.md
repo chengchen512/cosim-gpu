@@ -106,7 +106,7 @@ console=ttyS0,115200 root=/dev/vda1 modprobe.blacklist=amdgpu
 
 | 产物 | 路径 | 大小 |
 |------|------|------|
-| gem5 二进制 | `build/VEGA_X86/gem5.opt` | 约 1.1 GB |
+| gem5 二进制 | `gem5/build/<native>/VEGA_X86/gem5.opt` | 由构建配置决定 |
 | 磁盘镜像 | `../gem5-resources/src/x86-ubuntu-gpu-ml/disk-image/x86-ubuntu-rocm70` | 约 55 GB |
 | 内核 | `../gem5-resources/src/x86-ubuntu-gpu-ml/vmlinux-rocm70` | 约 64 MB |
 | QEMU 二进制 | 宿主机 `PATH` 中的 `qemu-system-x86_64` | -- |
@@ -264,7 +264,7 @@ MI300X 检测顺序（ROCm 7.0 DKMS，来自 dmesg）：
 |---|---|
 | **症状** | 即使使用 `-j2`，链接器也被 OOM killer 终止 |
 | **根因** | 默认链接器占用内存过多 |
-| **修复** | 使用 `scons build/VEGA_X86/gem5.opt -j1 GOLD_LINKER=True --linker=gold` |
+| **修复** | 使用 `just build-gem5 1 GOLD_LINKER=True --linker=gold` |
 
 ### 4.14 DRM Client 错误 -13（缺少 DKMS 模块）
 
@@ -302,7 +302,7 @@ MI300X 检测顺序（ROCm 7.0 DKMS，来自 dmesg）：
 ```bash
 just launch --gem5-debug MI300XCosim
 # 或手动：
-build/VEGA_X86/gem5.opt --debug-flags=MI300XCosim,AMDGPUDevice ...
+build/x86_64/VEGA_X86/gem5.opt --debug-flags=MI300XCosim,AMDGPUDevice ...
 ```
 
 ### 日志检查命令
@@ -326,9 +326,9 @@ tail -f m5out/board.pc.com_1.device
 ```bash
 # 删除过期的目标文件，然后重建
 docker run --rm -v "$PWD:/gem5" -w /gem5 gem5-run:local \
-    sh -c 'rm -f build/VEGA_X86/dev/amdgpu/<file>.o'
+    sh -c 'rm -f build/x86_64/VEGA_X86/dev/amdgpu/<file>.o'
 docker run --rm -v "$PWD:/gem5" -w /gem5 \
-    gem5-run:local scons build/VEGA_X86/gem5.opt -j1
+    gem5-run:local scons build/x86_64/VEGA_X86/gem5.opt -j1
 ```
 
 ### 快速诊断表

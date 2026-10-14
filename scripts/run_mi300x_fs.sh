@@ -32,7 +32,9 @@ DISK_IMAGE_DIR="${RESOURCES_DIR}/src/x86-ubuntu-gpu-ml/disk-image"
 DISK_IMAGE="${DISK_IMAGE_DIR}/x86-ubuntu-rocm70"
 KERNEL="${RESOURCES_DIR}/src/x86-ubuntu-gpu-ml/vmlinux-rocm70"
 SQUARE_APP="${RESOURCES_DIR}/src/gpu/square/bin.default/square.default"
-GEM5_BIN="${GEM5_DIR}/build/VEGA_X86/gem5.opt"
+GEM5_BUILD_DIR="$(just --justfile "${COSIM_DIR}/justfile" \
+    --evaluate gem5_build_dir)"
+GEM5_BIN="${GEM5_DIR}/${GEM5_BUILD_DIR}/gem5.opt"
 
 # QEMU: $QEMU_BIN, else the qemu submodule build, else PATH
 QEMU_SUBMODULE_BIN="${COSIM_DIR}/qemu/build/qemu-system-x86_64"
@@ -119,17 +121,10 @@ build_gem5() {
     local nproc_val
     nproc_val="$(nproc)"
 
-    info "Building local image '$GEM5_BUILD_IMAGE' from Dockerfile.run..."
-    docker build -t "$GEM5_BUILD_IMAGE" -f "${SCRIPT_DIR}/Dockerfile.run" "${SCRIPT_DIR}"
-
     info "Using image: $GEM5_BUILD_IMAGE"
     info "Build parallelism: -j${nproc_val}"
-
-    docker run --rm \
-        -v "${GEM5_DIR}:/gem5" \
-        -w /gem5 \
-        "$GEM5_BUILD_IMAGE" \
-        scons build/VEGA_X86/gem5.opt -j"${nproc_val}"
+    GEM5_RUN_IMAGE="$GEM5_BUILD_IMAGE" \
+        just --justfile "${COSIM_DIR}/justfile" build-gem5 "$nproc_val"
 
     [ -f "$GEM5_BIN" ] || error "gem5 build failed"
     info "gem5 built: $GEM5_BIN"

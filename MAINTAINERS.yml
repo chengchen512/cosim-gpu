@@ -136,6 +136,7 @@ Build System and CI:
   files:
     - .github/
     - .gitignore
+    - .dockerignore
     - .gitmodules
     - justfile
   labels:
@@ -211,6 +212,7 @@ QEMU Frontend:
     - scripts/cosim_launch.sh
     - scripts/cosim_lib.sh
     - scripts/cosim_preflight.sh
+    - scripts/Dockerfile.qemu
   files-regex:
     - ^qemu$
   labels:

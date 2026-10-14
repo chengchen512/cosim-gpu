@@ -67,8 +67,6 @@ The gem5 binary links against Ubuntu 24.04 libraries and must be compiled in a c
 
 > **Note:** The vfio-user backend requires `libjson-c-dev` (build-time) and `libjson-c5` (runtime). The `gem5-run:local` image already includes this dependency.
 
-**Option 1: just Recipe**
-
 ```bash
 just build-gem5        # uses all host CPUs
 just build-gem5 2      # limit parallelism, e.g. when linking is OOM-killed
@@ -76,20 +74,9 @@ just build-gem5 2      # limit parallelism, e.g. when linking is OOM-killed
 
 The recipe builds the `gem5-run:local` image first, then compiles gem5 in it.
 
-**Option 2: Build inside Docker (Manual)**
-
-```bash
-cd /path/to/cosim-gpu/gem5
-
-docker run --rm \
-    -v "$(pwd):/gem5" -w /gem5 \
-    gem5-run:local \
-    scons build/VEGA_X86/gem5.opt -j4
-```
-
-> **Tip:** Reduce parallelism (`-j1` or `-j2`) if OOM-killed during linking.
-
-Output: `build/VEGA_X86/gem5.opt` (approximately 1.1 GB).
+Output: `gem5/build/<native>/VEGA_X86/gem5.opt`, where `<native>` is
+`aarch64` or `x86_64`. Both native builds use `build_opts/VEGA_X86` for the
+simulated X86/VEGA models and GPU_VIPER configuration.
 
 ### Build QEMU
 
@@ -175,7 +162,7 @@ docker run -d --name gem5-cosim \
     -w /gem5 \
     -e PYTHONPATH=/usr/lib/python3.12/lib-dynload \
     gem5-run:local \
-    /gem5/build/VEGA_X86/gem5.opt --listener-mode=on \
+    /gem5/build/x86_64/VEGA_X86/gem5.opt --listener-mode=on \
     /gem5/configs/example/gpufs/mi300_cosim.py \
     --socket-path=/tmp/gem5-mi300x.sock \
     --shmem-path=/mi300x-vram \

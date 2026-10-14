@@ -113,6 +113,7 @@ if [[ "$REPEAT_COUNT" -gt 0 && "$RUN_ALL" -eq 0 ]]; then
     declare -a REPEAT_MATRIX=()
 
     # shellcheck disable=SC2317
+    # shellcheck disable=SC2329 # Invoked by the INT and TERM traps.
     repeat_partial_summary() {
         echo ""
         echo "============================================================"
@@ -299,6 +300,7 @@ on_interrupt() {
 }
 
 # shellcheck disable=SC2317
+# shellcheck disable=SC2329 # Invoked by the EXIT trap.
 on_exit() {
     local rc=$?
     if [[ $rc -ne 0 && "$KEEP_ALIVE_ON_SUCCESS" -eq 0 ]]; then

@@ -31,7 +31,9 @@ export COSIM_RUN_ID
 GEM5_DIR="${COSIM_DIR}/gem5"
 RESOURCES_DIR="${COSIM_DIR}/gem5-resources"
 
-GEM5_BIN="${GEM5_DIR}/build/VEGA_X86/gem5.opt"
+GEM5_BUILD_DIR="$(just --justfile "${COSIM_DIR}/justfile" \
+    --evaluate gem5_build_dir)"
+GEM5_BIN="${GEM5_DIR}/${GEM5_BUILD_DIR}/gem5.opt"
 # shellcheck disable=SC2034
 GEM5_CONFIG="${GEM5_DIR}/configs/example/gpufs/mi300_cosim.py"
 GEM5_DOCKER_IMAGE="${GEM5_DOCKER_IMAGE:-gem5-run:local}"
@@ -97,7 +99,8 @@ Options:
   --kernel PATH           vmlinux     (default: auto-detect in gem5-resources)
   --qemu-bin PATH         QEMU binary (default: qemu/build/qemu-system-x86_64,
                           else qemu-system-x86_64 from PATH)
-  --gem5-bin PATH         gem5 binary (default: build/VEGA_X86/gem5.opt)
+  --gem5-bin PATH         gem5 binary
+                         (default: build/<native>/VEGA_X86/gem5.opt)
   --gem5-docker IMAGE     Docker image for gem5 (default: gem5-run:local)
   --socket-path PATH      Unix socket (default: /tmp/gem5-mi300x.sock)
   --host-mem SIZE         Guest RAM   (default: 8G)
@@ -185,7 +188,7 @@ gpu_shmem_file() {
 }
 
 # Container paths (gem5 source mounted at /gem5)
-C_GEM5_BIN="/gem5/build/VEGA_X86/gem5.opt"
+C_GEM5_BIN="/gem5/${GEM5_BUILD_DIR}/gem5.opt"
 C_GEM5_CONFIG="/gem5/configs/example/gpufs/mi300_cosim.py"
 
 # ---- Validation ----
@@ -226,6 +229,7 @@ manifest_add "artifact" "directory" "$ARTIFACT_DIR"
 # ---- Cleanup handler ----
 
 # shellcheck disable=SC2317
+# shellcheck disable=SC2329 # Invoked by the EXIT trap.
 cleanup() {
     local exit_code="${1:-$?}"
     echo ""

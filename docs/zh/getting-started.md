@@ -66,8 +66,6 @@ gem5 二进制链接了 Ubuntu 24.04 的库，需要在兼容环境中编译。
 
 > **注意：** vfio-user 后端依赖 `libjson-c-dev`（编译时）和 `libjson-c5`（运行时）。`gem5-run:local` 镜像已包含此依赖，无需额外安装。
 
-**方式一：just 任务**
-
 ```bash
 just build-gem5        # 使用宿主机全部 CPU
 just build-gem5 2      # 限制并行度，例如链接阶段内存不足时
@@ -75,20 +73,9 @@ just build-gem5 2      # 限制并行度，例如链接阶段内存不足时
 
 该任务先构建 `gem5-run:local` 镜像，再在镜像中编译 gem5。
 
-**方式二：Docker 内手动编译**
-
-```bash
-cd /path/to/cosim-gpu/gem5
-
-docker run --rm \
-    -v "$(pwd):/gem5" -w /gem5 \
-    gem5-run:local \
-    scons build/VEGA_X86/gem5.opt -j4
-```
-
-> **提示：** 内存不足时降低并行度（`-j1` 或 `-j2`）。
-
-产出：`build/VEGA_X86/gem5.opt`（约 1.1 GB）。
+产出：`gem5/build/<native>/VEGA_X86/gem5.opt`，其中 `<native>` 为
+`aarch64` 或 `x86_64`。两种构建均通过 `build_opts/VEGA_X86` 选择模拟的
+X86、VEGA 模型及 GPU_VIPER 配置。
 
 ### 编译 QEMU
 
@@ -169,7 +156,7 @@ docker run -d --name gem5-cosim \
     -w /gem5 \
     -e PYTHONPATH=/usr/lib/python3.12/lib-dynload \
     gem5-run:local \
-    /gem5/build/VEGA_X86/gem5.opt --listener-mode=on \
+    /gem5/build/x86_64/VEGA_X86/gem5.opt --listener-mode=on \
     /gem5/configs/example/gpufs/mi300_cosim.py \
     --socket-path=/tmp/gem5-mi300x.sock \
     --shmem-path=/mi300x-vram \

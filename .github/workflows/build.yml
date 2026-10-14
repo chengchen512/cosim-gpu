@@ -9,12 +9,15 @@ on:
       - '.gitmodules'
       - 'scripts/Dockerfile.run'
       - '.github/workflows/build.yml'
+      - 'justfile'
   pull_request:
     branches: [main]
     paths:
       - 'gem5'
       - '.gitmodules'
       - 'scripts/Dockerfile.run'
+      - 'justfile'
+      - '.github/workflows/build.yml'
   workflow_dispatch:
 
 concurrency:
@@ -36,18 +39,12 @@ jobs:
           git config --global url."https://github.com/".insteadOf "git@github.com:"
           git submodule update --init --recursive --depth 1 gem5
 
-      - name: Build Docker image
-        run: docker build -t gem5-build:local -f scripts/Dockerfile.run scripts/
+      - uses: extractions/setup-just@v4
+        with:
+          just-version: 1.51.0
 
       - name: Build gem5
-        run: |
-          docker run --rm \
-            -u "$(id -u):$(id -g)" \
-            -v "${{ github.workspace }}/gem5:/gem5" \
-            -w /gem5 \
-            gem5-build:local \
-            scons build/VEGA_X86/gem5.opt -j"$(nproc)" \
-              GOLD_LINKER=True --linker=gold
+        run: just build-gem5 "$(nproc)" GOLD_LINKER=True --linker=gold
 
       - name: Verify binary
-        run: test -f gem5/build/VEGA_X86/gem5.opt
+        run: test -f "gem5/$(just --evaluate gem5_build_dir)/gem5.opt"
