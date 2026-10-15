@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
 [workspace]
-members = ["crates/cosim-topology"]
+members = ["crates/cosim-topology", "crates/cosim-runtime"]
 resolver = "3"
 
 [workspace.package]
@@ -10,15 +10,22 @@ license = "Apache-2.0"
 rust-version = "1.95"
 
 [workspace.dependencies]
+cosim-runtime = { path = "crates/cosim-runtime" }
 cosim-topology = { path = "crates/cosim-topology" }
 anyhow = "1"
+command-fds = { version = "0.3", features = ["tokio"] }
+futures-util = "0.3"
 minijinja = { version = "2", features = ["json"] }
+nix = { version = "0.31", features = ["feature", "fs", "process", "signal", "user"] }
 parse-size = "1"
 schemars = "1"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 serde_yaml_ng = "0.10"
 tempfile = "3"
+tokio = { version = "1", features = ["fs", "io-util", "macros", "net", "process", "rt", "signal", "sync", "time"] }
+tokio-util = "0.7"
+uuid = { version = "1", features = ["v4"] }
 
 [workspace.lints.rust]
 unsafe_code = "forbid"
