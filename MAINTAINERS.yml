@@ -139,6 +139,14 @@ Build System and CI:
     - scripts/build.sh
     - scripts/dev.sh
     - scripts/Dockerfile.dev
+    - scripts/ci/runtime_artifact.py
+    - scripts/ci/verify_runtime_artifact.py
+    - scripts/ci/verify_legacy_image.py
+    - scripts/ci/rocm_assets.py
+    - scripts/ci/image_artifact.py
+    - scripts/ci/verify_image_artifact.py
+    - scripts/ci/prepare_image_host.sh
+    - scripts/ci/verify_rocm_assets.py
   labels:
     - "area: build/CI"
   description: >-
@@ -181,6 +189,14 @@ Guest Tests:
     - zevorn
   files:
     - scripts/run_cosim_tests.sh
+    - scripts/ci/guest_console.py
+    - scripts/ci/ci_lifecycle.py
+    - scripts/ci/rocm_guest.sh
+    - scripts/ci/run_rocm.py
+    - scripts/ci/test_guest_console.py
+    - scripts/ci/test_ci_lifecycle.py
+    - scripts/ci/test_image_process.py
+    - scripts/ci/integration_lifecycle.py
     - tests/
   labels:
     - "area: tests"

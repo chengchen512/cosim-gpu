@@ -60,14 +60,31 @@ build-gem5 jobs=build_jobs *scons_args:
 
 # Build the m5 utility and install it into the disk image file set
 [group('build')]
-build-m5:
+build-m5: rocm-sources
     {{ dev }} scripts/build.sh m5 {{ m5_abi }}
     if [ -n "{{ m5_dest }}" ]; then cp gem5/util/m5/build/{{ m5_abi }}/out/m5 "{{ m5_dest }}"; fi
 
+# Initialize missing image sources while preserving existing worktrees
+[group('build')]
+rocm-sources:
+    if [ ! -e gem5/.git ]; then git submodule update --init gem5; fi
+    if [ ! -e gem5-resources/.git ]; then git submodule update --init gem5-resources; fi
+
 # Build the guest disk image and kernel (needs KVM, QEMU, ~60 GB disk)
 [group('build')]
-build-disk:
-    ./scripts/run_mi300x_fs.sh build-disk
+build-disk: build-m5
+    python3 scripts/ci/rocm_assets.py build --format raw --output artifacts/rocm-local
+    python3 scripts/ci/rocm_assets.py install-local --output artifacts/rocm-local
+
+# Build a reusable kernel/disk bundle with the pinned gem5-resources recipe
+[group('build')]
+build-rocm-assets output="artifacts/rocm-assets": build-m5
+    python3 scripts/ci/rocm_assets.py build --output "$1"
+
+# Prepare disk capacity and dependencies on a disposable CI image builder
+[group('build')]
+ci-image-host:
+    bash scripts/ci/prepare_image_host.sh
 
 # Build a GPU application from gem5-resources/src/gpu
 [group('build')]
@@ -88,6 +105,81 @@ build-all: build-qemu build-gem5 build-m5 build-disk build-app build-cosim
 [group('build')]
 build-cosim:
     {{ dev }} cargo build --locked --release -p cosim-cli --bins
+
+# Package the gem5 binary and the exact development image used to build it
+[group('build')]
+ci-package output:
+    python3 scripts/ci/runtime_artifact.py package "$1" "gem5/{{ gem5_build_dir }}/gem5.opt"
+
+# Identify the simulator source, tools, recipes and build job used by the cache
+[group('build')]
+ci-gem5-key:
+    python3 scripts/ci/runtime_artifact.py key
+
+# Find a retained ROCm image from the same source repository and branch
+[group('build')]
+ci-find-rocm-artifact key record:
+    python3 scripts/ci/image_artifact.py find "$@"
+
+# Publish a fully verified downloaded image into the build output directory
+[group('build')]
+ci-adopt-rocm-artifact source output key:
+    python3 scripts/ci/image_artifact.py adopt "$@"
+
+# Remove only the failed download directory recorded by artifact selection
+[group('build')]
+ci-discard-rocm-download record:
+    python3 scripts/ci/image_artifact.py discard "$1"
+
+# Validate the selected input identity and the complete downloaded image
+[group('check')]
+ci-verify-rocm-artifact output key:
+    {{ dev }} python3 scripts/ci/image_artifact.py verify "$@"
+
+# Exercise image selection and isolation against actual published artifacts
+[group('check')]
+test-rocm-artifact key output:
+    python3 scripts/ci/verify_image_artifact.py "$@"
+
+# Republish a matching cached build while retaining original build provenance
+[group('build')]
+ci-reuse source output:
+    python3 scripts/ci/runtime_artifact.py reuse "$@"
+
+# Check cache invalidation, corruption rejection and original provenance
+[group('check')]
+test-ci-artifact source output:
+    python3 scripts/ci/verify_runtime_artifact.py "$@"
+
+# Restore a build from the same source revision and CI run
+[group('build')]
+ci-restore source:
+    python3 scripts/ci/runtime_artifact.py restore "$1" "gem5/{{ gem5_build_dir }}/gem5.opt"
+
+# Inspect the input key or verify a locally built ROCm kernel/disk bundle
+[group('build')]
+ci-assets operation *args:
+    {{ dev }} python3 scripts/ci/rocm_assets.py "$@"
+
+# Validate the complete image configuration with real Packer plugins
+[group('check')]
+check-rocm-image output="artifacts/rocm-image-validate": build-m5
+    python3 scripts/ci/rocm_assets.py validate --output "$1"
+
+# Check HCL syntax on any supported Packer host
+[group('check')]
+check-rocm-syntax output="artifacts/rocm-image-syntax": rocm-sources
+    python3 scripts/ci/rocm_assets.py syntax --output "$1"
+
+# Check the resource scripts used by the image producer
+[group('check')]
+check-rocm-build-scripts:
+    shellcheck gem5-resources/src/x86-ubuntu-gpu-ml/build.sh gem5-resources/src/x86-ubuntu-gpu-ml/scripts/rocm-install.sh
+
+# Exercise reuse and corruption rejection against a real built ROCm bundle
+[group('check')]
+test-rocm-assets output="artifacts/rocm-assets":
+    {{ dev }} python3 scripts/ci/verify_rocm_assets.py "$1"
 
 # Show which build artifacts are present
 [group('build')]
@@ -122,6 +214,11 @@ launch *args:
 [group('run')]
 test *args:
     ./scripts/run_cosim_tests.sh "$@"
+
+# Run the ROCm regression suite with the built Rust launcher and verified assets
+[group('run')]
+test-rocm-ci output assets *args:
+    {{ dev }} python3 scripts/ci/run_rocm.py "$@" --gem5 "gem5/{{ gem5_build_dir }}/gem5.opt" --qemu qemu/build/qemu-system-x86_64
 
 # List co-simulation resources left on the host without changing them
 [group('run')]
@@ -183,6 +280,27 @@ check-gem5-message message:
 check-gem5-ci:
     actionlint .github/workflows/build.yml gem5/.github/workflows/mi300x-ci.yaml
 
+# Validate the build and regression workflow dependency graph
+[group('check')]
+check-ci:
+    actionlint .github/workflows/build.yml .github/workflows/integration.yml .github/workflows/ci.yml
+
+# Exercise guest command completion and failure reporting using real shells
+[group('check')]
+test-ci:
+    mkdir -p artifacts/ci-check/scratch
+    {{ dev }} env TMPDIR="$PWD/artifacts/ci-check/scratch" python3 -m unittest discover -s scripts/ci -p 'test_*.py' -v
+
+# Check the legacy build entry against the host's actual Docker daemon
+[group('check')]
+test-legacy-build-image output="artifacts/ci-check":
+    python3 scripts/ci/verify_legacy_image.py "$1"
+
+# Verify CI cancellation through the real Rust launcher and QEMU
+[group('check')]
+test-ci-integration: build-cosim
+    {{ dev }} python3 -m unittest discover -s scripts/ci -p 'integration_*.py' -v
+
 # Exercise MI300X pool ownership and its GPU_VIPER memory protocol
 [group('check')]
 test-gem5-mi300x output case="all":
@@ -209,11 +327,24 @@ test-cosim *args:
 # Run sessions with real QEMU processes and disk images
 [group('check')]
 test-cosim-integration:
-    {{ dev }} cargo test --locked -p cosim-cli --test sessions -- --ignored --skip vfio_user
+    {{ dev }} cargo test --locked -p cosim-cli --test sessions -- --ignored --skip vfio_user --skip bounded_memory_pool
+
+# Verify competing sessions against a real, bounded shared-memory filesystem
+[group('check')]
+test-cosim-memory:
+    mkdir -p target/dev-cache/home target/dev-cache/cargo target/memory-test/scratch
+    docker run --rm --init --shm-size 96m --user "$(id -u):$(id -g)" \
+        --volume "$PWD:$PWD" --workdir "$PWD" \
+        --env HOME="$PWD/target/dev-cache/home" \
+        --env CARGO_HOME="$PWD/target/dev-cache/cargo" \
+        --env CARGO_TARGET_DIR="$PWD/target/container" \
+        --env TMPDIR="$PWD/target/memory-test/scratch" \
+        {{ dev_image }} cargo test --locked -p cosim-cli --test sessions \
+        bounded_memory_pool -- --ignored --test-threads=1
 
 # Run a QEMU host with a QEMU vfio-user device built by build-qemu
 [group('check')]
-test-cosim-vfio-user:
+test-cosim-vfio-user: rocm-sources
     {{ dev }} cargo test --locked -p cosim-cli --test sessions -- --ignored vfio_user
 
 # Run checkpatch.pl on every commit since BASE (default: merge base with origin/main)
@@ -229,7 +360,7 @@ checkpatch-file patch:
 # Run ShellCheck on the shell scripts
 [group('check')]
 shellcheck:
-    shellcheck scripts/*.sh tests/run_tests.sh tests/test_modprobe_params.sh
+    shellcheck scripts/*.sh scripts/ci/*.sh tests/run_tests.sh tests/test_modprobe_params.sh
 
 # Check that cosim modprobe commands carry the required amdgpu parameters
 [group('check')]
