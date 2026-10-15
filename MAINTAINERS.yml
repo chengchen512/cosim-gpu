@@ -220,3 +220,18 @@ QEMU Frontend:
     The QEMU fork (gevico/qemu, gevico/cosim-gpu branch) that runs the virtual
     machine, launching it, connecting it to accelerator backends over
     vfio-user, shared memory setup, and session cleanup.
+
+Topology and Runtime:
+  status: maintained
+  maintainers:
+    - zevorn
+  files:
+    - Cargo.toml
+    - Cargo.lock
+    - crates/
+    - samples/
+  labels:
+    - "area: QEMU frontend"
+  description: >-
+    YAML topology loading and validation, session planning, Rust process
+    supervision and the sample configurations.

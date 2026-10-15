@@ -1,0 +1,22 @@
+# SPDX-License-Identifier: Apache-2.0
+[package]
+name = "cosim-topology"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+minijinja.workspace = true
+parse-size.workspace = true
+schemars.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+serde_yaml_ng.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+
+[lints]
+workspace = true

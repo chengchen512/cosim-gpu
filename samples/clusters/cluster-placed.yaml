@@ -1,0 +1,8 @@
+# SPDX-License-Identifier: Apache-2.0
+# Placement is reserved for remote agents; cosim run rejects remote placement.
+version: 1
+imports:
+  - machines/gpu-8.yaml
+machines:
+  - {id: m0, use: node8, placement: {agent: "10.0.0.11:7700"}}
+  - {id: m1, use: node8, placement: {agent: "10.0.0.12:7700"}}

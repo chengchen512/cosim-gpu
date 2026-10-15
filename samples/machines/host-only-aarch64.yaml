@@ -1,0 +1,8 @@
+# SPDX-License-Identifier: Apache-2.0
+version: 1
+imports: [hosts/qemu.yaml, hosts/tcg-aarch64.yaml]
+templates:
+  tcg-aarch64-node:
+    host: {use: tcg-aarch64}
+machines:
+  - {id: m0, use: tcg-aarch64-node}

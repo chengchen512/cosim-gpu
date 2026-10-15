@@ -169,6 +169,23 @@ test-gem5-mi300x output case="all":
     mkdir -p "$1"
     {{ dev }} --mount "$1" python3 gem5/tests/mi300x/verify.py --gem5 "$PWD/gem5/{{ gem5_build_dir }}/gem5.opt" --output "$(cd "$1" && pwd)" --case "$2"
 
+# Check Rust formatting, warnings and behavior
+[group('check')]
+check-cosim:
+    {{ dev }} cargo fmt --all -- --check
+    {{ dev }} cargo clippy --locked --workspace --all-targets -- -D warnings
+    {{ dev }} cargo test --locked --workspace
+
+# Inspect Rust formatting without modifying source files
+[group('check')]
+check-cosim-format:
+    {{ dev }} cargo fmt --all -- --check
+
+# Run the Rust tests; arguments are passed to cargo test
+[group('check')]
+test-cosim *args:
+    {{ dev }} cargo test --locked --workspace "$@"
+
 # Run checkpatch.pl on every commit since BASE (default: merge base with origin/main)
 [group('check')]
 checkpatch base="":
@@ -202,9 +219,9 @@ maintainers-check:
     fi
     echo "MAINTAINERS.yml: valid, every tracked file belongs to an area"
 
-# Run all host-side checks that need no submodules, Docker, or KVM
+# Run all host-side checks that need no submodules or KVM
 [group('check')]
-check: checkpatch shellcheck maintainers-check
+check: checkpatch shellcheck maintainers-check check-cosim
 
 # ---------------------------------------------------------------------------
 # Maintainers
