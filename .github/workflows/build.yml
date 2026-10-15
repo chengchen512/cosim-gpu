@@ -7,7 +7,9 @@ on:
     paths:
       - 'gem5'
       - '.gitmodules'
-      - 'scripts/Dockerfile.run'
+      - 'scripts/Dockerfile.dev'
+      - 'scripts/build.sh'
+      - 'scripts/dev.sh'
       - '.github/workflows/build.yml'
       - 'justfile'
   pull_request:
@@ -15,7 +17,9 @@ on:
     paths:
       - 'gem5'
       - '.gitmodules'
-      - 'scripts/Dockerfile.run'
+      - 'scripts/Dockerfile.dev'
+      - 'scripts/build.sh'
+      - 'scripts/dev.sh'
       - 'justfile'
       - '.github/workflows/build.yml'
   workflow_dispatch:
@@ -29,6 +33,8 @@ jobs:
     name: Build gem5 (VEGA_X86)
     runs-on: ubuntu-latest
     timeout-minutes: 90
+    env:
+      COSIM_ENV: container
     steps:
       - uses: actions/checkout@v4
         with:
@@ -42,6 +48,9 @@ jobs:
       - uses: extractions/setup-just@v4
         with:
           just-version: 1.51.0
+
+      - name: Build the development image
+        run: just dev-image
 
       - name: Build gem5
         run: just build-gem5 "$(nproc)" GOLD_LINKER=True --linker=gold

@@ -49,29 +49,31 @@ QEMU + gem5 MI300X 联合仿真项目的快速入门指南。
 
 ## 编译 gem5 与 QEMU
 
-### 构建运行时 Docker 镜像
+### 选择构建环境
 
-编译 gem5 之前，先创建运行时 Docker 镜像：
+在 Linux 上，QEMU、gem5 和 m5 的构建 recipe 默认在主机上运行，此时主机需要安装
+`scripts/Dockerfile.dev` 中列出的 gem5 和 QEMU 编译依赖，包括 `scons`。设置
+`COSIM_ENV=container` 后，这些 recipe 改为在临时开发容器中运行；其他系统默认使用
+开发容器。先构建一次镜像：
 
 ```bash
-cd scripts
-docker build -t gem5-run:local -f Dockerfile.run .
+just dev-image
+export COSIM_ENV=container    # 未安装编译依赖的 Linux 主机
 ```
 
-此镜像基于 `ghcr.io/gem5/gpu-fs`，添加了 Python 3.12 支持。
+`scripts/Dockerfile.dev` 基于 Ubuntu 24.04，包含 gem5 和 QEMU 的编译依赖、Rust、QEMU
+和 `qemu-img`。`scripts/dev.sh` 按主机上的路径挂载源码树，每条命令结束后删除容器。
 
 ### 编译 gem5
 
 gem5 二进制链接了 Ubuntu 24.04 的库，需要在兼容环境中编译。
 
-> **注意：** vfio-user 后端依赖 `libjson-c-dev`（编译时）和 `libjson-c5`（运行时）。`gem5-run:local` 镜像已包含此依赖，无需额外安装。
+> **注意：** vfio-user 后端依赖 `libjson-c-dev`（编译时）和 `libjson-c5`（运行时）。`cosim-dev:local` 镜像已包含此依赖，无需额外安装。
 
 ```bash
 just build-gem5        # 使用宿主机全部 CPU
 just build-gem5 2      # 限制并行度，例如链接阶段内存不足时
 ```
-
-该任务先构建 `gem5-run:local` 镜像，再在镜像中编译 gem5。
 
 产出：`gem5/build/<native>/VEGA_X86/gem5.opt`，其中 `<native>` 为
 `aarch64` 或 `x86_64`。两种构建均通过 `build_opts/VEGA_X86` 选择模拟的
@@ -85,7 +87,7 @@ X86、VEGA 模型及 GPU_VIPER 配置。
 just build-qemu        # 使用宿主机全部 CPU；`just build-qemu 4` 限制并行任务数
 ```
 
-该任务在 `qemu/build` 中配置启用 KVM 的 `x86_64-softmmu`，完成编译，并检查 `qemu/build/qemu-system-x86_64` 是否提供 `vfio-user-pci`。宿主机需要安装 QEMU 的编译依赖（`ninja`、`pkg-config`、`glib-2.0`、`pixman`、`slirp`、`flex`、`bison`，以及带 `venv` 的 Python 3）。
+该任务在 `qemu/build` 中为主机架构配置启用 KVM 和 vfio-user server 的 softmmu 目标，完成编译，并检查程序是否提供 `vfio-user-pci` 和 `x-vfio-user-server`。不使用开发容器的 Linux 主机需要安装 QEMU 的编译依赖（`ninja`、`pkg-config`、`glib-2.0`、`pixman`、`slirp`、`json-c`、`cmocka`，以及带 `venv` 的 Python 3）。
 
 `just launch` 和 `just build-disk` 按以下顺序选择 QEMU：
 
@@ -155,7 +157,7 @@ docker run -d --name gem5-cosim \
     -v /dev/shm:/dev/shm \
     -w /gem5 \
     -e PYTHONPATH=/usr/lib/python3.12/lib-dynload \
-    gem5-run:local \
+    cosim-dev:local \
     /gem5/build/x86_64/VEGA_X86/gem5.opt --listener-mode=on \
     /gem5/configs/example/gpufs/mi300_cosim.py \
     --socket-path=/tmp/gem5-mi300x.sock \

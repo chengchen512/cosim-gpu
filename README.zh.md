@@ -52,7 +52,11 @@
 git clone --recurse-submodules git@github.com:gevico/cosim-gpu.git
 cd cosim-gpu
 
-# 构建运行时 Docker 镜像、gem5、m5、磁盘镜像和 square 程序
+# 构建 recipe 在容器中运行时（非 Linux 系统，或设置 COSIM_ENV=container），
+# 先构建开发镜像
+just dev-image
+
+# 构建 QEMU、gem5、m5、磁盘镜像和 square 程序
 #（总计约 2 小时，需要 KVM + Docker + 约 60GB 磁盘空间）
 just build-all
 
@@ -64,7 +68,8 @@ just launch
 
 | 任务 | 用途 |
 |---|---|
-| `just build-gem5 [jobs]` | 在运行时镜像中编译 gem5（链接阶段内存不足时使用 `just build-gem5 1`） |
+| `just dev-image` | 根据 `scripts/Dockerfile.dev` 构建开发容器镜像 |
+| `just build-gem5 [jobs]` | 在 Linux 主机或开发容器中编译 gem5（链接阶段内存不足时使用 `just build-gem5 1`） |
 | `just build-disk` | 构建 Guest 磁盘镜像和内核 |
 | `just launch [选项]` | 启动 QEMU + gem5；选项传给 `scripts/cosim_launch.sh` |
 | `just test <过滤条件>` / `just test --all` | 在新的仿真会话中运行 Guest GPU 测试 |
@@ -85,19 +90,19 @@ make -j"$(nproc)"
 ./build/qemu-system-x86_64 -device help | grep vfio-user-pci
 cd ..
 
-# 3. 构建 Docker 镜像（添加 ext/libvfio-user 编译所需的 json-c）
-cd scripts && docker build -t gem5-run:local -f Dockerfile.run . && cd ..
+# 3. 构建开发镜像（包含 gem5 编译依赖，以及 ext/libvfio-user 编译所需的 json-c）
+docker build -t cosim-dev:local -f scripts/Dockerfile.dev scripts
 
 # 4. 编译 gem5（Docker 内，约 30 分钟；链接阶段 OOM 可改用 -j1）
 cd gem5
 docker run --rm -v "$(pwd):/gem5" -w /gem5 \
-    gem5-run:local \
+    cosim-dev:local \
     scons build/VEGA_X86/gem5.opt -j4
 cd ..
 
 # 5. 预编译 m5 工具（推荐 - 避免构建磁盘镜像时在 Guest 内 git clone）
 docker run --rm -v "$(pwd)/gem5:/gem5" -w /gem5 \
-    gem5-run:local \
+    cosim-dev:local \
     bash -c "cd util/m5 && scons build/x86/out/m5"
 cp gem5/util/m5/build/x86/out/m5 gem5-resources/src/x86-ubuntu-gpu-ml/files/
 
@@ -165,7 +170,9 @@ cosim-gpu/
 |   |-- checkpatch.pl        # patch style checker (from QEMU)
 |   |-- get_maintainer.py    # MAINTAINERS.yml lookup (from Zephyr)
 |   |-- ci/                  # reviewer assignment for GitHub Actions
-|   `-- Dockerfile.run       # gem5 runtime Docker image
+|   |-- build.sh             # QEMU、gem5 和 m5 的构建步骤
+|   |-- dev.sh               # 在主机或临时容器中运行命令
+|   `-- Dockerfile.dev       # 开发容器镜像
 |-- docs/                    # technical documentation (zh + en)
 |   |-- en/                  # English
 |   `-- zh/                  # Chinese

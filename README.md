@@ -53,7 +53,11 @@ on a simulated GPU without physical hardware.
 git clone --recurse-submodules git@github.com:gevico/cosim-gpu.git
 cd cosim-gpu
 
-# Build the runtime Docker image, gem5, m5, disk image and the square app
+# Build the development image when the build recipes run in a container
+# (outside Linux, or with COSIM_ENV=container)
+just dev-image
+
+# Build QEMU, gem5, m5, the disk image and the square app
 # (~2h total, needs KVM + Docker + ~60GB disk)
 just build-all
 
@@ -65,7 +69,8 @@ Run `just` to list every recipe. Common ones:
 
 | Recipe | Purpose |
 |---|---|
-| `just build-gem5 [jobs]` | Build gem5 in the runtime image (`just build-gem5 1` if linking is OOM-killed) |
+| `just dev-image` | Build the development container image from `scripts/Dockerfile.dev` |
+| `just build-gem5 [jobs]` | Build gem5 on the Linux host or in the development container (`just build-gem5 1` if linking is OOM-killed) |
 | `just build-disk` | Build the guest disk image and kernel |
 | `just launch [options]` | Launch QEMU + gem5; options go to `scripts/cosim_launch.sh` |
 | `just test <filter>` / `just test --all` | Run guest GPU tests in fresh sessions |
@@ -86,19 +91,20 @@ make -j"$(nproc)"
 ./build/qemu-system-x86_64 -device help | grep vfio-user-pci
 cd ..
 
-# 3. Build Docker image (adds json-c needed by ext/libvfio-user)
-cd scripts && docker build -t gem5-run:local -f Dockerfile.run . && cd ..
+# 3. Build the development image (gem5 build dependencies, including the
+#    json-c library needed by ext/libvfio-user)
+docker build -t cosim-dev:local -f scripts/Dockerfile.dev scripts
 
 # 4. Build gem5 (in Docker, ~30min; use -j1 if OOM-killed during linking)
 cd gem5
 docker run --rm -v "$(pwd):/gem5" -w /gem5 \
-    gem5-run:local \
+    cosim-dev:local \
     scons build/VEGA_X86/gem5.opt -j4
 cd ..
 
 # 5. Pre-build m5 utility (recommended — avoids git clone inside guest VM)
 docker run --rm -v "$(pwd)/gem5:/gem5" -w /gem5 \
-    gem5-run:local \
+    cosim-dev:local \
     bash -c "cd util/m5 && scons build/x86/out/m5"
 cp gem5/util/m5/build/x86/out/m5 gem5-resources/src/x86-ubuntu-gpu-ml/files/
 
@@ -166,7 +172,9 @@ cosim-gpu/
 |   |-- checkpatch.pl        # patch style checker (from QEMU)
 |   |-- get_maintainer.py    # MAINTAINERS.yml lookup (from Zephyr)
 |   |-- ci/                  # reviewer assignment for GitHub Actions
-|   `-- Dockerfile.run       # gem5 runtime Docker image
+|   |-- build.sh             # QEMU, gem5 and m5 build steps
+|   |-- dev.sh               # runs a command on the host or in a container
+|   `-- Dockerfile.dev       # development container image
 |-- docs/                    # technical documentation (zh + en)
 |   |-- en/                  # English
 |   `-- zh/                  # Chinese

@@ -93,7 +93,6 @@
   maintainers:
     - zevorn
   files:
-    - scripts/Dockerfile.run
     - scripts/run_mi300x_fs.sh
   files-regex:
     - ^gem5$
@@ -101,8 +100,7 @@
     - "area: gem5 GPU backend"
   description: >-
     gem5 MI300X GPU model used as the accelerator backend behind the QEMU
-    vfio-user device, its runtime Docker image, and the standalone gem5
-    full-system flow.
+    vfio-user device and the standalone gem5 full-system flow.
 
 "Accelerator Backend: SST Multi-node":
   status: maintained
@@ -136,14 +134,16 @@ Build System and CI:
   files:
     - .github/
     - .gitignore
-    - .dockerignore
     - .gitmodules
     - justfile
+    - scripts/build.sh
+    - scripts/dev.sh
+    - scripts/Dockerfile.dev
   labels:
     - "area: build/CI"
   description: >-
-    The just task runner, GitHub Actions workflows, and repository-wide
-    Git configuration.
+    The just task runner, the development container and the build script it
+    runs, GitHub Actions workflows, and repository-wide Git configuration.
 
 Documentation:
   status: maintained
@@ -212,7 +212,6 @@ QEMU Frontend:
     - scripts/cosim_launch.sh
     - scripts/cosim_lib.sh
     - scripts/cosim_preflight.sh
-    - scripts/Dockerfile.qemu
   files-regex:
     - ^qemu$
   labels:

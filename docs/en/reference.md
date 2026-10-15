@@ -97,7 +97,7 @@ console=ttyS0,115200 root=/dev/vda1 modprobe.blacklist=amdgpu
 | Image | Purpose |
 |-------|---------|
 | `ghcr.io/gem5/gpu-fs:latest` | Base image for gem5 runtime container (amd64) |
-| `gem5-run:local` | Runtime image built from `scripts/Dockerfile.run` (adds Python 3.12 support) |
+| `cosim-dev:local` | Development image built from `scripts/Dockerfile.dev` by `just dev-image` (gem5 and QEMU build dependencies, Rust, QEMU, `qemu-img`) |
 | `ghcr.io/gem5/ubuntu-24.04_all-dependencies:v24-0` | gem5 compilation (arm64 only) |
 
 > On amd64 hosts, use `ghcr.io/gem5/gpu-fs` as the build image or compile natively.
@@ -325,10 +325,8 @@ tail -f m5out/board.pc.com_1.device
 
 ```bash
 # Delete stale object file, then rebuild
-docker run --rm -v "$PWD:/gem5" -w /gem5 gem5-run:local \
-    sh -c 'rm -f build/x86_64/VEGA_X86/dev/amdgpu/<file>.o'
-docker run --rm -v "$PWD:/gem5" -w /gem5 \
-    gem5-run:local scons build/x86_64/VEGA_X86/gem5.opt -j1
+rm -f gem5/build/x86_64/VEGA_X86/dev/amdgpu/<file>.o
+just build-gem5 1
 ```
 
 ### Quick Diagnostic Table
@@ -474,7 +472,9 @@ To use a different mirror, edit the URI in the patch file and re-apply.
 | `justfile` | Task runner entry point for build, launch, test and check recipes |
 | `scripts/cosim_launch.sh` | Cosim orchestration (Docker + QEMU launch) |
 | `scripts/run_mi300x_fs.sh` | Build orchestration (compile, disk image, run) |
-| `scripts/Dockerfile.run` | Runtime Docker image definition |
+| `scripts/Dockerfile.dev` | Development container image definition |
+| `scripts/dev.sh` | Runs a command on the host or in a temporary development container |
+| `scripts/build.sh` | Builds QEMU, gem5 and m5 in the selected environment |
 | `scripts/patches/0001-user-data-cn-mirror.patch` | China mirror patch for disk image build |
 
 ### gem5 Modified Infrastructure Files

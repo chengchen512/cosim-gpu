@@ -12,12 +12,18 @@ host_arch_input := env("COSIM_HOST_ARCH", arch())
 host_arch := if host_arch_input == "aarch64" { "aarch64" } else if host_arch_input == "x86_64" { "x86_64" } else { error("COSIM_HOST_ARCH must be aarch64 or x86_64") }
 container_platform := if host_arch == "aarch64" { "linux/arm64" } else { "linux/amd64" }
 gem5_build_dir := env("GEM5_BUILD_DIR", "build/" + host_arch + "/VEGA_X86")
-gem5_run_image := env("GEM5_RUN_IMAGE", "gem5-run:local")
-qemu_run_image := env("QEMU_RUN_IMAGE", "cosim-qemu:local")
+dev_image := env("COSIM_DEV_IMAGE", "cosim-dev:local")
 gpu_fs_image := env("GPU_APP_BUILD_IMAGE", "ghcr.io/gem5/gpu-fs:latest")
 build_jobs := env("JOBS", num_cpus())
 m5_abi := if host_arch == "aarch64" { "arm64" } else { "x86" }
 m5_dest := env("M5_DEST", if host_arch == "aarch64" { "" } else { "gem5-resources/src/x86-ubuntu-gpu-ml/files/" })
+
+# Recipes that use {{ dev }} run on the host or in a temporary development
+# container, as selected by COSIM_ENV.
+export COSIM_ENV := env("COSIM_ENV", if os() == "linux" { "host" } else { "container" })
+export COSIM_DEV_IMAGE := dev_image
+export COSIM_DEV_PLATFORM := container_platform
+dev := "scripts/dev.sh"
 
 # List the available recipes
 default:
@@ -32,62 +38,31 @@ default:
 submodules:
     git submodule update --init --recursive qemu gem5 gem5-resources
 
-# Build native Linux QEMU with KVM and vfio-user support
+# Build the development container image
+[group('build')]
+dev-image:
+    docker build --platform {{ container_platform }} -t {{ dev_image }} -f scripts/Dockerfile.dev scripts
+
+# Open a shell in a temporary development container
+[group('build')]
+dev-shell:
+    COSIM_ENV=container {{ dev }} --tty bash
+
+# Build QEMU with KVM and vfio-user support
 [group('build')]
 build-qemu jobs=build_jobs:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    cd qemu
-    if [ ! -f build/build.ninja ] || ! ./build/qemu-system-{{ host_arch }} -object help 2>/dev/null | grep 'x-vfio-user-server' >/dev/null; then
-        ./configure --target-list={{ host_arch }}-softmmu --enable-kvm --enable-vfio-user-server --disable-docs
-    fi
-    make -j{{ jobs }}
-    ./build/qemu-system-{{ host_arch }} -device help | grep -q vfio-user-pci
-    ./build/qemu-system-{{ host_arch }} -object help | grep 'x-vfio-user-server' >/dev/null
-    echo "QEMU built: qemu/build/qemu-system-{{ host_arch }}"
+    {{ dev }} scripts/build.sh qemu {{ host_arch }} "$1"
 
-# Build a Linux QEMU image with vfio-user device server support
+# Build gem5 (VEGA_X86); use jobs=1 if linking is OOM-killed
 [group('build')]
-build-qemu-image jobs=build_jobs:
-    docker build --platform {{ container_platform }} --build-arg JOBS="$1" -t {{ qemu_run_image }} -f scripts/Dockerfile.qemu .
-
-# Build the native Linux gem5 compiler and runtime image
-[group('build')]
-docker-image:
-    docker build --platform {{ container_platform }} -t {{ gem5_run_image }} -f scripts/Dockerfile.run scripts
-
-# Build gem5 (VEGA_X86) in the runtime image; use jobs=1 if linking is OOM-killed
-[group('build')]
-build-gem5 jobs=build_jobs *scons_args: docker-image
-    #!/usr/bin/env bash
-    set -euo pipefail
-    gem5_jobs="$1"
-    shift
-    mkdir -p "gem5/{{ gem5_build_dir }}/scratch"
-    if [ ! -f "gem5/{{ gem5_build_dir }}/gem5.build/config" ]; then
-        docker run --rm --platform {{ container_platform }} -u "$(id -u):$(id -g)" \
-            -e TMPDIR="/gem5/{{ gem5_build_dir }}/scratch" \
-            -v "$PWD/gem5:/gem5" -w /gem5 {{ gem5_run_image }} \
-            scons defconfig {{ gem5_build_dir }} build_opts/VEGA_X86
-    fi
-    docker run --rm --platform {{ container_platform }} -u "$(id -u):$(id -g)" \
-        -e TMPDIR="/gem5/{{ gem5_build_dir }}/scratch" \
-        -v "$PWD/gem5:/gem5" -w /gem5 {{ gem5_run_image }} \
-        scons {{ gem5_build_dir }}/gem5.opt -j"$gem5_jobs" "$@"
+build-gem5 jobs=build_jobs *scons_args:
+    {{ dev }} scripts/build.sh gem5 {{ gem5_build_dir }} "$@"
 
 # Build the m5 utility and install it into the disk image file set
 [group('build')]
-build-m5: docker-image
-    #!/usr/bin/env bash
-    set -euo pipefail
-    mkdir -p gem5/util/m5/build/scratch
-    docker run --rm --platform {{ container_platform }} -u "$(id -u):$(id -g)" \
-        -e TMPDIR=/gem5/util/m5/build/scratch \
-        -v "$PWD/gem5:/gem5" -w /gem5/util/m5 {{ gem5_run_image }} \
-        scons build/{{ m5_abi }}/out/m5
-    if [ -n "{{ m5_dest }}" ]; then
-        cp gem5/util/m5/build/{{ m5_abi }}/out/m5 "{{ m5_dest }}"
-    fi
+build-m5:
+    {{ dev }} scripts/build.sh m5 {{ m5_abi }}
+    if [ -n "{{ m5_dest }}" ]; then cp gem5/util/m5/build/{{ m5_abi }}/out/m5 "{{ m5_dest }}"; fi
 
 # Build the guest disk image and kernel (needs KVM, QEMU, ~60 GB disk)
 [group('build')]
@@ -192,7 +167,7 @@ check-gem5-ci:
 [group('check')]
 test-gem5-mi300x output case="all":
     mkdir -p "$1"
-    docker run --rm --platform {{ container_platform }} -u "$(id -u):$(id -g)" -v "$PWD/gem5:/gem5:ro" -v "$1:/results" -w /gem5 {{ gem5_run_image }} python3 tests/mi300x/verify.py --gem5 /gem5/{{ gem5_build_dir }}/gem5.opt --output /results --case "$2"
+    {{ dev }} --mount "$1" python3 gem5/tests/mi300x/verify.py --gem5 "$PWD/gem5/{{ gem5_build_dir }}/gem5.opt" --output "$(cd "$1" && pwd)" --case "$2"
 
 # Run checkpatch.pl on every commit since BASE (default: merge base with origin/main)
 [group('check')]

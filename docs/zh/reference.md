@@ -97,7 +97,7 @@ console=ttyS0,115200 root=/dev/vda1 modprobe.blacklist=amdgpu
 | 镜像 | 用途 |
 |------|------|
 | `ghcr.io/gem5/gpu-fs:latest` | gem5 运行时容器的基础镜像（amd64） |
-| `gem5-run:local` | 从 `scripts/Dockerfile.run` 构建的运行时镜像（添加 Python 3.12 支持） |
+| `cosim-dev:local` | 由 `just dev-image` 根据 `scripts/Dockerfile.dev` 构建的开发镜像（gem5 与 QEMU 编译依赖、Rust、QEMU、`qemu-img`） |
 | `ghcr.io/gem5/ubuntu-24.04_all-dependencies:v24-0` | gem5 编译用（仅 arm64） |
 
 > 在 amd64 宿主机上，请使用 `ghcr.io/gem5/gpu-fs` 作为编译镜像或原生编译。
@@ -325,10 +325,8 @@ tail -f m5out/board.pc.com_1.device
 
 ```bash
 # 删除过期的目标文件，然后重建
-docker run --rm -v "$PWD:/gem5" -w /gem5 gem5-run:local \
-    sh -c 'rm -f build/x86_64/VEGA_X86/dev/amdgpu/<file>.o'
-docker run --rm -v "$PWD:/gem5" -w /gem5 \
-    gem5-run:local scons build/x86_64/VEGA_X86/gem5.opt -j1
+rm -f gem5/build/x86_64/VEGA_X86/dev/amdgpu/<file>.o
+just build-gem5 1
 ```
 
 ### 快速诊断表
@@ -474,7 +472,9 @@ git apply -R ../scripts/patches/0001-user-data-cn-mirror.patch
 | `justfile` | 构建、启动、测试和检查任务的统一入口 |
 | `scripts/cosim_launch.sh` | cosim 编排（Docker + QEMU 启动） |
 | `scripts/run_mi300x_fs.sh` | 构建编排（编译、磁盘镜像、运行） |
-| `scripts/Dockerfile.run` | 运行时 Docker 镜像定义 |
+| `scripts/Dockerfile.dev` | 开发容器镜像定义 |
+| `scripts/dev.sh` | 在主机或临时开发容器中运行命令 |
+| `scripts/build.sh` | 在所选环境中构建 QEMU、gem5 和 m5 |
 | `scripts/patches/0001-user-data-cn-mirror.patch` | 磁盘镜像构建的国内镜像补丁 |
 
 ### gem5 修改的基础设施文件

@@ -32,7 +32,7 @@ jobs:
           just-version: 1.51.0
 
       - name: Build images
-        run: just docker-image
+        run: just dev-image
 
       - name: Run cosim integration tests
         run: just test --all

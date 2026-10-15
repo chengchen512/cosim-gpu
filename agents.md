@@ -25,6 +25,9 @@ Add reusable workflows under `.agents/skills/` instead, then update this mapping
 
 All build, launch, test and check tasks are recipes in the top-level `justfile`
 (`just --list`). Use the recipes instead of calling the scripts directly.
+The QEMU, gem5 and m5 build recipes run on the Linux host, or in a temporary
+development container when `COSIM_ENV=container` (the default outside Linux);
+`just dev-image` builds its image.
 
 ```bash
 just build-all
@@ -33,8 +36,8 @@ just build-all
 Individual steps when needed:
 
 ```bash
+just dev-image
 just build-qemu
-just docker-image
 just build-gem5
 just build-m5
 just build-disk
