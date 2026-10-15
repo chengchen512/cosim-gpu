@@ -82,7 +82,12 @@ build-tests:
 
 # Build everything needed to launch co-simulation
 [group('build')]
-build-all: build-qemu build-gem5 build-m5 build-disk build-app
+build-all: build-qemu build-gem5 build-m5 build-disk build-app build-cosim
+
+# Build the topology launcher
+[group('build')]
+build-cosim:
+    {{ dev }} cargo build --locked --release -p cosim-cli --bins
 
 # Show which build artifacts are present
 [group('build')]
@@ -92,6 +97,21 @@ status:
 # ---------------------------------------------------------------------------
 # Run
 # ---------------------------------------------------------------------------
+
+# Launch a YAML topology
+[group('run')]
+run topology="samples/machines/single-gpu.yaml" *args:
+    {{ dev }} cargo run --locked --release -q -p cosim-cli -- run "$@"
+
+# Launch a YAML topology with the development build
+[group('run')]
+run-dev topology="samples/machines/single-gpu.yaml" *args:
+    {{ dev }} cargo run --locked -q -p cosim-cli -- run "$@"
+
+# Inspect or operate a topology through any cosim subcommand
+[group('run')]
+cosim +args:
+    {{ dev }} cargo run --locked -q -p cosim-cli -- "$@"
 
 # Launch QEMU + gem5 co-simulation (options are passed to cosim_launch.sh)
 [group('run')]
@@ -185,6 +205,16 @@ check-cosim-format:
 [group('check')]
 test-cosim *args:
     {{ dev }} cargo test --locked --workspace "$@"
+
+# Run sessions with real QEMU processes and disk images
+[group('check')]
+test-cosim-integration:
+    {{ dev }} cargo test --locked -p cosim-cli --test sessions -- --ignored --skip vfio_user
+
+# Run a QEMU host with a QEMU vfio-user device built by build-qemu
+[group('check')]
+test-cosim-vfio-user:
+    {{ dev }} cargo test --locked -p cosim-cli --test sessions -- --ignored vfio_user
 
 # Run checkpatch.pl on every commit since BASE (default: merge base with origin/main)
 [group('check')]

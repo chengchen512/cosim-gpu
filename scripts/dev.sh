@@ -101,4 +101,27 @@ echo "dev.sh: container $name" >&2
 if [ "$tty" -eq 1 ]; then
     exec docker "${args[@]}" --interactive --tty "$image" "$@"
 fi
-exec docker "${args[@]}" "$image" "$@"
+
+# Docker closes the container's standard input when this client goes away,
+# and the launcher ends its session at the end of standard input.
+args+=(--interactive --env COSIM_STDIN_LIFELINE=1)
+if [ -t 0 ]; then
+    exec docker "${args[@]}" "$image" "$@"
+fi
+
+# Without a terminal, standard input stays open while this script runs.
+docker "${args[@]}" "$image" "$@" < <(
+    while kill -0 "$$" 2>/dev/null; do
+        sleep 1
+    done
+) &
+client=$!
+trap 'kill -TERM "$client" 2>/dev/null' INT TERM
+# A trap interrupts wait; wait again until the client has exited.
+status=0
+wait "$client" || status=$?
+while kill -0 "$client" 2>/dev/null; do
+    status=0
+    wait "$client" || status=$?
+done
+exit "$status"
