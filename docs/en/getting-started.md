@@ -31,7 +31,7 @@ From building the components to running your first HIP GPU compute test.
 - They communicate via the **vfio-user protocol** over a Unix domain socket. QEMU uses its built-in `vfio-user-pci` device; gem5 runs `MI300XVfioUser` as the server.
 - Guest RAM and GPU VRAM are shared via **shared memory** under `/dev/shm/`.
 
-For a deeper dive into the memory architecture and BAR layout, see [Architecture](architecture.md#memory-sharing-architecture).
+For a deeper dive into the memory architecture and BAR layout, see [Architecture](architecture.md#shared-memory).
 
 ## Prerequisites
 

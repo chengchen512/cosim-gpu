@@ -31,7 +31,7 @@ QEMU + gem5 MI300X 联合仿真项目的快速入门指南。
 - 两者通过 **vfio-user 协议**（基于 Unix 域套接字）通信。QEMU 使用内置的 `vfio-user-pci` 设备，gem5 端运行 `MI300XVfioUser` 作为 vfio-user 服务端
 - Guest 物理内存和 GPU VRAM 通过 `/dev/shm/` 下的**共享内存**共享
 
-关于内存架构和 BAR 布局的详细说明，请参阅[架构文档](architecture.md#内存共享架构)。
+关于内存架构和 BAR 布局的详细说明，请参阅[架构文档](architecture.md#共享内存)。
 
 ## 前置条件
 

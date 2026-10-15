@@ -67,6 +67,57 @@ just checkpatch <base-commit>
 
 任务失败时会阻止拉取请求合并。修正报告中的行，修改或变基相关提交，然后强制推送分支。
 
+### ROCm 回归
+
+`Build` 在指向 `main` 的每个拉取请求、每次推送到 `main` 和手动触发时运行。
+gem5 任务只编译一次 `VEGA_X86`，上传压缩后的二进制文件、模型测试需要的
+`libvfio-user.a`、开发容器镜像和 SHA-256 清单。
+依赖它的 `Integration` 工作流下载同一次运行的产物，核对主仓库
+与 gem5 的版本、host 架构、运行标识及文件摘要，然后加载构建时使用的容器镜像，
+运行恢复后的 MI300X 模型测试，并在该环境中编译 QEMU 和 Rust launcher。
+单独重跑失败的回归任务时，使用构建任务返回的固定 artifact ID，复用成功的构建。
+不同运行之间，输入标识匹配时可以一起恢复 gem5、静态库和原构建容器镜像。
+清单同时保留最初的编译来源和本轮产物发布标识。
+
+独立的镜像任务并行构建 x86 m5 工具，再执行指定版本 `gem5-resources` 的
+Packer/QEMU 配方，安装 Ubuntu 24.04、ROCm 7.0、amdgpu DKMS、PyTorch
+和 GPU 初始化服务，并提取配套的 Linux 6.8.0-124-generic 内核。压缩 QCOW2
+磁盘、内核、软件包清单和文件摘要组成一份可复用产物。任务在准备专用 runner 后
+检查实际可用磁盘空间。
+
+镜像缓存标识包含源码版本、配方内容、m5 二进制文件、QEMU 版本、构建程序及磁盘
+格式。复用时检查输入标识和全部产物摘要。将 `COSIM_ROCM_IMAGE_EPOCH` 从默认
+值 `1` 改为新值，可以重新解析软件包依赖并构建镜像。完成的镜像记录实际安装的
+Debian 和 Python 软件包版本。回归任务使用固定 artifact ID 下载两份构建产物，
+检查镜像结构，并在独立的 Ubuntu 24.04 x86_64/KVM runner 中执行测试。
+本地入口与构建输入见 [ROCm 镜像构建](rocm-image.md)。
+
+`just test-rocm-ci <output> <assets>` 使用 Rust launcher 和示例 host、device
+模板。`vector_add`、`gemm`、`reduction`、`transpose`、`prefix_scan` 和
+`histogram` 分别使用新启动的虚拟机和独立的磁盘 overlay。默认使用 4 GiB Linux
+内存、4 GiB VRAM 和两个虚拟 CPU。8 GiB 共享内存池能够放入托管 runner 的共享
+内存容量，并为模拟器保留内存。通过命令的 `--memory`、`--vram`、`--cpus` 参数
+可以修改这些设置。每个虚拟机检查初始化
+服务、amdgpu、KFD、render 设备以及 `rocminfo` 报告的 gfx942 agent，然后在
+`HSA_ENABLE_INTERRUPT=0` 环境下编译并执行指定的 HIP 程序。通过条件包括数值
+校验输出 PASS、程序以零状态退出、launcher 成功清理资源。程序打印 PASS 后发生
+超时仍然判定失败。遇到首个失败时停止执行，全部指定程序通过后，整体结果才为 PASS。
+
+`ROCm regression gate` 要求 gem5 构建、镜像构建和虚拟机测试都成功；在分支保护中将它设置为必需
+检查。`rocm-regression-*` 产物保留完整串口和模型日志、拓扑与命令清单、源码版本、
+二进制文件摘要、各程序结果以及 `matrix.tsv`。`gem5-runtime-*` 和 `rocm-guest-*`
+构建产物保留两天，
+执行证据保留十四天。手动触发 `Build` 可以再次运行完整流程。
+
+`just test-ci` 使用真实 shell 进程检查命令完成和错误处理。
+`just test-legacy-build-image` 使用主机实际运行的 Docker，检查所选构建镜像，
+确认镜像检查在创建构建产物之前完成。
+`just test-cosim-memory` 使用独立的 96 MiB 容器 tmpfs 和真实 QEMU 会话，检查容量
+预留、拒绝竞争会话以及容量释放。该命令使用已有的开发镜像。
+`just test-ci-integration` 使用 Rust launcher 和 QEMU 检查信号取消、容器输入
+关闭、进程清理及日志保留。
+`just check-ci` 使用 actionlint 检查工作流的依赖关系。
+
 ## 与 QEMU checkpatch.pl 的差异
 
 `scripts/checkpatch.pl` 复制自 QEMU 提交 `615ece3c406b262996e569f29ea6eed0d81c4d8d`，并包含以下 cosim-gpu 修改：

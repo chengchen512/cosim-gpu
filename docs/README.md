@@ -9,6 +9,7 @@ Documentation is available in two languages:
 
 | Document | 中文 | English |
 |----------|------|---------|
+| Topology and Runtime | [拓扑与运行管理](zh/topology.md) | [Topology and Runtime](en/topology.md) |
 | Rust Guidelines | [Rust 开发规范](zh/guidelines.md) | [Rust Guidelines](en/guidelines.md) |
 | Getting Started | [快速入门](zh/getting-started.md) | [Getting Started](en/getting-started.md) |
 | Architecture | [架构文档](zh/architecture.md) | [Architecture](en/architecture.md) |
