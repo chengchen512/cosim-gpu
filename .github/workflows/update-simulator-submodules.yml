@@ -1,0 +1,68 @@
+# SPDX-License-Identifier: Apache-2.0
+
+name: Update QEMU and gem5 submodules
+
+on:
+  schedule:
+    - cron: '43 6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: update-simulator-submodules
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          submodules: false
+
+      - name: Fetch configured QEMU and gem5 branches
+        id: submodules
+        run: |
+          git config --global url.https://github.com/.insteadOf git@github.com:
+          git submodule update --init --remote --checkout qemu gem5
+          if git diff --quiet -- qemu gem5; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create a scoped updater token
+        if: steps.submodules.outputs.changed == 'true'
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1
+        with:
+          client-id: ${{ vars.SUBMODULE_UPDATER_APP_CLIENT_ID }}
+          private-key: ${{ secrets.SUBMODULE_UPDATER_APP_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+
+      - name: Create or update the submodule pull request
+        if: steps.submodules.outputs.changed == 'true'
+        uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          add-paths: |
+            qemu
+            gem5
+          branch: automation/update-qemu-gem5-submodules
+          base: main
+          delete-branch: true
+          title: Update QEMU and gem5 submodules
+          body: |
+            Update the QEMU and gem5 gitlinks to the latest commits on their configured `gevico/cosim-gpu` branches.
+
+            This update leaves `gem5-resources` at its pinned ROCm image-build commit.
+          commit-message: |
+            build: update QEMU and gem5 submodules
+
+            Signed-off-by: Chao Liu <chao.liu.zevorn@gmail.com>
+          author: Chao Liu <chao.liu.zevorn@gmail.com>
+          committer: Chao Liu <chao.liu.zevorn@gmail.com>
