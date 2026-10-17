@@ -810,7 +810,7 @@ fn vfio_user_option_rom_is_checked_and_exposed() {
     };
     let qemu = workspace().join(format!("build/qemu/qemu-system-{arch}"));
     let source = root.join("topology.yaml");
-    let rom = root.join("guest, firmware.rom");
+    let rom = fs::canonicalize(root).unwrap().join("guest, firmware.rom");
     fs::write(
         &source,
         format!(
@@ -820,12 +820,13 @@ machines:
   - id: m0
     host: {{use: {host}, runtime: {{binary: {}}}}}
     devices:
-      - {{id: edu, use: {device}, pci: {{rom: 'guest, firmware.rom'}}}}
+      - {{id: edu, use: {device}, pci: {{rom: {rom}}}}}
 "#,
             samples().join("hosts/qemu.yaml").display(),
             samples().join(profile).display(),
             samples().join("devices/pci/qemu-edu.yaml").display(),
             serde_json::to_string(&qemu).unwrap(),
+            rom = serde_json::to_string(&rom).unwrap(),
         ),
     )
     .unwrap();
@@ -853,7 +854,8 @@ machines:
         assert!(
             output
                 .iter()
-                .any(|line| line.contains("read PCI option ROM"))
+                .any(|line| line.contains("read PCI option ROM")),
+            "unreadable PCI option ROM was not reported: {output:#?}"
         );
         assert!(!root.join("r").exists());
     }
