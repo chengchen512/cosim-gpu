@@ -172,7 +172,7 @@ host or in the development container according to `COSIM_ENV`.
 images and signals. `just test-cosim-vfio-user` runs a host with a QEMU
 vfio-user device after `just build-qemu`.
 Check gem5 edits with `just check-gem5-style` and the relevant simulator build.
-Use `just maintainers-check` for file ownership and `just checkpatch-file <patch>`
+Use `just check-maintainers` for file ownership and `just check-patch-file <patch>`
 for a draft patch.
 
 Retained tests must exercise meaningful behavior, be reusable, and detect

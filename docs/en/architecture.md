@@ -62,7 +62,7 @@ The workspace has three crates. `cosim-cli` depends on `cosim-topology` and
   validated types (`Topology`, `Machine`, `Host`, `Device`, `Disk`) and
   `ByteSize`.
 - `cosim-topology/src/loader.rs`, `resolve.rs`: imports, merge keys, template
-  inheritance, definition-relative paths, count expansion and validation.
+  inheritance, workspace-relative resource paths, count expansion and validation.
 - `cosim-topology/src/adapter/`: the `Adapter` enum with the `gem5-mi300x`,
   `qemu-device` and template adapters, host rendering and `Probe`.
 - `cosim-topology/src/layout.rs`: memory pools and guest physical ranges for a
@@ -89,9 +89,9 @@ MiniJinja renders argument templates, Schemars produces JSON Schema, and
 process-group signals, page size and filesystem statistics. Project Rust crates
 inherit `unsafe_code = "forbid"` from the workspace.
 
-Host architecture, CPU, memory, boot images and QEMU policy are supplied by
-YAML profiles. Planning derives shared-file offsets and connection paths for
-those profiles. gem5 and QEMU exchange vfio-user traffic directly. Rust
+Host architecture profiles such as `host-x86` and `host-arm`, CPU, memory,
+boot images and QEMU policy are supplied by YAML. Planning derives shared-file
+offsets and connection paths for those profiles. gem5 and QEMU exchange vfio-user traffic directly. Rust
 negotiates QMP for readiness and manages process resources. Switch nodes are a
 reserved part of the design; remote placement is described by configuration
 and rejected by the local executor before allocation.

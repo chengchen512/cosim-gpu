@@ -52,12 +52,12 @@ flowchart LR
 ## 快速入门
 
 ~~~bash
-just submodules
+just dev-submodules
 just dev-image        # 非 Linux 主机，或设置 COSIM_ENV=container
 
 # 构建工具链和客户机镜像流程，然后启动示例机器
 just build-all
-just run samples/machines/single-gpu.yaml
+just run-topology samples/machines/single-gpu.yaml --payload samples/payloads/ubuntu-rocm70.yaml
 ~~~
 
 ### 拓扑示例
@@ -74,16 +74,18 @@ just run samples/machines/single-gpu.yaml
 version: 1
 imports:
   - hosts/qemu.yaml
-  - hosts/ubuntu-24.yaml
   - devices/gpu/mi300x.yaml
   - devices/pci/qemu-edu.yaml
 machines:
   - id: m0
-    host: {use: ubuntu, memory: 32G}
+    host: {use: host-x86, memory: 32G}
     devices:
       - {use: mi300x, count: 2}
       - {use: qemu-edu}
 ~~~
+
+运行 `just run-topology` 时传入 `--payload samples/payloads/ubuntu-rocm70.yaml`，以加载客户机内核
+和磁盘输入。构建产物统一保存在仓库顶层的 `build/` 目录中。
 
 QEMU 设备示例使用 <code>just build-qemu</code> 构建的 QEMU，通过
 <code>x-vfio-user-server</code> 提供真实的 <code>edu</code> PCI 模型。
@@ -98,7 +100,7 @@ QEMU 设备示例使用 <code>just build-qemu</code> 构建的 QEMU，通过
 通过 <code>scripts/dev.sh</code> 执行。非 Linux 主机或设置
 <code>COSIM_ENV=container</code> 时，命令使用基于
 <code>scripts/Dockerfile.dev</code> 的临时容器。客户机镜像、HIP 应用以及
-<code>just launch</code> 和 <code>just test</code> 使用各自的 Docker 流程。
+<code>just run-launch</code> 和 <code>just test-gpu</code> 使用各自的 Docker 流程。
 
 ### Linux 宿主机运行会话
 
@@ -107,8 +109,8 @@ QEMU 设备示例使用 <code>just build-qemu</code> 构建的 QEMU，通过
 - x86_64 使用 <code>qemu-system-x86_64</code>；ARM64 使用
   <code>qemu-system-aarch64</code>。
 - <code>COSIM_HOST_ARCH</code> 用于选择构建架构，默认使用当前宿主机架构。
-  gem5 在 x86_64 上构建到 <code>build/x86_64/VEGA_X86</code>，在 ARM64 上构建到
-  <code>build/aarch64/VEGA_X86</code>。
+  gem5 在 x86_64 上构建到 <code>build/gem5/x86_64/VEGA_X86</code>，在 ARM64 上构建到
+  <code>build/gem5/aarch64/VEGA_X86</code>。
 
 ### MI300X 和 QEMU 设备模型
 

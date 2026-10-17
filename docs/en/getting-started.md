@@ -78,7 +78,7 @@ just build-gem5        # uses all host CPUs
 just build-gem5 2      # limit parallelism, e.g. when linking is OOM-killed
 ```
 
-Output: `gem5/build/<native>/VEGA_X86/gem5.opt`, where `<native>` is
+Output: `build/gem5/<native>/VEGA_X86/gem5.opt`, where `<native>` is
 `aarch64` or `x86_64`. Both native builds use `build_opts/VEGA_X86` for the
 simulated X86/VEGA models and GPU_VIPER configuration.
 
@@ -93,16 +93,16 @@ just build-qemu        # uses all host CPUs; `just build-qemu 4` limits jobs
 ```
 
 The recipe configures the host architecture's softmmu target with KVM and the
-vfio-user server in `qemu/build`, builds it, and checks that the binary
+vfio-user server in `build/qemu`, builds it, and checks that the binary
 provides `vfio-user-pci` and `x-vfio-user-server`. On a Linux host without the
 development container, QEMU's build dependencies (`ninja`, `pkg-config`,
 `glib-2.0`, `pixman`, `slirp`, `json-c`, `cmocka`, Python 3 with `venv`) must
 be installed.
 
-`just launch` and `just build-disk` use QEMU in this order:
+`just run-launch` and `just build-disk` use QEMU in this order:
 
 1. `--qemu-bin PATH` (launch) or the `QEMU_BIN` environment variable
-2. `qemu/build/qemu-system-x86_64` from the submodule build
+2. `build/qemu/qemu-system-x86_64` from the submodule build
 3. `qemu-system-x86_64` from `PATH` (a stock QEMU 10.1+ also works)
 
 ## Building the Disk Image
@@ -118,21 +118,20 @@ just build-disk
 
 If `gem5-resources` is not initialized, `just build-disk` initializes its submodule before the build begins.
 
-### Manual Build
+### Custom Image Build
 
 ```bash
-cd gem5-resources/src/x86-ubuntu-gpu-ml
-./build.sh -var "qemu_path=/usr/sbin/qemu-system-x86_64"
+just build-rocm-assets build/rocm-custom
 ```
 
-> On Arch Linux the QEMU path is `/usr/sbin/`; other distributions may use `/usr/bin/`.
+Set `PKR_VAR_*` environment variables to override the Packer image parameters.
 
 ### Output
 
 | Artifact | Path | Size |
 |---|---|---|
-| Disk Image | `gem5-resources/src/x86-ubuntu-gpu-ml/disk-image/x86-ubuntu-rocm70` | ~55 GB |
-| Kernel | `gem5-resources/src/x86-ubuntu-gpu-ml/vmlinux-rocm70` | ~64 MB |
+| Disk Image | `build/rocm-local-installed/disk` | ~55 GB |
+| Kernel | `build/rocm-local-installed/kernel` | ~64 MB |
 
 > **Tip (China network):** If the build hangs on package downloads, apply the China mirror patch to speed up `apt` inside the VM. See [Reference §7](reference.md#7-china-mirror-configuration) for instructions.
 
@@ -141,7 +140,7 @@ cd gem5-resources/src/x86-ubuntu-gpu-ml
 ### Option 1: One-click Launch (Recommended)
 
 ```bash
-just launch
+just run-launch
 ```
 
 This recipe runs `scripts/cosim_launch.sh`, which starts the gem5 container, waits for readiness, fixes permissions, starts QEMU, and enters the serial console in interactive mode.
@@ -149,12 +148,12 @@ This recipe runs `scripts/cosim_launch.sh`, which starts the gem5 container, wai
 Common options (passed through to `scripts/cosim_launch.sh`):
 
 ```bash
-just launch --gem5-debug MI300XCosim   # enable gem5 debug output
-just launch --vram-size 32GiB          # custom VRAM size
-just launch --num-cus 80               # custom CU count
+just run-launch --gem5-debug MI300XCosim   # enable gem5 debug output
+just run-launch --vram-size 32GiB          # custom VRAM size
+just run-launch --num-cus 80               # custom CU count
 ```
 
-Related recipes: `just preflight` lists leftover co-simulation resources, and `just clean-orphans` deletes them.
+Related recipes: `just run-preflight` lists leftover co-simulation resources, and `just run-clean-orphans` deletes them.
 
 ### Option 2: Manual Step-by-step Launch
 
@@ -163,12 +162,13 @@ Related recipes: `just preflight` lists leftover co-simulation resources, and `j
 ```bash
 docker run -d --name gem5-cosim \
     -v /path/to/cosim-gpu/gem5:/gem5 \
+    -v /path/to/cosim-gpu/build:/build \
     -v /tmp:/tmp \
     -v /dev/shm:/dev/shm \
     -w /gem5 \
     -e PYTHONPATH=/usr/lib/python3.12/lib-dynload \
     cosim-dev:local \
-    /gem5/build/x86_64/VEGA_X86/gem5.opt --listener-mode=on \
+    /build/gem5/x86_64/VEGA_X86/gem5.opt --listener-mode=on \
     /gem5/configs/example/gpufs/mi300_cosim.py \
     --socket-path=/tmp/gem5-mi300x.sock \
     --shmem-path=/mi300x-vram \
@@ -216,9 +216,9 @@ qemu-system-x86_64 \
     -m 8G -smp 4 \
     -object memory-backend-file,id=mem0,size=8G,mem-path=/dev/shm/cosim-guest-ram,share=on \
     -numa node,memdev=mem0 \
-    -kernel /home/zevorn/cosim/gem5-resources/src/x86-ubuntu-gpu-ml/vmlinux-rocm70 \
+    -kernel "$PWD/build/rocm-local-installed/kernel" \
     -append "console=ttyS0,115200 root=/dev/vda1 modprobe.blacklist=amdgpu" \
-    -drive file=/home/zevorn/cosim/gem5-resources/src/x86-ubuntu-gpu-ml/disk-image/x86-ubuntu-rocm70,format=raw,if=virtio \
+    -drive "file=$PWD/build/rocm-local-installed/disk,format=raw,if=virtio" \
     -device 'vfio-user-pci,socket={"type":"unix","path":"/tmp/gem5-mi300x.sock"}' \
     -nographic -no-reboot
 ```
@@ -456,7 +456,7 @@ PASSED!
 You can also use the `square` test program included in gem5-resources. Compile it on the host:
 
 ```bash
-just build-app square
+just build-gpu-app square
 ```
 
 Then copy the compiled binary into the guest (via `scp -P 2222` or by mounting the disk image) and run it:
@@ -496,14 +496,13 @@ The co-simulation workflow described above uses QEMU for fast KVM-accelerated bo
 **2. Build a GPU test application:**
 
 ```bash
-just build-app square
+just build-gpu-app square
 ```
 
 **3. Run the simulation:**
 
 ```bash
-just run-fs \
-    ../gem5-resources/src/gpu/square/bin.default/square.default
+just run-gem5-fs build/apps/square/square.default
 ```
 
 > **Important:** The `--app` parameter must always be specified. Without it, the driver is never loaded inside the guest.

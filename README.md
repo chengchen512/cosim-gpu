@@ -53,12 +53,12 @@ timing.
 ## Quick start
 
 ~~~bash
-just submodules
+just dev-submodules
 just dev-image        # Non-Linux hosts, or set COSIM_ENV=container
 
 # Build the toolchain and guest-image workflow, then start a sample machine
 just build-all
-just run samples/machines/single-gpu.yaml
+just run-topology samples/machines/single-gpu.yaml --payload samples/payloads/ubuntu-rocm70.yaml
 ~~~
 
 ### Sample topologies
@@ -75,16 +75,18 @@ just run samples/machines/single-gpu.yaml
 version: 1
 imports:
   - hosts/qemu.yaml
-  - hosts/ubuntu-24.yaml
   - devices/gpu/mi300x.yaml
   - devices/pci/qemu-edu.yaml
 machines:
   - id: m0
-    host: {use: ubuntu, memory: 32G}
+    host: {use: host-x86, memory: 32G}
     devices:
       - {use: mi300x, count: 2}
       - {use: qemu-edu}
 ~~~
+
+Pass `--payload samples/payloads/ubuntu-rocm70.yaml` to `just run-topology` to attach the
+guest kernel and disk inputs. Build outputs are stored under `build/`.
 
 The QEMU device example serves the real <code>edu</code> PCI model through
 <code>x-vfio-user-server</code> from the QEMU built by <code>just build-qemu</code>.
@@ -99,7 +101,7 @@ Use Rust 1.95+, Cargo and just for the launcher. Build recipes for QEMU, gem5,
 m5, topology runs and Rust checks use <code>scripts/dev.sh</code>. On non-Linux
 hosts or with <code>COSIM_ENV=container</code>, they use a temporary container
 from <code>scripts/Dockerfile.dev</code>. Guest-image and HIP builds, plus
-<code>just launch</code> and <code>just test</code>, use their own Docker workflows.
+<code>just run-launch</code> and <code>just test-gpu</code>, use their own Docker workflows.
 
 ### Linux host sessions
 
@@ -109,8 +111,8 @@ from <code>scripts/Dockerfile.dev</code>. Guest-image and HIP builds, plus
   <code>qemu-system-aarch64</code>.
 - <code>COSIM_HOST_ARCH</code> selects the build architecture and defaults to
   the current host. gem5 builds into
-  <code>build/x86_64/VEGA_X86</code> on x86_64 and
-  <code>build/aarch64/VEGA_X86</code> on ARM64.
+  <code>build/gem5/x86_64/VEGA_X86</code> on x86_64 and
+  <code>build/gem5/aarch64/VEGA_X86</code> on ARM64.
 
 ### MI300X and QEMU device models
 
