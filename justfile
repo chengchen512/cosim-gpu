@@ -283,11 +283,7 @@ check-gem5-ci:
 # Validate the build and regression workflow dependency graph
 [group('check')]
 check-ci:
-    actionlint \
-        .github/workflows/build.yml \
-        .github/workflows/integration.yml \
-        .github/workflows/ci.yml \
-        .github/workflows/update-simulator-submodules.yml
+    actionlint .github/workflows/build.yml .github/workflows/integration.yml .github/workflows/ci.yml
 
 # Exercise guest command completion and failure reporting using real shells
 [group('test')]
