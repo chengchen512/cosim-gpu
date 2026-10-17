@@ -11,7 +11,7 @@ use super::*;
 use crate::env::ExecEnv;
 
 fn directory() -> tempfile::TempDir {
-    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../target/tests");
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../build/tests/runtime");
     fs::create_dir_all(&root).unwrap();
     tempfile::Builder::new()
         .prefix("node")

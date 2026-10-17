@@ -31,18 +31,20 @@ flowchart LR
 version: 1
 imports:
   - hosts/qemu.yaml
-  - hosts/ubuntu-24.yaml
   - devices/gpu/mi300x.yaml
   - devices/pci/qemu-edu.yaml
 machines:
   - id: m0
-    host: {use: ubuntu, memory: 32G}
+    host: {use: host-x86, memory: 32G}
     devices:
       - {use: mi300x, count: 2}
       - {use: qemu-edu, count: 2}
 ```
 
-未知字段会报错。`cosim schema` 输出该格式的 JSON Schema。
+未知字段会报错。`cosim schema` 输出该格式的 JSON Schema。客户机启动和存储输入单独
+保存在 payload 文档中。运行 `validate`、`plan` 或 `run` 时，通过
+`--payload samples/payloads/ubuntu-rocm7_0.yaml` 选择；一个 payload 会应用于拓扑中的
+每台机器。
 
 ### 导入与模板
 
@@ -62,10 +64,12 @@ flowchart LR
     M --> C[clusters]
 ```
 
-相对路径在定义它的文件中解析，包括含有 `/` 的可执行文件、设备 `config` 和 `pci.rom`、
-`boot.kernel`、`boot.initrd`，以及磁盘的 `path` 和 `backing`。路径中的 `..` 保持原样，
-由文件系统在解析前面的符号链接之后再处理。不含 `/` 的可执行文件名称在生成计划时从
-`PATH` 中查找。
+资源路径相对于工作区根目录解析，包括含有 `/` 的可执行文件、设备 `config` 和
+`pci.rom`、payload 的 `boot.kernel` 和 `boot.initrd`，以及磁盘的 `path` 和 `backing`。
+相对路径不能包含 `..`；绝对路径可以使用。不含 `/` 的可执行文件名称在生成计划时从
+`PATH` 中查找。`scripts/dev.sh` 会将 `COSIM_WORKSPACE` 设置为仓库根目录。直接运行
+`cosim` 时默认使用当前目录；可以设置 `COSIM_WORKSPACE` 选择其他工作区。YAML 资源值
+直接写 `build/qemu/qemu-system-x86_64` 这类路径，不需要添加工作区变量前缀。
 
 ### 机器与标识符
 
@@ -82,19 +86,25 @@ flowchart LR
 
 host 声明适配器 `kind`、`runtime.binary` 和 `runtime.env`、`memory`、`cpus`、
 `accel` 和 `machine`。可选字段包括 `cpu`、`display`、`monitor`、`no_reboot`、
-`memory_align`、`memory_map`、`boot`、`disks`、`snapshot`、`serial` 和 `args`。
+`memory_align`、`memory_map`、`serial` 和 `args`。
 
 - `samples/hosts/qemu.yaml` 声明 `qemu-host` kind。它的命令模板绑定内存池，提供
   QMP 和串口，先在插槽 `0x10`-`0x17` 为每个设备分配独立的 PCIe root port，再挂载
   磁盘，由 QEMU 把磁盘放在剩余插槽中。该 kind 声明 `max_devices: 64`，一台机器的
   设备数量不能超过其 host kind 的 `max_devices`。
-- `q35-host` 在 `memory_map` 中描述 x86_64 的 PCI 空洞；`aarch64-host` 把内存放在
+- `host-x86` 在 `memory_map` 中描述 x86_64 的 PCI 空洞；`host-arm` 把内存放在
   `0x40000000`。`memory_map` 是 MiniJinja 模板，接收 `host` 和 `ram.size`，渲染出
   有序、互不重叠且正好覆盖 `memory` 的 `{start, size}` 区间。
-- `boot.kernel` 启用直接内核启动，可以带 `initrd` 和 `cmdline`；设备可以追加
-  `guest_hints.cmdline`。
+- 当前 QEMU host profile 支持 x86_64 和 ARM64；构建 recipe 还没有 RISC-V host profile。
 - `serial.wait_for` 增加串口就绪标记；`serial.timeout` 以秒为单位设置该标记的
   截止时间，从 host 启动时开始计算。
+
+### Payload 与磁盘
+
+独立的 payload YAML 可以包含 `boot`（`kernel`、`initrd` 和 `cmdline`）、`disks` 和
+`snapshot` 字段。一个 payload 会应用于拓扑中的每台机器。仅描述硬件的拓扑可以省略
+payload；包含 `guest_hints.cmdline` 的设备必须使用包含 `boot.kernel` 的 payload。
+`boot.kernel` 启用直接内核启动；host profile 只描述硬件和 QEMU 设置。
 
 ### 设备
 
@@ -119,7 +129,7 @@ vfio-user 客户端的 `romfile`，通过该设备的 ROM BAR 提供文件内容
 
 设备模板接收 `id`、`machine`、`socket`、`pool`、`ram`、`regions`、`guest_ranges`、
 `args`、`config`、`model`、`run_dir` 和 `node_dir`。host 模板接收 `host`、`machine`、
-`pool`、`ram`、`guest_ranges`、`disks`、`devices`、`qmp`、`serial`、`serial_log`、
+`pool`、`ram`、`guest_ranges`、`boot`、`disks`、`devices`、`qmp`、`serial`、`serial_log`、
 `cmdline`、`run_dir` 和 `node_dir`。区域提供 `offset`、`size` 和 `align`。模板中的
 未定义值会报错。
 
@@ -145,7 +155,7 @@ QEMU 设备服务端通过 vfio-user DMA 映射获得客户机内存。
 
 - `readonly: true` 以只读方式打开源镜像。
 - `readonly: false` 要求同时写出 `shared: false`。这类磁盘直接写入 `path`；磁盘声明
-  `backing` 或 host 设置 `snapshot: true` 时，改为在会话目录中为每台机器写入一个
+  `backing` 或 payload 设置 `snapshot: true` 时，改为在会话目录中为每台机器写入一个
   qcow2 overlay。
 - 未写出 `readonly` 的磁盘在会话目录中为每台机器写入一个 qcow2 overlay。
   `shared: true` 要求 `readonly: true`。
@@ -240,7 +250,7 @@ sequenceDiagram
   的全部进程。
 - 除 `--tty` 模式外，`dev.sh` 在 Docker 客户端运行期间保持容器的标准输入打开，并设置
   `COSIM_STDIN_LIFELINE=1`，客户端消失时 launcher 随之停止。
-- Cargo 输出写入 `target/container`，缓存写入 `target/dev-cache`。
+- Cargo 输出和缓存都写入仓库顶层的 `build/` 目录。
 - `just dev-shell` 在临时容器中打开 shell。每个容器命名为 `cosim-dev-<random>`，
   可以用 `docker exec` 进入。
 
@@ -249,13 +259,13 @@ sequenceDiagram
 ```bash
 just dev-image                       # 非 Linux 系统，或设置 COSIM_ENV=container 时
 just build-cosim
-just cosim validate samples/machines/gpu-8.yaml --assets
-just cosim plan samples/machines/mixed-models.yaml
-just cosim graph samples/clusters/cluster-4x8.yaml
-just cosim schema
-just run samples/machines/single-gpu.yaml
-just run-dev samples/machines/host-only.yaml --run-for 1
-just cosim clean .cosim/<name>
+just run-cli validate samples/machines/gpu-8.yaml --payload samples/payloads/ubuntu-rocm7_0.yaml --assets
+just run-cli plan samples/machines/mixed-models.yaml --payload samples/payloads/ubuntu-rocm7_0.yaml
+just run-cli graph samples/clusters/cluster-4x8.yaml
+just run-cli schema
+just run-topology samples/machines/single-gpu.yaml --payload samples/payloads/ubuntu-rocm7_0.yaml
+just run-topology-dev samples/machines/host-only.yaml --run-for 1
+just run-cli clean .cosim/<name>
 just check-cosim
 just test-cosim-integration
 just build-qemu && just test-cosim-vfio-user

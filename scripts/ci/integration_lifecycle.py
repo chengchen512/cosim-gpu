@@ -14,13 +14,15 @@ import uuid
 import yaml
 
 from ci_lifecycle import Lifecycle
-from run_rocm import Inputs, archive, stop, topology
+from run_rocm import Inputs, archive, payload, stop, topology
 from runtime_artifact import ROOT
 
 
 class LauncherLifecycleTests(unittest.TestCase):
     def test_rocm_plan_respects_runner_budget_and_external_parameters(self):
-        launcher = Path(os.environ.get("CARGO_TARGET_DIR", ROOT / "target"))
+        launcher = Path(os.environ.get(
+            "CARGO_TARGET_DIR", ROOT / "build/cargo/host"
+        ))
         launcher = launcher / "release/cosim"
         session_parent = ROOT / ".cosim"
         session_parent.mkdir(exist_ok=True)
@@ -34,16 +36,21 @@ class LauncherLifecycleTests(unittest.TestCase):
                 with self.subTest(options=options):
                     inputs = Inputs(
                         output=directory, assets=directory, launcher=launcher,
-                        gem5=ROOT / "gem5/build/x86_64/VEGA_X86/gem5.opt",
-                        qemu=ROOT / "qemu/build/qemu-system-x86_64",
+                        gem5=ROOT / "build/gem5/x86_64/VEGA_X86/gem5.opt",
+                        qemu=ROOT / "build/qemu/qemu-system-x86_64",
                         boot_timeout=300, test_timeout=300, **options,
                     )
                     config = directory / "topology.yaml"
                     config.write_text(yaml.safe_dump(
-                        topology(inputs, directory, "qcow2")
+                        topology(inputs, directory)
+                    ))
+                    payload_path = directory / "payload.yaml"
+                    payload_path.write_text(yaml.safe_dump(
+                        payload(inputs, "qcow2")
                     ))
                     plan = json.loads(subprocess.check_output([
                         str(launcher), "plan", str(config),
+                        "--payload", str(payload_path),
                         "--run-dir", str(directory / "run"),
                     ]))
                     self.assertLessEqual(
@@ -57,9 +64,14 @@ class LauncherLifecycleTests(unittest.TestCase):
                     )
 
     def exercise(self, close_input: bool) -> None:
-        launcher = Path(os.environ.get("CARGO_TARGET_DIR", ROOT / "target"))
+        launcher = Path(os.environ.get(
+            "CARGO_TARGET_DIR", ROOT / "build/cargo/host"
+        ))
         launcher = launcher / "release/cosim"
-        profile = "tcg-aarch64" if platform.machine() == "aarch64" else "tcg"
+        if platform.machine() == "aarch64":
+            profile = "host-arm-tcg"
+        else:
+            profile = "host-x86-tcg"
         output = ROOT / "artifacts/ci-check" / uuid.uuid4().hex[:8]
         output.mkdir(parents=True)
         session_parent = ROOT / ".cosim"

@@ -67,7 +67,7 @@
 #         Plain-English description of the area.
 #
 # Every area needs 'files', 'files-regex' or 'file-groups'. Every tracked
-# file must belong to at least one area; `just maintainers-check` enforces
+# file must belong to at least one area; `just check-maintainers` enforces
 # this in CI.
 #
 # Workflow

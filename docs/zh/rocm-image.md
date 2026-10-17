@@ -38,16 +38,17 @@ unzip、Perl 的 shasum、binutils、SCons 和 C++ 编译器，并能够访问 C
 AMD、HashiCorp 和 PyTorch 的软件服务。原生构建入口为：
 
 ```bash
-COSIM_ENV=host just build-rocm-assets artifacts/rocm-assets
-COSIM_ENV=host just test-rocm-assets artifacts/rocm-assets
+COSIM_ENV=host just build-rocm-assets
+COSIM_ENV=host just test-rocm-assets
 ```
 
 这个入口先从指定 gem5 版本构建 m5，再将受版本控制的配方文件复制到构建目录，
 调用其 `build.sh`，完成完整性检查后发布产物。每个输出目录对应确定的输入标识；
 不同输入使用不同输出目录。输入匹配的完整产物通过验证后可以复用。
 
-`just build-disk` 在 `artifacts/rocm-local` 生成 raw 产物，并在标准示例使用的
-磁盘和内核路径安装独立副本。本地磁盘允许旧启动程序写入，可复用产物保留初始内容。
+`just build-disk` 在 `build/rocm-local` 生成 raw 产物，并在
+`build/rocm-local-installed` 中为标准示例安装独立副本。本地磁盘允许旧启动程序写入，
+可复用产物保留初始内容。
 支持 reflink 的文件系统共享初始存储；其他文件系统需要为安装副本提供额外空间。
 已有本地文件会保留。
 `just check-rocm-image <新目录>` 构建 m5，并使用真实 Packer 插件检查完整配置。

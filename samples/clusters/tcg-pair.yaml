@@ -3,4 +3,4 @@ version: 1
 imports:
   - machines/host-only.yaml
 machines:
-  - {id: m, use: tcg-node, count: 2}
+  - {id: m, use: host-x86-node, count: 2}

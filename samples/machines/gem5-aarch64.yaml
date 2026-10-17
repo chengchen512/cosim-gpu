@@ -3,13 +3,13 @@
 version: 1
 imports:
   - hosts/qemu.yaml
-  - hosts/tcg-aarch64.yaml
+  - hosts/host-arm-tcg.yaml
   - devices/gpu/mi300x.yaml
 machines:
   - id: m0
     host:
-      use: tcg-aarch64
-      runtime: {binary: ../../qemu/build/qemu-system-aarch64}
+      use: host-arm-tcg
+      runtime: {binary: build/qemu/qemu-system-aarch64}
       memory: 512M
     devices:
       - use: mi300x-aarch64

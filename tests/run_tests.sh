@@ -10,7 +10,7 @@
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-BUILD_DIR="${SCRIPT_DIR}/build"
+BUILD_DIR="${BUILD_DIR:-${SCRIPT_DIR}/../build/tests}"
 FILTER=""
 JSON=0
 TEST_TIMEOUT_SECS="${TEST_TIMEOUT_SECS:-60}"

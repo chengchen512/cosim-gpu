@@ -40,6 +40,6 @@ hipcc --version
 cp -r /mnt/cosim-ci/kernels /mnt/cosim-ci/common /root/cosim-ci/
 cp /mnt/cosim-ci/Makefile /root/cosim-ci/
 cd /root/cosim-ci
-timeout --kill-after=10 300 make -j1 "build/$program"
+timeout --kill-after=10 300 make -j1 "BUILDDIR=build" "build/$program"
 sha256sum "kernels/$program.cpp" "build/$program"
 timeout --kill-after=10 "$test_timeout" "./build/$program"

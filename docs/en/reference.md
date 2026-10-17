@@ -106,9 +106,9 @@ console=ttyS0,115200 root=/dev/vda1 modprobe.blacklist=amdgpu
 
 | Artifact | Path | Size |
 |----------|------|------|
-| gem5 binary | `gem5/build/<native>/VEGA_X86/gem5.opt` | Depends on build options |
-| Disk image | `../gem5-resources/src/x86-ubuntu-gpu-ml/disk-image/x86-ubuntu-rocm70` | ~55 GB |
-| Kernel | `../gem5-resources/src/x86-ubuntu-gpu-ml/vmlinux-rocm70` | ~64 MB |
+| gem5 binary | `build/gem5/<native>/VEGA_X86/gem5.opt` | Depends on build options |
+| Disk image | `build/rocm-local-installed/disk` | ~55 GB |
+| Kernel | `build/rocm-local-installed/kernel` | ~64 MB |
 | QEMU binary | `qemu-system-x86_64` from the host `PATH` | -- |
 
 ---
@@ -300,9 +300,9 @@ The driver checks `(amdgpu_ip_block_mask & (1 << i))` where `i` is the discovery
 Usage:
 
 ```bash
-just launch --gem5-debug MI300XCosim
+just run-launch --gem5-debug MI300XCosim
 # or manual:
-build/x86_64/VEGA_X86/gem5.opt --debug-flags=MI300XCosim,AMDGPUDevice ...
+build/gem5/x86_64/VEGA_X86/gem5.opt --debug-flags=MI300XCosim,AMDGPUDevice ...
 ```
 
 ### Log Inspection Commands
@@ -325,7 +325,7 @@ tail -f m5out/board.pc.com_1.device
 
 ```bash
 # Delete stale object file, then rebuild
-rm -f gem5/build/x86_64/VEGA_X86/dev/amdgpu/<file>.o
+rm -f build/gem5/x86_64/VEGA_X86/dev/amdgpu/<file>.o
 just build-gem5 1
 ```
 

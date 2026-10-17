@@ -106,9 +106,9 @@ console=ttyS0,115200 root=/dev/vda1 modprobe.blacklist=amdgpu
 
 | 产物 | 路径 | 大小 |
 |------|------|------|
-| gem5 二进制 | `gem5/build/<native>/VEGA_X86/gem5.opt` | 由构建配置决定 |
-| 磁盘镜像 | `../gem5-resources/src/x86-ubuntu-gpu-ml/disk-image/x86-ubuntu-rocm70` | 约 55 GB |
-| 内核 | `../gem5-resources/src/x86-ubuntu-gpu-ml/vmlinux-rocm70` | 约 64 MB |
+| gem5 二进制 | `build/gem5/<native>/VEGA_X86/gem5.opt` | 由构建配置决定 |
+| 磁盘镜像 | `build/rocm-local-installed/disk` | 约 55 GB |
+| 内核 | `build/rocm-local-installed/kernel` | 约 64 MB |
 | QEMU 二进制 | 宿主机 `PATH` 中的 `qemu-system-x86_64` | -- |
 
 ---
@@ -300,9 +300,9 @@ MI300X 检测顺序（ROCm 7.0 DKMS，来自 dmesg）：
 用法：
 
 ```bash
-just launch --gem5-debug MI300XCosim
+just run-launch --gem5-debug MI300XCosim
 # 或手动：
-build/x86_64/VEGA_X86/gem5.opt --debug-flags=MI300XCosim,AMDGPUDevice ...
+build/gem5/x86_64/VEGA_X86/gem5.opt --debug-flags=MI300XCosim,AMDGPUDevice ...
 ```
 
 ### 日志检查命令
@@ -325,7 +325,7 @@ tail -f m5out/board.pc.com_1.device
 
 ```bash
 # 删除过期的目标文件，然后重建
-rm -f gem5/build/x86_64/VEGA_X86/dev/amdgpu/<file>.o
+rm -f build/gem5/x86_64/VEGA_X86/dev/amdgpu/<file>.o
 just build-gem5 1
 ```
 

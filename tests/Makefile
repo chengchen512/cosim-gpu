@@ -1,6 +1,6 @@
 HIPCC    ?= hipcc
 HIPFLAGS ?= --offload-arch=gfx942 -O2
-BUILDDIR ?= build
+BUILDDIR ?= ../build/tests
 
 SOURCES := $(wildcard kernels/*.cpp)
 TARGETS := $(patsubst kernels/%.cpp,$(BUILDDIR)/%,$(SOURCES))

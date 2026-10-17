@@ -6,6 +6,9 @@ This page defines the patch requirements for the top-level cosim-gpu
 repository. Changes inside the `gem5` and `gem5-resources` submodules follow
 the rules of those repositories.
 
+The justfile uses `dev-`, `build-`, `run-`, `test-`, `check-`, `ci-` and `maint-`
+prefixes to group recipes by purpose. Run `just` to see the available commands.
+
 ## Patch Check Requirement
 
 Every non-merge commit submitted to cosim-gpu must pass
@@ -46,20 +49,20 @@ Check every commit on the current branch that is not yet on `origin/main`:
 
 ```bash
 git fetch origin
-just checkpatch
+just check-patch
 ```
 
 Check commits since a specific revision:
 
 ```bash
-just checkpatch <base-commit>
+just check-patch <base-commit>
 ```
 
-`just checkpatch` runs `scripts/check_patch.sh`, which prints only the commits
+`just check-patch` runs `scripts/check_patch.sh`, which prints only the commits
 that have problems, prefixed with the commit hash and the patch line number,
 and exits with a non-zero status when any commit has an error.
 
-`just check` runs `just checkpatch` together with ShellCheck and the
+`just check` runs `just check-patch` together with ShellCheck and the
 `MAINTAINERS.yml` check described below.
 
 Run `scripts/checkpatch.pl` directly for other inputs:
@@ -81,7 +84,7 @@ tree.
 
 ## Continuous Integration
 
-The `Checkpatch` job in `.github/workflows/ci.yml` runs `just checkpatch` on
+The `Checkpatch` job in `.github/workflows/ci.yml` runs `just check-patch` on
 every pull request to `main` and every push to `main`:
 
 | Event | Checked commits |
@@ -124,7 +127,7 @@ downloads both producer artifacts by immutable IDs, checks the image structure,
 and runs on a fresh Ubuntu 24.04 x86_64/KVM runner. See
 [ROCm image construction](rocm-image.md) for the local entry points and inputs.
 
-`just test-rocm-ci <output> <assets>` uses the Rust launcher and the sample
+`just test-rocm-regression <output> <assets>` uses the Rust launcher and the sample
 host/device templates. It boots a fresh guest with a private disk overlay for
 each program, using 4 GiB of guest RAM, 4 GiB of VRAM and two guest CPUs by
 default. The 8 GiB pool fits the hosted runner's shared-memory capacity and
@@ -202,9 +205,9 @@ pip install -r scripts/ci/requirements.txt
 Then query it through just:
 
 ```bash
-just maintainers scripts/cosim_launch.sh tests/   # areas for paths
-just maintainers-commits origin/main..            # areas touched by commits
-just maintainers-areas                            # all areas and maintainers
+just maint-paths scripts/cosim_launch.sh tests/   # areas for paths
+just maint-commits origin/main..                  # areas touched by commits
+just maint-areas                                  # all areas and maintainers
 ```
 
 `python3 scripts/get_maintainer.py --help` lists the other subcommands, such as
@@ -214,7 +217,7 @@ just maintainers-areas                            # all areas and maintainers
 
 | Check | Where | Fails when |
 |-------|-------|------------|
-| `just maintainers-check` | `Maintainers` job in `ci.yml` | `MAINTAINERS.yml` has an unknown key, a bad status, a malformed list, a glob that matches no file, a directory glob without a trailing `/`, an invalid regex, or a maintained area without maintainers; or a tracked file belongs to no area |
+| `just check-maintainers` | `Maintainers` job in `ci.yml` | `MAINTAINERS.yml` has an unknown key, a bad status, a malformed list, a glob that matches no file, a directory glob without a trailing `/`, an invalid regex, or a maintained area without maintainers; or a tracked file belongs to no area |
 | `scripts/ci/check_maintainer_changes.py` | `assigner.yml` | A pull request adds a maintainer or collaborator who lacks at least triage access to the repository |
 
 Every tracked file must belong to an area. When a commit adds a file outside the

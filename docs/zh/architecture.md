@@ -53,8 +53,8 @@ host 先于设备停止。
   和 `clean`；信号升级、标准输入生命线、事件输出和 verdict 行。
 - `cosim-topology/src/raw.rs`、`model.rs`、`size.rs`：解码得到的输入类型、校验后的
   类型（`Topology`、`Machine`、`Host`、`Device`、`Disk`）和 `ByteSize`。
-- `cosim-topology/src/loader.rs`、`resolve.rs`：导入、合并键、模板继承、相对于定义
-  文件的路径、数量展开和校验。
+- `cosim-topology/src/loader.rs`、`resolve.rs`：导入、合并键、模板继承、工作区相对
+  资源路径、数量展开和校验。
 - `cosim-topology/src/adapter/`：`Adapter` enum 及 `gem5-mi300x`、`qemu-device` 和
   模板适配器，host 参数渲染和 `Probe`。
 - `cosim-topology/src/layout.rs`：给定 `PageSize` 时的内存池和客户机物理地址区间。
@@ -78,7 +78,7 @@ Tokio 在单个线程上运行会话，`futures-util` 并发推进各进程节�
 信号、页大小和文件系统统计接口。项目的 Rust crate 从工作区继承
 `unsafe_code = "forbid"`。
 
-host 架构、CPU、内存、启动镜像和 QEMU 参数策略通过 YAML 配置输入。
+host-x86、host-arm 等架构 profile、CPU、内存、启动镜像和 QEMU 参数策略通过 YAML 配置。
 规划阶段据此计算共享文件偏移和连接路径。gem5 与 QEMU 直接交换 vfio-user 消息，
 Rust 通过 QMP 检查就绪状态并管理进程资源。交换机节点是设计中的预留部分；远程
 placement 可以在配置中描述，本地执行器会在分配资源前拒绝执行。

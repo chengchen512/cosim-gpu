@@ -19,12 +19,58 @@ const MAX_DEPTH: usize = 64;
 /// Loads a topology document with its imports and validates the result.
 ///
 /// Imports resolve against the importing file, then against `samples`.
-/// Relative paths resolve against the file that defines them. Only the
-/// top-level document contributes runnable machines.
+/// Relative resource paths resolve against the configured workspace root.
+/// Only the top-level document contributes runnable machines.
 pub fn load(path: &Path, samples: &Path) -> Result<Topology> {
+    let workspace = workspace_root()?;
+    load_with_workspace(path, samples, &workspace)
+}
+
+/// Loads a standalone boot and disk payload document.
+pub fn load_payload(path: &Path) -> Result<crate::model::Payload> {
+    let workspace = workspace_root()?;
+    load_payload_with_workspace(path, &workspace)
+}
+
+/// Loads a payload document with an explicit workspace root for its paths.
+pub fn load_payload_with_workspace(path: &Path, workspace: &Path) -> Result<crate::model::Payload> {
+    let workspace = fs::canonicalize(workspace)
+        .with_context(|| format!("resolve workspace {}", workspace.display()))?;
+    let source =
+        fs::canonicalize(path).with_context(|| format!("open payload {}", path.display()))?;
+    let text = fs::read_to_string(&source)
+        .with_context(|| format!("read payload {}", source.display()))?;
+    let mut yaml: serde_yaml_ng::Value =
+        serde_yaml_ng::from_str(&text).with_context(|| source.display().to_string())?;
+    yaml.apply_merge()
+        .with_context(|| format!("{}: YAML merge", source.display()))?;
+    let mut value: Value =
+        serde_yaml_ng::from_value(yaml).with_context(|| source.display().to_string())?;
+    resolve_paths(&mut value, &workspace)?;
+    let payload: raw::PayloadDocument =
+        serde_json::from_value(value).with_context(|| source.display().to_string())?;
+    resolve::payload(payload, source).with_context(|| path.display().to_string())
+}
+
+fn workspace_root() -> Result<PathBuf> {
+    match std::env::var_os("COSIM_WORKSPACE") {
+        Some(workspace) if !workspace.is_empty() => {
+            fs::canonicalize(PathBuf::from(workspace)).context("resolve COSIM_WORKSPACE")
+        }
+        Some(_) => bail!("COSIM_WORKSPACE must not be empty"),
+        None => std::env::current_dir().context("read the current workspace directory"),
+    }
+}
+
+/// Loads a topology with an explicit workspace root for path-valued fields.
+/// Relative resource paths resolve from this directory.
+pub fn load_with_workspace(path: &Path, samples: &Path, workspace: &Path) -> Result<Topology> {
+    let workspace = fs::canonicalize(workspace)
+        .with_context(|| format!("resolve workspace {}", workspace.display()))?;
     let source = fs::canonicalize(path).with_context(|| format!("open {}", path.display()))?;
     let mut loader = Loader {
         samples: std::path::absolute(samples)?,
+        workspace,
         active: Vec::new(),
         loaded: BTreeSet::new(),
         templates: BTreeMap::new(),
@@ -56,6 +102,7 @@ struct Definition {
 
 struct Loader {
     samples: PathBuf,
+    workspace: PathBuf,
     active: Vec<PathBuf>,
     loaded: BTreeSet<PathBuf>,
     templates: BTreeMap<String, Definition>,
@@ -103,7 +150,7 @@ impl Loader {
             .context("document has no parent directory")?
             .to_path_buf();
         for machine in &mut document.machines {
-            resolve_paths(machine, &directory);
+            resolve_paths(machine, &self.workspace)?;
         }
         if !self.loaded.insert(path.to_path_buf()) {
             return Ok(document);
@@ -115,7 +162,7 @@ impl Loader {
                 .with_context(|| format!("{} imports {name}", path.display()))?;
         }
         for (name, mut value) in std::mem::take(&mut document.templates) {
-            resolve_paths(&mut value, &directory);
+            resolve_paths(&mut value, &self.workspace)?;
             if let Some(previous) = self.templates.get(&name) {
                 bail!(
                     "duplicate template {name}: {} and {}",
@@ -264,48 +311,63 @@ fn merge(base: &mut Value, overlay: Value) {
     }
 }
 
-/// Makes relative paths absolute against the directory of the defining file.
+/// Resolves relative resource paths from the workspace root.
 ///
 /// Executables are resolved only when they contain a path separator; bare
 /// names are searched in `PATH` at execution.
-fn resolve_paths(value: &mut Value, directory: &Path) {
+fn resolve_paths(value: &mut Value, workspace: &Path) -> Result<()> {
     if let Some(host) = value.get_mut("host") {
-        resolve_paths(host, directory);
+        resolve_paths(host, workspace)?;
     }
     if let Some(devices) = value.get_mut("devices").and_then(Value::as_array_mut) {
         for device in devices {
-            resolve_paths(device, directory);
+            resolve_paths(device, workspace)?;
         }
     }
     if let Some(binary) = value.pointer_mut("/runtime/binary")
         && binary.as_str().is_some_and(|binary| binary.contains('/'))
     {
-        absolute(binary, directory);
+        absolute(binary, workspace)?;
     }
     for pointer in ["/config", "/pci/rom", "/boot/kernel", "/boot/initrd"] {
         if let Some(path) = value.pointer_mut(pointer) {
-            absolute(path, directory);
+            absolute(path, workspace)?;
         }
     }
     if let Some(disks) = value.get_mut("disks").and_then(Value::as_array_mut) {
         for disk in disks {
             for key in ["path", "backing"] {
                 if let Some(path) = disk.get_mut(key) {
-                    absolute(path, directory);
+                    absolute(path, workspace)?;
                 }
             }
         }
     }
+    Ok(())
 }
 
-/// Joins a relative path to the directory of its defining file.
-///
-/// `..` components stay for the filesystem to resolve: removing them in text
-/// would select a different file when the preceding component is a symbolic
-/// link.
-fn absolute(value: &mut Value, directory: &Path) {
-    if let Some(path) = value.as_str() {
-        let joined = directory.join(path).components().collect::<PathBuf>();
-        *value = Value::String(joined.to_string_lossy().into_owned());
-    }
+/// Resolves a resource path against the workspace or preserves an absolute path.
+/// Relative paths reject parent-directory traversal.
+fn absolute(value: &mut Value, workspace: &Path) -> Result<()> {
+    let path = value.as_str().context("path values must be strings")?;
+    ensure!(!path.is_empty(), "path values must not be empty");
+    ensure!(
+        !path.contains("${COSIM_WORKSPACE}"),
+        "resource paths must be workspace-relative without COSIM_WORKSPACE interpolation: {path}"
+    );
+    let source = Path::new(path);
+    let joined = if source.is_absolute() {
+        source.to_path_buf()
+    } else {
+        ensure!(
+            !source
+                .components()
+                .any(|component| component == std::path::Component::ParentDir),
+            "workspace-relative paths must not contain parent-directory traversal: {path}"
+        );
+        workspace.join(source)
+    };
+    let normalized = joined.components().collect::<PathBuf>();
+    *value = Value::String(normalized.to_string_lossy().into_owned());
+    Ok(())
 }

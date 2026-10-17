@@ -4,6 +4,8 @@
 
 本文规定 cosim-gpu 顶层仓库的补丁要求。`gem5` 和 `gem5-resources` 子模块中的修改遵守对应仓库的规则。
 
+justfile 使用 `dev-`、`build-`、`run-`、`test-`、`check-`、`ci-` 和 `maint-` 前缀区分命令用途。运行 `just` 可以查看可用命令。
+
 ## 补丁检查要求
 
 提交到 cosim-gpu 的每个非合并提交都必须通过 `scripts/checkpatch.pl` 检查，且不能出现错误。该脚本来自 QEMU 的 `scripts/checkpatch.pl`，cosim-gpu 采用它所检查的 QEMU 补丁风格：
@@ -26,18 +28,18 @@
 
 ```bash
 git fetch origin
-just checkpatch
+just check-patch
 ```
 
 检查指定版本之后的提交：
 
 ```bash
-just checkpatch <base-commit>
+just check-patch <base-commit>
 ```
 
-`just checkpatch` 运行 `scripts/check_patch.sh`。该脚本只输出存在问题的提交，每条报告以提交哈希和补丁行号开头；任一提交出现错误时，脚本以非零状态退出。
+`just check-patch` 运行 `scripts/check_patch.sh`。该脚本只输出存在问题的提交，每条报告以提交哈希和补丁行号开头；任一提交出现错误时，脚本以非零状态退出。
 
-`just check` 会同时运行 `just checkpatch`、ShellCheck 和下文介绍的 `MAINTAINERS.yml` 检查。
+`just check` 会同时运行 `just check-patch`、ShellCheck 和下文介绍的 `MAINTAINERS.yml` 检查。
 
 其他输入可以直接使用 `scripts/checkpatch.pl` 检查：
 
@@ -57,7 +59,7 @@ just checkpatch <base-commit>
 
 ## 持续集成
 
-`.github/workflows/ci.yml` 中的 `Checkpatch` 任务在每个指向 `main` 的拉取请求和每次推送到 `main` 时运行 `just checkpatch`：
+`.github/workflows/ci.yml` 中的 `Checkpatch` 任务在每个指向 `main` 的拉取请求和每次推送到 `main` 时运行 `just check-patch`：
 
 | 事件 | 检查的提交 |
 |------|------------|
@@ -92,7 +94,7 @@ Debian 和 Python 软件包版本。回归任务使用固定 artifact ID 下载�
 检查镜像结构，并在独立的 Ubuntu 24.04 x86_64/KVM runner 中执行测试。
 本地入口与构建输入见 [ROCm 镜像构建](rocm-image.md)。
 
-`just test-rocm-ci <output> <assets>` 使用 Rust launcher 和示例 host、device
+`just test-rocm-regression <output> <assets>` 使用 Rust launcher 和示例 host、device
 模板。`vector_add`、`gemm`、`reduction`、`transpose`、`prefix_scan` 和
 `histogram` 分别使用新启动的虚拟机和独立的磁盘 overlay。默认使用 4 GiB Linux
 内存、4 GiB VRAM 和两个虚拟 CPU。8 GiB 共享内存池能够放入托管 runner 的共享
@@ -151,9 +153,9 @@ pip install -r scripts/ci/requirements.txt
 然后通过 just 查询：
 
 ```bash
-just maintainers scripts/cosim_launch.sh tests/   # 查询路径所属领域
-just maintainers-commits origin/main..            # 查询提交涉及的领域
-just maintainers-areas                            # 列出全部领域和维护者
+just maint-paths scripts/cosim_launch.sh tests/   # 查询路径所属领域
+just maint-commits origin/main..                  # 查询提交涉及的领域
+just maint-areas                                  # 列出全部领域和维护者
 ```
 
 `python3 scripts/get_maintainer.py --help` 列出其他子命令，例如 `orphaned` 和 `count`。
@@ -162,7 +164,7 @@ just maintainers-areas                            # 列出全部领域和维护�
 
 | 检查 | 位置 | 失败条件 |
 |------|------|----------|
-| `just maintainers-check` | `ci.yml` 中的 `Maintainers` 任务 | `MAINTAINERS.yml` 出现未知字段、错误的状态值、格式错误的列表、不匹配任何文件的通配模式、缺少结尾 `/` 的目录通配模式、无效的正则表达式，或者处于 maintained 状态却没有维护者的领域；或者某个受版本控制的文件不属于任何领域 |
+| `just check-maintainers` | `ci.yml` 中的 `Maintainers` 任务 | `MAINTAINERS.yml` 出现未知字段、错误的状态值、格式错误的列表、不匹配任何文件的通配模式、缺少结尾 `/` 的目录通配模式、无效的正则表达式，或者处于 maintained 状态却没有维护者的领域；或者某个受版本控制的文件不属于任何领域 |
 | `scripts/ci/check_maintainer_changes.py` | `assigner.yml` | 拉取请求新增的维护者或协作者在仓库中没有 triage 及以上权限 |
 
 每个受版本控制的文件都必须属于某个领域。提交在现有领域之外新增文件时，在同一个提交中更新 `MAINTAINERS.yml`。

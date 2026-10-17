@@ -53,11 +53,11 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           artifact-ids: ${{ inputs.runtime-artifact }}
-          path: artifacts/ci-build
+          path: build/ci-build
           merge-multiple: true
 
       - name: Restore verified gem5 and development image
-        run: just ci-restore artifacts/ci-build
+        run: just ci-restore-gem5 build/ci-build
 
       - name: Verify competing session memory reservations
         run: just test-cosim-memory
@@ -68,13 +68,13 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           artifact-ids: ${{ inputs.guest-artifact }}
-          path: artifacts/rocm-assets
+          path: build/rocm-artifact-download
           merge-multiple: true
 
-      - name: Verify the paired disk, kernel and package manifest
+      - name: Verify and adopt the paired disk, kernel and package manifest
         env:
           IMAGE_KEY: ${{ inputs.image-key }}
-        run: just ci-verify-rocm-artifact artifacts/rocm-assets "$IMAGE_KEY"
+        run: just ci-adopt-rocm-artifact build/rocm-artifact-download build/rocm-assets "$IMAGE_KEY"
 
       - name: Build QEMU and Rust launcher
         run: |
@@ -85,7 +85,7 @@ jobs:
         run: just test-cosim-vfio-user
 
       - name: Run ROCm workloads through the Rust launcher
-        run: just test-rocm-ci artifacts/rocm-regression/guest artifacts/rocm-assets
+        run: just test-rocm-regression artifacts/rocm-regression/guest build/rocm-assets
 
       - name: Upload complete regression evidence
         if: always()
@@ -94,8 +94,8 @@ jobs:
           name: rocm-regression-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
             artifacts/rocm-regression/
-            artifacts/rocm-assets/manifest.json
-            artifacts/ci-build/manifest.json
+            build/rocm-assets/manifest.json
+            build/ci-build/manifest.json
             !artifacts/rocm-regression/**/*.sock
           if-no-files-found: warn
           retention-days: 14

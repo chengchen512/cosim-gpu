@@ -144,7 +144,7 @@ host 适配器必须绑定生成的内存池，并提供声明的 QMP 和串口�
 `just test-cosim-integration` 使用真实 QEMU 进程、磁盘镜像和信号运行会话。
 `just test-cosim-vfio-user` 在 `just build-qemu` 之后运行带有 QEMU vfio-user 设备的 host。
 gem5 修改使用 `just check-gem5-style` 和相应的模拟器构建进行检查。
-文件归属使用 `just maintainers-check` 检查，补丁草稿使用 `just checkpatch-file <patch>` 检查。
+文件归属使用 `just check-maintainers` 检查，补丁草稿使用 `just check-patch-file <patch>` 检查。
 
 保留的测试必须覆盖有意义的行为，可以重复使用，并能发现可能出现的回归。
 测试使用实际库、文件和进程，并报告观察到的结果。

@@ -2,12 +2,11 @@
 version: 1
 imports:
   - hosts/qemu.yaml
-  - hosts/ubuntu-24.yaml
   - devices/gpu/mi300x.yaml
   - devices/pci/qemu-edu.yaml
 machines:
   - id: m0
-    host: {use: ubuntu}
+    host: {use: host-x86}
     devices:
       - {use: mi300x, count: 2}
       - {use: qemu-edu, count: 2}

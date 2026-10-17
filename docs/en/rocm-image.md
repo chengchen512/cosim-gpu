@@ -42,8 +42,8 @@ compiler. The host needs access to Canonical, AMD, HashiCorp and PyTorch package
 services. The native image build entry point is:
 
 ```bash
-COSIM_ENV=host just build-rocm-assets artifacts/rocm-assets
-COSIM_ENV=host just test-rocm-assets artifacts/rocm-assets
+COSIM_ENV=host just build-rocm-assets
+COSIM_ENV=host just test-rocm-assets
 ```
 
 This entry builds m5 from the selected gem5 revision, stages the tracked recipe
@@ -51,8 +51,8 @@ files, invokes its `build.sh`, and publishes the bundle after integrity checks.
 An output directory belongs to one exact input identity. Different inputs use
 different output directories. Matching completed outputs are verified and reused.
 
-`just build-disk` creates a raw bundle at `artifacts/rocm-local` and installs
-separate copies at the disk/kernel paths used by the standard samples. The
+`just build-disk` creates a raw bundle at `build/rocm-local` and installs
+separate copies under `build/rocm-local-installed` for the standard samples. The
 local disk remains writable for the legacy launcher; the reusable bundle keeps
 its original contents. Filesystems that support reflinks share the initial
 storage; other filesystems need additional room for the installed copy.

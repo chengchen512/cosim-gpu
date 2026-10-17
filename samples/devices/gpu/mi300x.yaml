@@ -3,16 +3,16 @@ version: 1
 templates:
   mi300x:
     kind: gem5-mi300x
-    config: ../../../gem5/configs/example/gpufs/mi300_cosim.py
+    config: gem5/configs/example/gpufs/mi300_cosim.py
     runtime:
-      binary: ../../../gem5/build/x86_64/VEGA_X86/gem5.opt
+      binary: build/gem5/x86_64/VEGA_X86/gem5.opt
     memory_regions:
       - {name: vram, size: 16G, align: 2M}
     pci:
       vendor_id: 0x1002
       device_id: 0x74a0
       msix_vectors: 256
-      rom: ../../../gem5-resources/src/x86-ubuntu-gpu-ml/files/mi300.rom
+      rom: gem5-resources/src/x86-ubuntu-gpu-ml/files/mi300.rom
     args:
       num_compute_units: 40
       gem5_debug_flags: []
@@ -22,4 +22,4 @@ templates:
   mi300x-aarch64:
     use: mi300x
     runtime:
-      binary: ../../../gem5/build/aarch64/VEGA_X86/gem5.opt
+      binary: build/gem5/aarch64/VEGA_X86/gem5.opt

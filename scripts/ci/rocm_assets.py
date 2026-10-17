@@ -29,6 +29,23 @@ PRODUCTS = (
 )
 
 
+def find_m5_binary(workspace: Path, source: Path) -> Path | None:
+    for path in (
+        workspace / "build/m5/x86/out/m5",
+        source / "files/m5",
+    ):
+        if path.is_file():
+            return path
+    return None
+
+
+def m5_binary() -> Path:
+    path = find_m5_binary(ROOT, SOURCE)
+    if path is None:
+        raise RuntimeError("build the x86 m5 utility with just build-m5")
+    return path
+
+
 def tracked_recipe() -> list[Path]:
     names = subprocess.check_output([
         "git", "-C", str(RESOURCE), "ls-files", "-z", "--", str(RECIPE),
@@ -56,7 +73,7 @@ def inputs(disk_format: str) -> dict:
         "schema": 1, "architecture": "x86_64", "format": disk_format,
         "image_name": image_name,
         "recipe_sha256": digest.hexdigest(), "sources": revisions,
-        "m5_sha256": sha256(SOURCE / "files/m5"),
+        "m5_sha256": sha256(m5_binary()),
         "builder_sha256": sha256(Path(__file__)),
         "qemu_version": subprocess.check_output(
             [str(qemu_binary()), "--version"], text=True
@@ -77,7 +94,7 @@ def input_key(value: dict) -> str:
 
 def qemu_binary() -> Path:
     requested = os.environ.get("QEMU_BIN")
-    local = ROOT / "qemu/build/qemu-system-x86_64"
+    local = ROOT / "build/qemu/qemu-system-x86_64"
     if requested:
         selected = shutil.which(requested)
     elif local.is_file() and os.access(local, os.X_OK):
@@ -125,8 +142,8 @@ def stage_recipe(stage: Path) -> None:
         destination = stage / relative.relative_to(RECIPE)
         destination.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(RESOURCE / relative, destination)
-    m5 = SOURCE / "files/m5"
-    if m5.is_file():
+    m5 = find_m5_binary(ROOT, SOURCE)
+    if m5 is not None:
         shutil.copy2(m5, stage / "files/m5")
 
 
@@ -249,10 +266,11 @@ def build(output: Path, disk_format: str, lifecycle: Lifecycle) -> None:
 
 def install_local(output: Path) -> None:
     manifest = verify(output, inputs("raw"))
-    record = SOURCE / "disk-image/cosim-image.json"
+    install_dir = ROOT / "build/rocm-local-installed"
+    record = install_dir / "cosim-image.json"
     destinations = {
-        "kernel": SOURCE / "vmlinux-rocm70",
-        "disk": SOURCE / "disk-image/x86-ubuntu-rocm70",
+        "kernel": install_dir / "kernel",
+        "disk": install_dir / "disk",
     }
     if record.is_file():
         previous = json.loads(record.read_text())
@@ -302,7 +320,7 @@ def main() -> None:
         "key", "build", "verify", "validate", "syntax", "install-local",
     ))
     parser.add_argument("--output", type=Path,
-                        default=Path("artifacts/rocm-assets"))
+                        default=Path("build/rocm-assets"))
     parser.add_argument("--format", choices=("raw", "qcow2"), default="qcow2")
     args = parser.parse_args()
     output = args.output.resolve()

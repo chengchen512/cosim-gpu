@@ -75,7 +75,7 @@ just build-gem5        # 使用宿主机全部 CPU
 just build-gem5 2      # 限制并行度，例如链接阶段内存不足时
 ```
 
-产出：`gem5/build/<native>/VEGA_X86/gem5.opt`，其中 `<native>` 为
+产出：`build/gem5/<native>/VEGA_X86/gem5.opt`，其中 `<native>` 为
 `aarch64` 或 `x86_64`。两种构建均通过 `build_opts/VEGA_X86` 选择模拟的
 X86、VEGA 模型及 GPU_VIPER 配置。
 
@@ -87,12 +87,12 @@ X86、VEGA 模型及 GPU_VIPER 配置。
 just build-qemu        # 使用宿主机全部 CPU；`just build-qemu 4` 限制并行任务数
 ```
 
-该任务在 `qemu/build` 中为主机架构配置启用 KVM 和 vfio-user server 的 softmmu 目标，完成编译，并检查程序是否提供 `vfio-user-pci` 和 `x-vfio-user-server`。不使用开发容器的 Linux 主机需要安装 QEMU 的编译依赖（`ninja`、`pkg-config`、`glib-2.0`、`pixman`、`slirp`、`json-c`、`cmocka`，以及带 `venv` 的 Python 3）。
+该任务在 `build/qemu` 中为主机架构配置启用 KVM 和 vfio-user server 的 softmmu 目标，完成编译，并检查程序是否提供 `vfio-user-pci` 和 `x-vfio-user-server`。不使用开发容器的 Linux 主机需要安装 QEMU 的编译依赖（`ninja`、`pkg-config`、`glib-2.0`、`pixman`、`slirp`、`json-c`、`cmocka`，以及带 `venv` 的 Python 3）。
 
-`just launch` 和 `just build-disk` 按以下顺序选择 QEMU：
+`just run-launch` 和 `just build-disk` 按以下顺序选择 QEMU：
 
 1. `--qemu-bin PATH`（启动时）或环境变量 `QEMU_BIN`
-2. 子模块编译出的 `qemu/build/qemu-system-x86_64`
+2. 子模块编译出的 `build/qemu/qemu-system-x86_64`
 3. `PATH` 中的 `qemu-system-x86_64`（原版 QEMU 10.1+ 同样可用）
 
 ## 构建磁盘镜像
@@ -108,21 +108,20 @@ just build-disk
 
 若 `gem5-resources` 尚未初始化，`just build-disk` 会先初始化该子模块再开始构建。
 
-### 手动构建
+### 自定义镜像构建
 
 ```bash
-cd gem5-resources/src/x86-ubuntu-gpu-ml
-./build.sh -var "qemu_path=/usr/sbin/qemu-system-x86_64"
+just build-rocm-assets build/rocm-custom
 ```
 
-> Arch Linux 上 QEMU 路径为 `/usr/sbin/`，其他发行版可能是 `/usr/bin/`。
+设置 `PKR_VAR_*` 环境变量可以覆盖 Packer 镜像参数。
 
 ### 产出
 
 | 产物 | 路径 | 大小 |
 |---|---|---|
-| 磁盘镜像 | `gem5-resources/src/x86-ubuntu-gpu-ml/disk-image/x86-ubuntu-rocm70` | 约 55 GB |
-| 内核 | `gem5-resources/src/x86-ubuntu-gpu-ml/vmlinux-rocm70` | 约 64 MB |
+| 磁盘镜像 | `build/rocm-local-installed/disk` | 约 55 GB |
+| 内核 | `build/rocm-local-installed/kernel` | 约 64 MB |
 
 > **提示（国内网络）：** 如果构建过程中包下载卡住，可以应用国内镜像补丁加速 VM 内的 `apt`。详见[参考手册 §7](reference.md#7-国内镜像配置)。
 
@@ -131,7 +130,7 @@ cd gem5-resources/src/x86-ubuntu-gpu-ml
 ### 方式一：一键启动（推荐）
 
 ```bash
-just launch
+just run-launch
 ```
 
 该任务运行 `scripts/cosim_launch.sh`，自动完成以下所有步骤（启动 gem5 容器、等待就绪、修复权限、启动 QEMU），并以交互模式进入 QEMU 串口控制台。
@@ -139,12 +138,12 @@ just launch
 可用参数（传给 `scripts/cosim_launch.sh`）：
 
 ```bash
-just launch --gem5-debug MI300XCosim   # 开启 gem5 调试输出
-just launch --vram-size 32GiB          # 自定义 VRAM 大小
-just launch --num-cus 80               # 自定义 CU 数量
+just run-launch --gem5-debug MI300XCosim   # 开启 gem5 调试输出
+just run-launch --vram-size 32GiB          # 自定义 VRAM 大小
+just run-launch --num-cus 80               # 自定义 CU 数量
 ```
 
-相关任务：`just preflight` 列出残留的联合仿真资源，`just clean-orphans` 删除这些资源。
+相关任务：`just run-preflight` 列出残留的联合仿真资源，`just run-clean-orphans` 删除这些资源。
 
 ### 方式二：手动分步启动
 
@@ -153,12 +152,13 @@ just launch --num-cus 80               # 自定义 CU 数量
 ```bash
 docker run -d --name gem5-cosim \
     -v /path/to/cosim-gpu/gem5:/gem5 \
+    -v /path/to/cosim-gpu/build:/build \
     -v /tmp:/tmp \
     -v /dev/shm:/dev/shm \
     -w /gem5 \
     -e PYTHONPATH=/usr/lib/python3.12/lib-dynload \
     cosim-dev:local \
-    /gem5/build/x86_64/VEGA_X86/gem5.opt --listener-mode=on \
+    /build/gem5/x86_64/VEGA_X86/gem5.opt --listener-mode=on \
     /gem5/configs/example/gpufs/mi300_cosim.py \
     --socket-path=/tmp/gem5-mi300x.sock \
     --shmem-path=/mi300x-vram \
@@ -206,9 +206,9 @@ qemu-system-x86_64 \
     -m 8G -smp 4 \
     -object memory-backend-file,id=mem0,size=8G,mem-path=/dev/shm/cosim-guest-ram,share=on \
     -numa node,memdev=mem0 \
-    -kernel /home/zevorn/cosim/gem5-resources/src/x86-ubuntu-gpu-ml/vmlinux-rocm70 \
+    -kernel "$PWD/build/rocm-local-installed/kernel" \
     -append "console=ttyS0,115200 root=/dev/vda1 modprobe.blacklist=amdgpu" \
-    -drive file=/home/zevorn/cosim/gem5-resources/src/x86-ubuntu-gpu-ml/disk-image/x86-ubuntu-rocm70,format=raw,if=virtio \
+    -drive "file=$PWD/build/rocm-local-installed/disk,format=raw,if=virtio" \
     -device 'vfio-user-pci,socket={"type":"unix","path":"/tmp/gem5-mi300x.sock"}' \
     -nographic -no-reboot
 ```
@@ -446,7 +446,7 @@ PASSED!
 也可以使用 gem5-resources 自带的 `square` 测试程序。需要先在宿主机编译：
 
 ```bash
-just build-app square
+just build-gpu-app square
 ```
 
 然后将编译产物拷入客户机（通过 `scp -P 2222` 或直接挂载磁盘镜像），在客户机内运行：
@@ -486,14 +486,13 @@ PASSED!
 **2. 编译 GPU 测试应用：**
 
 ```bash
-just build-app square
+just build-gpu-app square
 ```
 
 **3. 运行仿真：**
 
 ```bash
-just run-fs \
-    ../gem5-resources/src/gpu/square/bin.default/square.default
+just run-gem5-fs build/apps/square/square.default
 ```
 
 > **重要：** 必须指定 `--app` 参数。不指定时，`readfile_contents` 为空字符串，驱动永远不会被加载。

@@ -34,18 +34,20 @@ and `machines`.
 version: 1
 imports:
   - hosts/qemu.yaml
-  - hosts/ubuntu-24.yaml
   - devices/gpu/mi300x.yaml
   - devices/pci/qemu-edu.yaml
 machines:
   - id: m0
-    host: {use: ubuntu, memory: 32G}
+    host: {use: host-x86, memory: 32G}
     devices:
       - {use: mi300x, count: 2}
       - {use: qemu-edu, count: 2}
 ```
 
 Unknown fields are errors. `cosim schema` prints the JSON Schema of the format.
+Guest boot and storage inputs live in a separate payload document. Select it
+with `--payload samples/payloads/ubuntu-rocm7_0.yaml` for `validate`, `plan` or
+`run`; the same payload applies to every machine in the topology.
 
 ### Imports and templates
 
@@ -68,11 +70,14 @@ flowchart LR
     M --> C[clusters]
 ```
 
-Relative paths are resolved in the file that defines them: executables that
-contain `/`, device `config` and `pci.rom`, `boot.kernel`, `boot.initrd`, and
-disk `path` and `backing`. `..` components stay in the path, so the filesystem
-resolves them after any symbolic link before them. Bare executable names are searched
-in `PATH` during planning.
+Resource paths are relative to the workspace root: executables containing `/`,
+device `config` and `pci.rom`, payload `boot.kernel` and `boot.initrd`, and disk
+`path` and `backing`. Relative paths cannot contain `..`; absolute paths are
+accepted. Bare executable names are searched in `PATH` during planning.
+`scripts/dev.sh` sets `COSIM_WORKSPACE` to the repository root. Direct `cosim`
+invocations use the current directory by default; set `COSIM_WORKSPACE` to
+select another workspace root. YAML resource values contain paths such as
+`build/qemu/qemu-system-x86_64` without a workspace variable prefix.
 
 ### Machines and identifiers
 
@@ -91,8 +96,7 @@ in `PATH` during planning.
 
 A host declares its adapter `kind`, `runtime.binary` and `runtime.env`,
 `memory`, `cpus`, `accel` and `machine`. Optional fields are `cpu`, `display`,
-`monitor`, `no_reboot`, `memory_align`, `memory_map`, `boot`, `disks`,
-`snapshot`, `serial` and `args`.
+`monitor`, `no_reboot`, `memory_align`, `memory_map`, `serial` and `args`.
 
 - `samples/hosts/qemu.yaml` declares the `qemu-host` kind. Its command
   template binds the memory pool, exposes QMP and the serial console, gives
@@ -100,14 +104,22 @@ A host declares its adapter `kind`, `runtime.binary` and `runtime.env`,
   disks, which QEMU places in the remaining slots.
   The kind declares `max_devices: 64`; a machine may not exceed the
   `max_devices` of its host kind.
-- `q35-host` describes the x86_64 PCI hole in `memory_map`; `aarch64-host`
+- `host-x86` describes the x86_64 PCI hole in `memory_map`; `host-arm`
   places RAM at `0x40000000`. `memory_map` is a MiniJinja template that
   receives `host` and `ram.size` and renders ordered, non-overlapping
   `{start, size}` ranges that cover `memory` exactly.
-- `boot.kernel` enables direct kernel boot with optional `initrd` and
-  `cmdline`; devices may append `guest_hints.cmdline`.
+- Current QEMU host profiles cover x86_64 and ARM64. The build recipes do not
+  yet support a RISC-V host profile.
 - `serial.wait_for` adds a serial readiness marker; `serial.timeout` gives
   it a deadline in seconds, measured from host start.
+
+### Payload and disks
+
+The separate payload YAML contains optional `boot` (`kernel`, `initrd`, and
+`cmdline`), `disks`, and `snapshot` fields. A payload is shared by all machines
+in a topology. Hardware-only topologies can omit it. A topology with a device
+`guest_hints.cmdline` requires a payload with `boot.kernel`. `boot.kernel`
+enables direct kernel boot; host profiles describe hardware and QEMU settings.
 
 ### Devices
 
@@ -135,7 +147,7 @@ file, and each device can override that path.
 
 Device templates receive `id`, `machine`, `socket`, `pool`, `ram`, `regions`,
 `guest_ranges`, `args`, `config`, `model`, `run_dir` and `node_dir`. Host
-templates receive `host`, `machine`, `pool`, `ram`, `guest_ranges`, `disks`,
+templates receive `host`, `machine`, `pool`, `ram`, `guest_ranges`, `boot`, `disks`,
 `devices`, `qmp`, `serial`, `serial_log`, `cmdline`, `run_dir` and
 `node_dir`. Regions expose `offset`, `size` and `align`. Undefined template
 values are errors.
@@ -166,7 +178,7 @@ Each disk declares exactly one of `path` or `backing`, a `format` (`raw` or
 - `readonly: true` opens the source read-only.
 - `readonly: false` requires `shared: false`. Such a disk writes `path`
   directly, or a per-machine qcow2 overlay in the session directory when the
-  disk declares `backing` or the host sets `snapshot: true`.
+  disk declares `backing` or the payload sets `snapshot: true`.
 - A disk without `readonly` writes a per-machine qcow2 overlay in the session
   directory. `shared: true` requires `readonly: true`.
 - `create: true` with `size` creates a missing `path` with `qemu-img`; the
@@ -281,7 +293,8 @@ use a temporary container:
 - Outside `--tty` mode, `dev.sh` keeps the container's standard input open
   while its Docker client runs and sets `COSIM_STDIN_LIFELINE=1`, so the
   launcher stops when the client disappears.
-- Cargo output goes to `target/container` and caches to `target/dev-cache`.
+- Build products, including Cargo output and caches, go under the repository's
+  top-level `build/` directory.
 - `just dev-shell` opens a shell in a temporary container. Each container is
   named `cosim-dev-<random>` for `docker exec`.
 
@@ -290,13 +303,13 @@ use a temporary container:
 ```bash
 just dev-image                       # outside Linux, or with COSIM_ENV=container
 just build-cosim
-just cosim validate samples/machines/gpu-8.yaml --assets
-just cosim plan samples/machines/mixed-models.yaml
-just cosim graph samples/clusters/cluster-4x8.yaml
-just cosim schema
-just run samples/machines/single-gpu.yaml
-just run-dev samples/machines/host-only.yaml --run-for 1
-just cosim clean .cosim/<name>
+just run-cli validate samples/machines/gpu-8.yaml --payload samples/payloads/ubuntu-rocm7_0.yaml --assets
+just run-cli plan samples/machines/mixed-models.yaml --payload samples/payloads/ubuntu-rocm7_0.yaml
+just run-cli graph samples/clusters/cluster-4x8.yaml
+just run-cli schema
+just run-topology samples/machines/single-gpu.yaml --payload samples/payloads/ubuntu-rocm7_0.yaml
+just run-topology-dev samples/machines/host-only.yaml --run-for 1
+just run-cli clean .cosim/<name>
 just check-cosim
 just test-cosim-integration
 just build-qemu && just test-cosim-vfio-user

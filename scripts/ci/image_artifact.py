@@ -82,6 +82,18 @@ def require_key(manifest: dict, key: str) -> None:
         raise ValueError("ROCm artifact does not match the requested inputs")
 
 
+def image_manifest_member(archive: zipfile.ZipFile) -> zipfile.ZipInfo | None:
+    for name in (
+        "build/rocm-assets/manifest.json",
+        "rocm-assets/manifest.json",
+    ):
+        try:
+            return archive.getinfo(name)
+        except KeyError:
+            continue
+    return None
+
+
 def find_image(
     key: str, scope: Scope, lifecycle: Lifecycle,
 ) -> PublishedImage | None:
@@ -111,9 +123,8 @@ def find_image(
         except ArtifactMissing:
             continue
         with zipfile.ZipFile(io.BytesIO(content)) as archive:
-            try:
-                member = archive.getinfo("rocm-assets/manifest.json")
-            except KeyError:
+            member = image_manifest_member(archive)
+            if member is None:
                 continue
             if member.file_size > 64 * 1024:
                 raise ValueError("ROCm artifact manifest exceeds 64 KiB")
@@ -127,10 +138,45 @@ def find_image(
     return None
 
 
-def verify_image(output: Path, key: str) -> None:
-    manifest = json.loads((output / "manifest.json").read_text())
+def image_bundle_root(download: Path) -> Path:
+    if download.is_symlink():
+        raise ValueError(
+            "ROCm artifact download directory must not be a symlink"
+        )
+    manifest = download / "manifest.json"
+    if manifest.is_file() and not manifest.is_symlink():
+        return download
+
+    manifests = [
+        path for path in download.rglob("manifest.json")
+        if path.is_file() and not path.is_symlink()
+    ]
+    if not manifests:
+        raise FileNotFoundError(
+            f"ROCm artifact manifest not found under {download}"
+        )
+    if len(manifests) != 1:
+        raise ValueError(
+            f"expected one ROCm artifact manifest under {download}, "
+            f"found {len(manifests)}"
+        )
+
+    bundle = manifests[0].parent
+    if bundle.is_symlink() or not bundle.resolve().is_relative_to(
+        download.resolve()
+    ):
+        raise ValueError(
+            "ROCm artifact manifest escapes its download directory"
+        )
+    return bundle
+
+
+def verify_image(output: Path, key: str) -> Path:
+    bundle = image_bundle_root(output)
+    manifest = json.loads((bundle / "manifest.json").read_text())
     require_key(manifest, key)
-    verify(output)
+    verify(bundle)
+    return bundle
 
 
 def record_selection(image: PublishedImage | None, record: Path) -> Path | None:
@@ -179,12 +225,12 @@ def main() -> None:
         if args.operation == "discard":
             discard_download(args.record)
         elif args.operation == "adopt":
-            verify_image(args.source, args.input_key)
+            bundle = verify_image(args.source, args.input_key)
             lifecycle.check()
             if args.output.exists() or args.output.is_symlink():
                 raise FileExistsError(args.output)
             args.output.parent.mkdir(parents=True, exist_ok=True)
-            args.source.rename(args.output)
+            bundle.rename(args.output)
         elif args.operation == "verify":
             verify_image(args.output, args.input_key)
         else:

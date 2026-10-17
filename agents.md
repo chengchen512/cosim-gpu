@@ -48,10 +48,10 @@ Use `just build-gem5 1` for gem5 linking if the host is OOM-killed.
 ## Launch
 
 ```bash
-just run samples/machines/single-gpu.yaml
-just launch
-just launch --gem5-debug MI300XCosim
-just test --all
+just run-topology samples/machines/single-gpu.yaml
+just run-launch
+just run-launch --gem5-debug MI300XCosim
+just test-gpu --all
 ```
 
 After guest boot, `cosim-gpu-setup.service` copies the ROM and loads `amdgpu`.
@@ -81,12 +81,12 @@ ip_block_mask=0x67 ppfeaturemask=0 dpm=0 audio=0 ras_enable=0 discovery=2
 ## Commit Rules
 
 - gem5: pre-commit hooks apply; use tags from `MAINTAINERS.yaml`.
-- Top-level cosim-gpu: every non-merge commit must pass `just checkpatch`
+- Top-level cosim-gpu: every non-merge commit must pass `just check-patch`
   (QEMU `checkpatch.pl` rules, enforced by the `Checkpatch` CI job). See
   `docs/en/contributing.md`.
 - Every tracked file must belong to an area in `MAINTAINERS.yml`; update it
   in the same commit that adds files outside existing areas, and run
-  `just maintainers-check`.
+  `just check-maintainers`.
 - Sign commits with `Signed-off-by` from `git config user.name` and
   `git config user.email`.
 

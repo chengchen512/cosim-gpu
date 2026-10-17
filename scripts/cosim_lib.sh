@@ -19,6 +19,29 @@ cosim_container_name() {
     echo "gem5-cosim-${run_id}"
 }
 
+cosim_gem5_build_dir() {
+    local workspace="$1"
+    local configured="$2"
+    local relative
+    case "$configured" in
+        "$workspace"/build/*) relative="${configured#"$workspace"/}" ;;
+        build/*) relative="$configured" ;;
+        *)
+            echo "GEM5_BUILD_DIR must be under" \
+                "$workspace/build: $configured" >&2
+            return 2
+            ;;
+    esac
+    case "/$relative/" in
+        *"/../"*)
+            echo "GEM5_BUILD_DIR must not contain" \
+                "parent traversal: $configured" >&2
+            return 2
+            ;;
+    esac
+    printf '%s\n' "$relative"
+}
+
 cosim_socket_path() {
     local run_id="$1"
     local gpu_id="${2:-0}"
