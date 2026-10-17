@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: Apache-2.0
+version: 1
+templates:
+  tcg-aarch64:
+    use: aarch64-host
+    runtime: {binary: qemu-system-aarch64}
+    memory: 64M
+    cpus: 1
+    cpu: cortex-a72
+    accel: tcg
+    args: [-S, -nodefaults]

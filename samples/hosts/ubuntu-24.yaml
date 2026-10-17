@@ -1,0 +1,21 @@
+# SPDX-License-Identifier: Apache-2.0
+version: 1
+templates:
+  ubuntu:
+    use: q35-host
+    runtime:
+      binary: ../../qemu/build/qemu-system-x86_64
+    accel: kvm
+    memory: 8G
+    cpus: 4
+    cpu: host
+    boot:
+      kernel: ../../gem5-resources/src/x86-ubuntu-gpu-ml/vmlinux-rocm70
+      cmdline: >-
+        console=ttyS0 root=/dev/vda1 rw nokaslr modprobe.blacklist=amdgpu
+    disks:
+      - id: root
+        backing: ../../gem5-resources/src/x86-ubuntu-gpu-ml/disk-image/x86-ubuntu-rocm70
+        format: raw
+        bus: virtio
+        boot: true

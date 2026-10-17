@@ -1,0 +1,28 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# Development environment for building and running cosim-gpu.
+# scripts/dev.sh starts a temporary container from this image with the
+# source tree mounted at its host path.
+
+FROM rust:1.95-slim-bookworm AS rust
+
+FROM ubuntu:24.04
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        build-essential ca-certificates cmake curl git m4 ninja-build \
+        pkg-config pre-commit python3-dev python3-pip python3-ply \
+        python3-psutil python3-pydot python3-venv python3-pexpect python3-yaml scons \
+        zlib1g-dev libprotobuf-dev protobuf-compiler libprotoc-dev \
+        libgoogle-perftools-dev libboost-all-dev libhdf5-dev \
+        libcapstone-dev libpng-dev libelf-dev libjson-c-dev \
+        libglib2.0-dev libpixman-1-dev libslirp-dev libcmocka-dev \
+        libfdt-dev qemu-system-arm qemu-system-x86 qemu-utils \
+        shellcheck util-linux \
+    && rm -rf /var/lib/apt/lists/*
+COPY --from=rust /usr/local/rustup /usr/local/rustup
+COPY --from=rust /usr/local/cargo /usr/local/cargo
+ENV RUSTUP_HOME=/usr/local/rustup \
+    CARGO_HOME=/usr/local/cargo \
+    PATH=/usr/local/cargo/bin:${PATH}
+RUN rustup component add clippy rustfmt \
+    && chmod -R a+rX /usr/local/rustup /usr/local/cargo

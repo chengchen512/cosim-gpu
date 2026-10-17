@@ -31,7 +31,7 @@ From building the components to running your first HIP GPU compute test.
 - They communicate via the **vfio-user protocol** over a Unix domain socket. QEMU uses its built-in `vfio-user-pci` device; gem5 runs `MI300XVfioUser` as the server.
 - Guest RAM and GPU VRAM are shared via **shared memory** under `/dev/shm/`.
 
-For a deeper dive into the memory architecture and BAR layout, see [Architecture](architecture.md#memory-sharing-architecture).
+For a deeper dive into the memory architecture and BAR layout, see [Architecture](architecture.md#shared-memory).
 
 ## Prerequisites
 
@@ -50,46 +50,37 @@ All build, launch and check tasks are recipes in the top-level `justfile`. Run
 
 ## Building gem5 and QEMU
 
-### Build the Runtime Docker Image
+### Choose the Build Environment
 
-Before building gem5, create the runtime Docker image:
+On Linux, the QEMU, gem5 and m5 build recipes run on the host by default,
+which then needs the gem5 and QEMU build dependencies listed in
+`scripts/Dockerfile.dev`, including `scons`. Set `COSIM_ENV=container` to run
+them in a temporary development container instead; other systems use the
+container by default. Build its image once:
 
 ```bash
-cd scripts
-docker build -t gem5-run:local -f Dockerfile.run .
+just dev-image
+export COSIM_ENV=container    # Linux without the build dependencies
 ```
 
-This image is based on `ghcr.io/gem5/gpu-fs` with Python 3.12 support added.
+`scripts/Dockerfile.dev` is based on Ubuntu 24.04 and contains the gem5 and
+QEMU build dependencies, Rust, QEMU and `qemu-img`. `scripts/dev.sh` mounts the
+source tree at its host path and removes the container when each command exits.
 
 ### Build gem5
 
 The gem5 binary links against Ubuntu 24.04 libraries and must be compiled in a compatible environment.
 
-> **Note:** The vfio-user backend requires `libjson-c-dev` (build-time) and `libjson-c5` (runtime). The `gem5-run:local` image already includes this dependency.
-
-**Option 1: just Recipe**
+> **Note:** The vfio-user backend requires `libjson-c-dev` (build-time) and `libjson-c5` (runtime). The `cosim-dev:local` image already includes this dependency.
 
 ```bash
 just build-gem5        # uses all host CPUs
 just build-gem5 2      # limit parallelism, e.g. when linking is OOM-killed
 ```
 
-The recipe builds the `gem5-run:local` image first, then compiles gem5 in it.
-
-**Option 2: Build inside Docker (Manual)**
-
-```bash
-cd /path/to/cosim-gpu/gem5
-
-docker run --rm \
-    -v "$(pwd):/gem5" -w /gem5 \
-    gem5-run:local \
-    scons build/VEGA_X86/gem5.opt -j4
-```
-
-> **Tip:** Reduce parallelism (`-j1` or `-j2`) if OOM-killed during linking.
-
-Output: `build/VEGA_X86/gem5.opt` (approximately 1.1 GB).
+Output: `gem5/build/<native>/VEGA_X86/gem5.opt`, where `<native>` is
+`aarch64` or `x86_64`. Both native builds use `build_opts/VEGA_X86` for the
+simulated X86/VEGA models and GPU_VIPER configuration.
 
 ### Build QEMU
 
@@ -101,10 +92,12 @@ v11.1.2 release. Co-simulation uses its built-in `vfio-user-pci` device.
 just build-qemu        # uses all host CPUs; `just build-qemu 4` limits jobs
 ```
 
-The recipe configures `x86_64-softmmu` with KVM in `qemu/build`, builds it,
-and checks that `qemu/build/qemu-system-x86_64` provides `vfio-user-pci`. QEMU's
-build dependencies (`ninja`, `pkg-config`, `glib-2.0`, `pixman`, `slirp`,
-`flex`, `bison`, Python 3 with `venv`) must be installed on the host.
+The recipe configures the host architecture's softmmu target with KVM and the
+vfio-user server in `qemu/build`, builds it, and checks that the binary
+provides `vfio-user-pci` and `x-vfio-user-server`. On a Linux host without the
+development container, QEMU's build dependencies (`ninja`, `pkg-config`,
+`glib-2.0`, `pixman`, `slirp`, `json-c`, `cmocka`, Python 3 with `venv`) must
+be installed.
 
 `just launch` and `just build-disk` use QEMU in this order:
 
@@ -174,8 +167,8 @@ docker run -d --name gem5-cosim \
     -v /dev/shm:/dev/shm \
     -w /gem5 \
     -e PYTHONPATH=/usr/lib/python3.12/lib-dynload \
-    gem5-run:local \
-    /gem5/build/VEGA_X86/gem5.opt --listener-mode=on \
+    cosim-dev:local \
+    /gem5/build/x86_64/VEGA_X86/gem5.opt --listener-mode=on \
     /gem5/configs/example/gpufs/mi300_cosim.py \
     --socket-path=/tmp/gem5-mi300x.sock \
     --shmem-path=/mi300x-vram \

@@ -32,7 +32,9 @@ DISK_IMAGE_DIR="${RESOURCES_DIR}/src/x86-ubuntu-gpu-ml/disk-image"
 DISK_IMAGE="${DISK_IMAGE_DIR}/x86-ubuntu-rocm70"
 KERNEL="${RESOURCES_DIR}/src/x86-ubuntu-gpu-ml/vmlinux-rocm70"
 SQUARE_APP="${RESOURCES_DIR}/src/gpu/square/bin.default/square.default"
-GEM5_BIN="${GEM5_DIR}/build/VEGA_X86/gem5.opt"
+GEM5_BUILD_DIR="$(just --justfile "${COSIM_DIR}/justfile" \
+    --evaluate gem5_build_dir)"
+GEM5_BIN="${GEM5_DIR}/${GEM5_BUILD_DIR}/gem5.opt"
 
 # QEMU: $QEMU_BIN, else the qemu submodule build, else PATH
 QEMU_SUBMODULE_BIN="${COSIM_DIR}/qemu/build/qemu-system-x86_64"
@@ -49,7 +51,7 @@ LOGS_DIR="${COSIM_DIR}/logs"
 BUILD_DISK_LOG="${LOGS_DIR}/build-disk.log"
 
 # Docker images
-GEM5_BUILD_IMAGE="${GEM5_RUN_IMAGE:-gem5-run:local}"
+GEM5_BUILD_IMAGE="${GEM5_RUN_IMAGE:-cosim-dev:local}"
 GPU_APP_BUILD_IMAGE="${GPU_APP_BUILD_IMAGE:-ghcr.io/gem5/gpu-fs}"
 
 # gem5 config files
@@ -98,7 +100,7 @@ run_gem5_docker() {
     if [ -e /dev/kvm ]; then
         docker_args+=("--device" "/dev/kvm")
     fi
-    docker run "${docker_args[@]}" "${GEM5_RUN_IMAGE:-gem5-run:local}" "$@"
+    docker run "${docker_args[@]}" "${GEM5_RUN_IMAGE:-cosim-dev:local}" "$@"
 }
 
 # ==========================
@@ -119,17 +121,10 @@ build_gem5() {
     local nproc_val
     nproc_val="$(nproc)"
 
-    info "Building local image '$GEM5_BUILD_IMAGE' from Dockerfile.run..."
-    docker build -t "$GEM5_BUILD_IMAGE" -f "${SCRIPT_DIR}/Dockerfile.run" "${SCRIPT_DIR}"
-
     info "Using image: $GEM5_BUILD_IMAGE"
     info "Build parallelism: -j${nproc_val}"
-
-    docker run --rm \
-        -v "${GEM5_DIR}:/gem5" \
-        -w /gem5 \
-        "$GEM5_BUILD_IMAGE" \
-        scons build/VEGA_X86/gem5.opt -j"${nproc_val}"
+    COSIM_ENV=container COSIM_DEV_IMAGE="$GEM5_BUILD_IMAGE" \
+        just --justfile "${COSIM_DIR}/justfile" build-gem5 "$nproc_val"
 
     [ -f "$GEM5_BIN" ] || error "gem5 build failed"
     info "gem5 built: $GEM5_BIN"
@@ -345,13 +340,13 @@ show_status() {
     # Docker
     if command -v docker >/dev/null && docker info >/dev/null 2>&1; then
         info "Docker:          running"
-        # Check for the runtime image (used by just build-gem5 and launch)
-        local run_image="${GEM5_RUN_IMAGE:-gem5-run:local}"
+        # Check for the development image (also used by legacy launch)
+        local run_image="${GEM5_RUN_IMAGE:-cosim-dev:local}"
         if docker image inspect "$run_image" >/dev/null 2>&1; then
             info "  Runtime image: $run_image"
         else
             warn "  Runtime image: $run_image" \
-                 "(not built, run: just docker-image)"
+                 "(not built, run: just dev-image)"
         fi
         if docker image inspect "$GPU_APP_BUILD_IMAGE" >/dev/null 2>&1; then
             info "  GPU app image: $GPU_APP_BUILD_IMAGE"

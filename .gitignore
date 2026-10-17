@@ -8,3 +8,11 @@ build/
 .codex
 .codex/
 .claude/
+/target/
+/.cosim/
+/artifacts/rocm-assets/
+/artifacts/rocm-local/
+/artifacts/rocm-image-build-*/
+/artifacts/rocm-image-validate/
+/artifacts/rocm-image-syntax/
+/artifacts/gem5-cache/

@@ -93,6 +93,71 @@ every pull request to `main` and every push to `main`:
 A failing job blocks the pull request. Fix the reported lines, amend or
 rebase the commits, and force-push the branch.
 
+### ROCm regression
+
+`Build` runs for every pull request to `main`, push to `main`, and manual
+dispatch. Its gem5 job builds `VEGA_X86` once and uploads the compressed binary,
+the `libvfio-user.a` needed by model tests, the development container image,
+and a SHA-256 manifest. The dependent
+`Integration` workflow downloads that same run's artifact, checks the project
+and gem5 revisions, host architecture, run identity and file digests, then loads
+the exact build image. It runs the restored MI300X model tests and builds QEMU
+and the Rust launcher in that environment. A retry of a failed integration job
+uses the producer's immutable artifact ID and reuses the successful build.
+Across runs, a matching gem5 build-input key restores the binary, static
+library and original development image together. Its manifest keeps the
+original compilation provenance and the current publication identity.
+
+A parallel image job builds the x86 m5 utility and runs the selected
+`gem5-resources` Packer/QEMU recipe. It installs Ubuntu 24.04, ROCm 7.0,
+amdgpu DKMS, PyTorch and the GPU initialization service, and extracts the
+paired Linux 6.8.0-124-generic kernel. The compressed QCOW2 disk, kernel,
+package inventory and checksums form one reusable artifact. The image job
+checks the actual available disk space after preparing its disposable runner.
+
+The image cache key includes the source revisions, recipe contents, m5 binary,
+QEMU version, image builder and disk format. Reuse validates the input identity
+and every product hash. `COSIM_ROCM_IMAGE_EPOCH` can be changed from its default
+`1` to build a new image with refreshed package resolution. The completed image
+records the resolved Debian and Python package versions. The integration job
+downloads both producer artifacts by immutable IDs, checks the image structure,
+and runs on a fresh Ubuntu 24.04 x86_64/KVM runner. See
+[ROCm image construction](rocm-image.md) for the local entry points and inputs.
+
+`just test-rocm-ci <output> <assets>` uses the Rust launcher and the sample
+host/device templates. It boots a fresh guest with a private disk overlay for
+each program, using 4 GiB of guest RAM, 4 GiB of VRAM and two guest CPUs by
+default. The 8 GiB pool fits the hosted runner's shared-memory capacity and
+leaves memory for the simulator. `--memory`, `--vram` and `--cpus` override these
+values through the recipe. The regression programs are
+`vector_add`, `gemm`, `reduction`, `transpose`, `prefix_scan` and
+`histogram`. Each guest checks the setup service, amdgpu, KFD, render devices and
+the gfx942 agent reported by `rocminfo`, then compiles and executes the exact
+HIP program with `HSA_ENABLE_INTERRUPT=0`. Success requires its numerical PASS
+result, a zero process exit status, and successful launcher cleanup. A timeout
+fails even if the program has already printed PASS. Execution stops on the first
+failure and the aggregate verdict requires every listed program to pass.
+
+The `ROCm regression gate` requires gem5, image construction and guest execution
+to succeed;
+make this check required in branch protection. The `rocm-regression-*` artifact
+contains complete console/model logs, topology and command manifests, source
+revisions and binary digests, per-program verdicts and `matrix.tsv`. The
+`gem5-runtime-*` and `rocm-guest-*` artifacts are retained for two days and
+evidence for fourteen
+days. To repeat the complete pipeline, dispatch `Build`.
+
+`just test-ci` checks command completion and error handling with real shell
+processes. `just test-legacy-build-image` uses the host's actual Docker daemon
+to verify the selected build image is checked before creating build outputs.
+`just test-cosim-memory` uses a dedicated 96 MiB container tmpfs
+and real QEMU sessions to verify capacity reservation, rejection of a competing
+session and capacity release. It uses the existing development image.
+`just test-ci-integration` verifies signal and container-input
+cancellation with the Rust launcher and QEMU, including process cleanup and
+retained logs. `just check-ci` validates the workflow dependency graph with
+actionlint.
+
 ## Differences from QEMU's checkpatch.pl
 
 `scripts/checkpatch.pl` is copied from QEMU commit

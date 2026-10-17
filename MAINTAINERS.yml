@@ -93,7 +93,6 @@
   maintainers:
     - zevorn
   files:
-    - scripts/Dockerfile.run
     - scripts/run_mi300x_fs.sh
   files-regex:
     - ^gem5$
@@ -101,8 +100,7 @@
     - "area: gem5 GPU backend"
   description: >-
     gem5 MI300X GPU model used as the accelerator backend behind the QEMU
-    vfio-user device, its runtime Docker image, and the standalone gem5
-    full-system flow.
+    vfio-user device and the standalone gem5 full-system flow.
 
 "Accelerator Backend: SST Multi-node":
   status: maintained
@@ -138,11 +136,22 @@ Build System and CI:
     - .gitignore
     - .gitmodules
     - justfile
+    - scripts/build.sh
+    - scripts/dev.sh
+    - scripts/Dockerfile.dev
+    - scripts/ci/runtime_artifact.py
+    - scripts/ci/verify_runtime_artifact.py
+    - scripts/ci/verify_legacy_image.py
+    - scripts/ci/rocm_assets.py
+    - scripts/ci/image_artifact.py
+    - scripts/ci/verify_image_artifact.py
+    - scripts/ci/prepare_image_host.sh
+    - scripts/ci/verify_rocm_assets.py
   labels:
     - "area: build/CI"
   description: >-
-    The just task runner, GitHub Actions workflows, and repository-wide
-    Git configuration.
+    The just task runner, the development container and the build script it
+    runs, GitHub Actions workflows, and repository-wide Git configuration.
 
 Documentation:
   status: maintained
@@ -180,6 +189,14 @@ Guest Tests:
     - zevorn
   files:
     - scripts/run_cosim_tests.sh
+    - scripts/ci/guest_console.py
+    - scripts/ci/ci_lifecycle.py
+    - scripts/ci/rocm_guest.sh
+    - scripts/ci/run_rocm.py
+    - scripts/ci/test_guest_console.py
+    - scripts/ci/test_ci_lifecycle.py
+    - scripts/ci/test_image_process.py
+    - scripts/ci/integration_lifecycle.py
     - tests/
   labels:
     - "area: tests"
@@ -219,3 +236,18 @@ QEMU Frontend:
     The QEMU fork (gevico/qemu, gevico/cosim-gpu branch) that runs the virtual
     machine, launching it, connecting it to accelerator backends over
     vfio-user, shared memory setup, and session cleanup.
+
+Topology and Runtime:
+  status: maintained
+  maintainers:
+    - zevorn
+  files:
+    - Cargo.toml
+    - Cargo.lock
+    - crates/
+    - samples/
+  labels:
+    - "area: QEMU frontend"
+  description: >-
+    YAML topology loading and validation, session planning, Rust process
+    supervision and the sample configurations.

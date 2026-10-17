@@ -50,8 +50,8 @@ commands as substitutes for the build script.
 | gem5 | `gem5/build/VEGA_X86/gem5.opt` |
 | QEMU | `qemu/build/qemu-system-x86_64` |
 
-The build script creates the Docker image from `scripts/Dockerfile.run` when it
-is missing.
+`just dev-image` builds the development image from `scripts/Dockerfile.dev`.
+Build recipes run in it when `COSIM_ENV=container` (the default outside Linux).
 
 ## Integration
 

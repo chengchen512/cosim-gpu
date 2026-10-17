@@ -97,7 +97,7 @@ console=ttyS0,115200 root=/dev/vda1 modprobe.blacklist=amdgpu
 | Image | Purpose |
 |-------|---------|
 | `ghcr.io/gem5/gpu-fs:latest` | Base image for gem5 runtime container (amd64) |
-| `gem5-run:local` | Runtime image built from `scripts/Dockerfile.run` (adds Python 3.12 support) |
+| `cosim-dev:local` | Development image built from `scripts/Dockerfile.dev` by `just dev-image` (gem5 and QEMU build dependencies, Rust, QEMU, `qemu-img`) |
 | `ghcr.io/gem5/ubuntu-24.04_all-dependencies:v24-0` | gem5 compilation (arm64 only) |
 
 > On amd64 hosts, use `ghcr.io/gem5/gpu-fs` as the build image or compile natively.
@@ -106,7 +106,7 @@ console=ttyS0,115200 root=/dev/vda1 modprobe.blacklist=amdgpu
 
 | Artifact | Path | Size |
 |----------|------|------|
-| gem5 binary | `build/VEGA_X86/gem5.opt` | ~1.1 GB |
+| gem5 binary | `gem5/build/<native>/VEGA_X86/gem5.opt` | Depends on build options |
 | Disk image | `../gem5-resources/src/x86-ubuntu-gpu-ml/disk-image/x86-ubuntu-rocm70` | ~55 GB |
 | Kernel | `../gem5-resources/src/x86-ubuntu-gpu-ml/vmlinux-rocm70` | ~64 MB |
 | QEMU binary | `qemu-system-x86_64` from the host `PATH` | -- |
@@ -264,7 +264,7 @@ The driver checks `(amdgpu_ip_block_mask & (1 << i))` where `i` is the discovery
 |---|---|
 | **Symptom** | Linker killed by OOM killer even with `-j2` |
 | **Root Cause** | Default linker uses too much memory |
-| **Fix** | Use `scons build/VEGA_X86/gem5.opt -j1 GOLD_LINKER=True --linker=gold` |
+| **Fix** | Use `just build-gem5 1 GOLD_LINKER=True --linker=gold` |
 
 ### 4.14 DRM Client Error -13 (Missing DKMS Module)
 
@@ -302,7 +302,7 @@ Usage:
 ```bash
 just launch --gem5-debug MI300XCosim
 # or manual:
-build/VEGA_X86/gem5.opt --debug-flags=MI300XCosim,AMDGPUDevice ...
+build/x86_64/VEGA_X86/gem5.opt --debug-flags=MI300XCosim,AMDGPUDevice ...
 ```
 
 ### Log Inspection Commands
@@ -325,10 +325,8 @@ tail -f m5out/board.pc.com_1.device
 
 ```bash
 # Delete stale object file, then rebuild
-docker run --rm -v "$PWD:/gem5" -w /gem5 gem5-run:local \
-    sh -c 'rm -f build/VEGA_X86/dev/amdgpu/<file>.o'
-docker run --rm -v "$PWD:/gem5" -w /gem5 \
-    gem5-run:local scons build/VEGA_X86/gem5.opt -j1
+rm -f gem5/build/x86_64/VEGA_X86/dev/amdgpu/<file>.o
+just build-gem5 1
 ```
 
 ### Quick Diagnostic Table
@@ -474,7 +472,9 @@ To use a different mirror, edit the URI in the patch file and re-apply.
 | `justfile` | Task runner entry point for build, launch, test and check recipes |
 | `scripts/cosim_launch.sh` | Cosim orchestration (Docker + QEMU launch) |
 | `scripts/run_mi300x_fs.sh` | Build orchestration (compile, disk image, run) |
-| `scripts/Dockerfile.run` | Runtime Docker image definition |
+| `scripts/Dockerfile.dev` | Development container image definition |
+| `scripts/dev.sh` | Runs a command on the host or in a temporary development container |
+| `scripts/build.sh` | Builds QEMU, gem5 and m5 in the selected environment |
 | `scripts/patches/0001-user-data-cn-mirror.patch` | China mirror patch for disk image build |
 
 ### gem5 Modified Infrastructure Files

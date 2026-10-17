@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: Apache-2.0
+version: 1
+templates:
+  tcg:
+    use: q35-host
+    runtime: {binary: qemu-system-x86_64}
+    memory: 64M
+    cpus: 1
+    cpu: qemu64
+    accel: tcg
+    args: [-S, -nodefaults]

@@ -15,6 +15,45 @@ env:
   JUST_VERSION: 1.51.0
 
 jobs:
+  rust:
+    name: Rust Topology and Runtime
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy,rustfmt
+      - uses: extractions/setup-just@v4
+        with:
+          just-version: ${{ env.JUST_VERSION }}
+      - name: Install QEMU for session tests
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y qemu-system-x86 qemu-utils python3-pexpect python3-yaml
+      - name: Check Rust source and topology behavior
+        run: just check-cosim
+      - name: Run sessions with QEMU processes, disks and signals
+        run: just test-cosim-integration
+      - name: Verify CI cancellation and log retention
+        run: just test-ci-integration
+
+  regression-runner:
+    name: ROCm regression runner tests
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: extractions/setup-just@v4
+        with:
+          just-version: ${{ env.JUST_VERSION }}
+      - name: Install console and YAML libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3-pexpect python3-yaml qemu-system-x86
+      - name: Check command completion and failure handling
+        run: just test-ci
+      - name: Verify legacy build image selection
+        run: just test-legacy-build-image
+
   checkpatch:
     name: Checkpatch
     runs-on: ubuntu-latest

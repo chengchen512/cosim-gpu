@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+version: 1
+imports:
+  - machines/gpu-8.yaml
+machines:
+  - {id: m, use: node8, count: 4}

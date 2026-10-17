@@ -1,46 +1,101 @@
-# Full vfio-user co-simulation test on a KVM-capable runner
+# SPDX-License-Identifier: Apache-2.0
 name: Integration
 
 on:
-  workflow_dispatch:
+  workflow_call:
+    inputs:
+      runtime-artifact:
+        description: Immutable artifact ID produced by the build job
+        required: true
+        type: string
+      guest-artifact:
+        description: Immutable paired kernel/disk artifact ID
+        required: true
+        type: string
+      image-key:
+        description: Exact image inputs requested by the current producer
+        required: true
+        type: string
 
-concurrency:
-  group: integration-${{ github.ref }}
-  cancel-in-progress: true
+permissions:
+  contents: read
+  actions: read
 
 jobs:
-  # Full cosim test (QEMU + gem5 + disk image)
-  # Requires self-hosted runner with: KVM, Docker, pre-built disk image
   cosim-full-test:
-    name: Full Cosim Test
-    runs-on: [self-hosted, kvm]
-    timeout-minutes: 60
+    name: Full ROCm guest regression
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    env:
+      COSIM_ENV: container
+      COSIM_DEV_IMAGE: cosim-dev:ci
     steps:
       - uses: actions/checkout@v4
         with:
-          submodules: recursive
           fetch-depth: 1
-
-      - name: Verify prerequisites
-        run: |
-          test -e /dev/kvm || { echo "::error::KVM not available"; exit 1; }
-          command -v docker || { echo "::error::Docker not found"; exit 1; }
-          echo "KVM and Docker available"
 
       - uses: extractions/setup-just@v4
         with:
           just-version: 1.51.0
 
-      - name: Build images
-        run: just docker-image
+      - name: Check KVM
+        run: |
+          test "$(uname -m)" = x86_64
+          test -c /dev/kvm
+          sudo chmod a+rw /dev/kvm
 
-      - name: Run cosim integration tests
-        run: just test --all
+      - name: Initialize simulator sources
+        run: |
+          git config --global url."https://github.com/".insteadOf "git@github.com:"
+          git submodule update --init --depth 1 gem5 qemu gem5-resources
+          git -C gem5 submodule update --init --recursive --depth 1
 
-      - name: Upload test logs
+      - uses: actions/download-artifact@v4
+        with:
+          artifact-ids: ${{ inputs.runtime-artifact }}
+          path: artifacts/ci-build
+          merge-multiple: true
+
+      - name: Restore verified gem5 and development image
+        run: just ci-restore artifacts/ci-build
+
+      - name: Verify competing session memory reservations
+        run: just test-cosim-memory
+
+      - name: Test the restored MI300X model
+        run: just test-gem5-mi300x artifacts/rocm-regression/model
+
+      - uses: actions/download-artifact@v4
+        with:
+          artifact-ids: ${{ inputs.guest-artifact }}
+          path: artifacts/rocm-assets
+          merge-multiple: true
+
+      - name: Verify the paired disk, kernel and package manifest
+        env:
+          IMAGE_KEY: ${{ inputs.image-key }}
+        run: just ci-verify-rocm-artifact artifacts/rocm-assets "$IMAGE_KEY"
+
+      - name: Build QEMU and Rust launcher
+        run: |
+          just build-qemu
+          just build-cosim
+
+      - name: Verify vfio-user option ROM exposure
+        run: just test-cosim-vfio-user
+
+      - name: Run ROCm workloads through the Rust launcher
+        run: just test-rocm-ci artifacts/rocm-regression/guest artifacts/rocm-assets
+
+      - name: Upload complete regression evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: cosim-full-test-logs
-          path: /tmp/qemu-cosim-tests*.log
+          name: rocm-regression-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            artifacts/rocm-regression/
+            artifacts/rocm-assets/manifest.json
+            artifacts/ci-build/manifest.json
+            !artifacts/rocm-regression/**/*.sock
+          if-no-files-found: warn
           retention-days: 14
