@@ -30,7 +30,7 @@ jobs:
       COSIM_ENV: container
       COSIM_DEV_IMAGE: cosim-dev:ci
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           fetch-depth: 1
 
@@ -50,7 +50,7 @@ jobs:
           git submodule update --init --depth 1 gem5 qemu gem5-resources
           git -C gem5 submodule update --init --recursive --depth 1
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
         with:
           artifact-ids: ${{ inputs.runtime-artifact }}
           path: build/ci-build
@@ -65,11 +65,17 @@ jobs:
       - name: Test the restored MI300X model
         run: just test-gem5-mi300x artifacts/rocm-regression/model
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
         with:
           artifact-ids: ${{ inputs.guest-artifact }}
           path: build/rocm-artifact-download
           merge-multiple: true
+
+      - name: Install QEMU image tools for artifact validation
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y qemu-utils
+          qemu-img --version
 
       - name: Verify and adopt the paired disk, kernel and package manifest
         env:
@@ -89,7 +95,7 @@ jobs:
 
       - name: Upload complete regression evidence
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: rocm-regression-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
