@@ -46,7 +46,7 @@ machines:
 
 Unknown fields are errors. `cosim schema` prints the JSON Schema of the format.
 Guest boot and storage inputs live in a separate payload document. Select it
-with `--payload samples/payloads/ubuntu-rocm70.yaml` for `validate`, `plan` or
+with `--payload samples/payloads/ubuntu-rocm7_0.yaml` for `validate`, `plan` or
 `run`; the same payload applies to every machine in the topology.
 
 ### Imports and templates
@@ -303,11 +303,11 @@ use a temporary container:
 ```bash
 just dev-image                       # outside Linux, or with COSIM_ENV=container
 just build-cosim
-just run-cli validate samples/machines/gpu-8.yaml --payload samples/payloads/ubuntu-rocm70.yaml --assets
-just run-cli plan samples/machines/mixed-models.yaml --payload samples/payloads/ubuntu-rocm70.yaml
+just run-cli validate samples/machines/gpu-8.yaml --payload samples/payloads/ubuntu-rocm7_0.yaml --assets
+just run-cli plan samples/machines/mixed-models.yaml --payload samples/payloads/ubuntu-rocm7_0.yaml
 just run-cli graph samples/clusters/cluster-4x8.yaml
 just run-cli schema
-just run-topology samples/machines/single-gpu.yaml --payload samples/payloads/ubuntu-rocm70.yaml
+just run-topology samples/machines/single-gpu.yaml --payload samples/payloads/ubuntu-rocm7_0.yaml
 just run-topology-dev samples/machines/host-only.yaml --run-for 1
 just run-cli clean .cosim/<name>
 just check-cosim

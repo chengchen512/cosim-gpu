@@ -58,7 +58,7 @@ just dev-image        # Non-Linux hosts, or set COSIM_ENV=container
 
 # Build the toolchain and guest-image workflow, then start a sample machine
 just build-all
-just run-topology samples/machines/single-gpu.yaml --payload samples/payloads/ubuntu-rocm70.yaml
+just run-topology samples/machines/single-gpu.yaml --payload samples/payloads/ubuntu-rocm7_0.yaml
 ~~~
 
 ### Sample topologies
@@ -85,7 +85,7 @@ machines:
       - {use: qemu-edu}
 ~~~
 
-Pass `--payload samples/payloads/ubuntu-rocm70.yaml` to `just run-topology` to attach the
+Pass `--payload samples/payloads/ubuntu-rocm7_0.yaml` to `just run-topology` to attach the
 guest kernel and disk inputs. Build outputs are stored under `build/`.
 
 The QEMU device example serves the real <code>edu</code> PCI model through

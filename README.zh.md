@@ -57,7 +57,7 @@ just dev-image        # 非 Linux 主机，或设置 COSIM_ENV=container
 
 # 构建工具链和客户机镜像流程，然后启动示例机器
 just build-all
-just run-topology samples/machines/single-gpu.yaml --payload samples/payloads/ubuntu-rocm70.yaml
+just run-topology samples/machines/single-gpu.yaml --payload samples/payloads/ubuntu-rocm7_0.yaml
 ~~~
 
 ### 拓扑示例
@@ -84,7 +84,7 @@ machines:
       - {use: qemu-edu}
 ~~~
 
-运行 `just run-topology` 时传入 `--payload samples/payloads/ubuntu-rocm70.yaml`，以加载客户机内核
+运行 `just run-topology` 时传入 `--payload samples/payloads/ubuntu-rocm7_0.yaml`，以加载客户机内核
 和磁盘输入。构建产物统一保存在仓库顶层的 `build/` 目录中。
 
 QEMU 设备示例使用 <code>just build-qemu</code> 构建的 QEMU，通过

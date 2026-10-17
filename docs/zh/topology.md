@@ -43,7 +43,7 @@ machines:
 
 未知字段会报错。`cosim schema` 输出该格式的 JSON Schema。客户机启动和存储输入单独
 保存在 payload 文档中。运行 `validate`、`plan` 或 `run` 时，通过
-`--payload samples/payloads/ubuntu-rocm70.yaml` 选择；一个 payload 会应用于拓扑中的
+`--payload samples/payloads/ubuntu-rocm7_0.yaml` 选择；一个 payload 会应用于拓扑中的
 每台机器。
 
 ### 导入与模板
@@ -259,11 +259,11 @@ sequenceDiagram
 ```bash
 just dev-image                       # 非 Linux 系统，或设置 COSIM_ENV=container 时
 just build-cosim
-just run-cli validate samples/machines/gpu-8.yaml --payload samples/payloads/ubuntu-rocm70.yaml --assets
-just run-cli plan samples/machines/mixed-models.yaml --payload samples/payloads/ubuntu-rocm70.yaml
+just run-cli validate samples/machines/gpu-8.yaml --payload samples/payloads/ubuntu-rocm7_0.yaml --assets
+just run-cli plan samples/machines/mixed-models.yaml --payload samples/payloads/ubuntu-rocm7_0.yaml
 just run-cli graph samples/clusters/cluster-4x8.yaml
 just run-cli schema
-just run-topology samples/machines/single-gpu.yaml --payload samples/payloads/ubuntu-rocm70.yaml
+just run-topology samples/machines/single-gpu.yaml --payload samples/payloads/ubuntu-rocm7_0.yaml
 just run-topology-dev samples/machines/host-only.yaml --run-for 1
 just run-cli clean .cosim/<name>
 just check-cosim

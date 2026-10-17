@@ -851,9 +851,11 @@ fn sample_host_template_attaches_devices_behind_root_ports() {
         &sample_root,
     )
     .unwrap();
-    let payload =
-        load_payload_with_workspace(&sample_root.join("payloads/ubuntu-rocm70.yaml"), &workspace)
-            .unwrap();
+    let payload = load_payload_with_workspace(
+        &sample_root.join("payloads/ubuntu-rocm7_0.yaml"),
+        &workspace,
+    )
+    .unwrap();
     let machine = &topology.machines[0];
     let layout = machine.memory_layout(page()).unwrap();
     let paths = Paths::new();
