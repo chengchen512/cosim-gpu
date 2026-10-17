@@ -13,7 +13,7 @@ use serde_json::{Map, Value};
 use crate::adapter::{Adapter, CommandTemplate, Gem5Mi300x, QemuDevice, TemplateDevice};
 use crate::model::{
     Device, DeviceModel, DirectBoot, Disk, DiskFormat, DiskMode, GuestHints, Host, Identifier,
-    Machine, MemoryRegion, Pci, Program, Role, SerialReady, Topology,
+    Machine, MemoryRegion, Payload, Pci, Program, Role, SerialReady, Topology,
 };
 use crate::raw;
 use crate::size::ByteSize;
@@ -100,8 +100,42 @@ pub(crate) fn topology(
         machines.extend(machine(spec, kinds)?);
     }
     unique(machines.iter().map(|machine| &machine.id), "machine")?;
-    disk_sharing(&machines)?;
     Ok(Topology { source, machines })
+}
+
+/// Converts a payload document into validated boot and storage inputs.
+pub(crate) fn payload(raw: raw::PayloadDocument, source: PathBuf) -> Result<Payload> {
+    ensure!(
+        raw.version == 1,
+        "unsupported payload version {}",
+        raw.version
+    );
+    Ok(Payload {
+        source,
+        boot: boot(raw.boot)?,
+        disks: disks(raw.disks, raw.snapshot)?,
+    })
+}
+
+/// Checks payload constraints that depend on the topology's machine set.
+pub fn validate_payload(topology: &Topology, payload: Option<&Payload>) -> Result<()> {
+    if payload.and_then(|payload| payload.boot.as_ref()).is_none() {
+        for device in topology
+            .machines
+            .iter()
+            .flat_map(|machine| &machine.devices)
+        {
+            ensure!(
+                device.guest_hints.cmdline.is_none(),
+                "device {}: guest_hints.cmdline requires payload boot.kernel",
+                device.id
+            );
+        }
+    }
+    if let Some(payload) = payload {
+        disk_sharing(&topology.machines, &payload.disks)?;
+    }
+    Ok(())
 }
 
 /// One device entry before identifier expansion.
@@ -234,11 +268,6 @@ fn instances(entries: Vec<DeviceEntry>, host: &Host) -> Result<Vec<Device>> {
                 device.id
             );
         }
-        ensure!(
-            device.guest_hints.cmdline.is_none() || host.boot.is_some(),
-            "device {}: guest_hints.cmdline requires host boot.kernel",
-            device.id
-        );
     }
     Ok(devices)
 }
@@ -257,7 +286,6 @@ fn host(raw: raw::Host, kinds: &Kinds) -> Result<(Host, usize)> {
         .runtime
         .binary
         .context("host.runtime.binary is required")?;
-    let disks = disks(raw.disks, raw.snapshot)?;
     let host = Host {
         kind: kind_name,
         command,
@@ -275,8 +303,6 @@ fn host(raw: raw::Host, kinds: &Kinds) -> Result<(Host, usize)> {
         display: raw.display,
         monitor: raw.monitor,
         no_reboot: raw.no_reboot,
-        boot: boot(raw.boot)?,
-        disks,
         serial_ready: serial(raw.serial)?,
         args: raw.args,
     };
@@ -514,11 +540,11 @@ fn unique<'a>(ids: impl Iterator<Item = &'a Identifier>, what: &str) -> Result<(
 }
 
 /// Rejects direct writers that share an image and conflicting creation requests.
-fn disk_sharing(machines: &[Machine]) -> Result<()> {
+fn disk_sharing(machines: &[Machine], disks: &[Disk]) -> Result<()> {
     let mut users = BTreeMap::<&Path, Vec<(&Identifier, DiskMode)>>::new();
     let mut created = BTreeMap::<&Path, (ByteSize, DiskFormat)>::new();
     for machine in machines {
-        for disk in &machine.host.disks {
+        for disk in disks {
             users
                 .entry(&disk.source)
                 .or_default()

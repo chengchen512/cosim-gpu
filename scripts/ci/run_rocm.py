@@ -107,22 +107,17 @@ def prepare(inputs: Inputs) -> dict:
     return metadata
 
 
-def topology(inputs: Inputs, share: Path, disk_format: str) -> dict:
+def topology(inputs: Inputs, share: Path) -> dict:
     return {
         "version": 1,
         "imports": [str(ROOT / "samples" / path) for path in (
-            "hosts/qemu.yaml", "hosts/ubuntu-24.yaml", "devices/gpu/mi300x.yaml"
+            "hosts/qemu.yaml", "devices/gpu/mi300x.yaml"
         )],
         "machines": [{
             "id": "m0",
             "host": {
-                "use": "ubuntu", "runtime": {"binary": str(inputs.qemu)},
+                "use": "host-x86", "runtime": {"binary": str(inputs.qemu)},
                 "memory": inputs.memory, "cpus": inputs.cpus,
-                "boot": {"kernel": str(inputs.assets / "kernel")},
-                "disks": [{
-                    "id": "root", "backing": str(inputs.assets / "disk"),
-                    "format": disk_format, "bus": "virtio", "boot": True,
-                }],
                 "args": [
                     "-virtfs", "local,path=" + str(share).replace(",", ",,")
                     + ",mount_tag=cosimci,security_model=none,readonly=on",
@@ -133,6 +128,24 @@ def topology(inputs: Inputs, share: Path, disk_format: str) -> dict:
                          "memory_regions": [{
                              "name": "vram", "size": inputs.vram, "align": "2M",
                          }]}],
+        }],
+    }
+
+
+def payload(inputs: Inputs, disk_format: str) -> dict:
+    return {
+        "version": 1,
+        "boot": {
+            "kernel": str(inputs.assets / "kernel"),
+            "cmdline": "console=ttyS0 root=/dev/vda1 rw nokaslr "
+            "modprobe.blacklist=amdgpu",
+        },
+        "disks": [{
+            "id": "root",
+            "backing": str(inputs.assets / "disk"),
+            "format": disk_format,
+            "bus": "virtio",
+            "boot": True,
         }],
     }
 
@@ -225,9 +238,13 @@ def run_case(
     shutil.copy2(ROOT / "scripts/ci/rocm_guest.sh", share / "run.sh")
     source = ROOT / "tests/kernels" / f"{program}.cpp"
     config = row / "topology.yaml"
-    config.write_text(yaml.safe_dump(topology(inputs, share, disk_format)))
+    config.write_text(yaml.safe_dump(topology(inputs, share)))
+    payload_path = row / "payload.yaml"
+    payload_path.write_text(yaml.safe_dump(payload(inputs, disk_format)))
     command = [
-        str(inputs.launcher), "run", str(config), "--run-dir", str(session),
+        str(inputs.launcher), "run", str(config), "--payload",
+        str(payload_path),
+        "--run-dir", str(session),
         "--ready-timeout", str(inputs.boot_timeout), "--stdin-lifeline",
     ]
     write_json(row / "run-manifest.json", {
@@ -237,6 +254,7 @@ def run_case(
         "boot_timeout": inputs.boot_timeout,
         "test_timeout": inputs.test_timeout,
         "artifact_dir": str(row), "command": command,
+        "payload": str(payload_path),
         "gem5_binary": str(inputs.gem5),
         "guest_script": "/mnt/cosim-ci/run.sh", "runner_argument": program,
     })
@@ -276,8 +294,10 @@ def execute(lifecycle: Lifecycle) -> int:
     )
     parser.add_argument("output", type=Path)
     parser.add_argument("assets", type=Path)
-    parser.add_argument("--launcher", type=Path, default=Path(
-        os.environ.get("CARGO_TARGET_DIR", "target")) / "release/cosim")
+    launcher_default = Path(
+        os.environ.get("CARGO_TARGET_DIR", "build/cargo/host")
+    ) / "release/cosim"
+    parser.add_argument("--launcher", type=Path, default=launcher_default)
     parser.add_argument("--gem5", type=Path, required=True)
     parser.add_argument("--qemu", type=Path, required=True)
     parser.add_argument("--boot-timeout", type=int, default=300)

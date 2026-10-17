@@ -25,10 +25,10 @@ kinds:
           ("-monitor", host.monitor), ("-append", cmdline)] %}
         {% if value %}{% set ns.argv = ns.argv + [flag, value] %}{% endif %}
       {% endfor %}
-      {% if host.boot %}
-        {% set ns.argv = ns.argv + ["-kernel", host.boot.kernel] %}
-        {% if host.boot.initrd %}
-          {% set ns.argv = ns.argv + ["-initrd", host.boot.initrd] %}
+      {% if boot %}
+        {% set ns.argv = ns.argv + ["-kernel", boot.kernel] %}
+        {% if boot.initrd %}
+          {% set ns.argv = ns.argv + ["-initrd", boot.initrd] %}
         {% endif %}
       {% endif %}
       {% if host.no_reboot %}{% set ns.argv = ns.argv + ["-no-reboot"] %}{% endif %}
@@ -76,9 +76,15 @@ templates:
     display: none
     monitor: none
     no_reboot: true
-  q35-host:
+  host-x86:
     use: qemu-host
     machine: q35
+    runtime:
+      binary: build/qemu/qemu-system-x86_64
+    memory: 8G
+    cpus: 4
+    accel: kvm
+    cpu: host
     memory_map: |
       {% set limit = 2147483648 if ram.size >= 2952790016 else 2952790016 %}
       {% set low = [ram.size, limit] | min %}
@@ -87,7 +93,13 @@ templates:
         {% set ranges = ranges + [{"start": 4294967296, "size": ram.size - low}] %}
       {% endif %}
       {{ ranges | tojson }}
-  aarch64-host:
+  host-arm:
     use: qemu-host
     machine: virt,gic-version=3
+    runtime:
+      binary: build/qemu/qemu-system-aarch64
+    memory: 8G
+    cpus: 4
+    accel: kvm
+    cpu: host
     memory_map: '[{"start": 1073741824, "size": {{ ram.size }} }]'

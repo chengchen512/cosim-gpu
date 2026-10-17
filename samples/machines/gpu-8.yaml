@@ -2,12 +2,11 @@
 version: 1
 imports:
   - hosts/qemu.yaml
-  - hosts/ubuntu-24.yaml
   - devices/gpu/mi300x.yaml
 templates:
   node8:
     host:
-      use: ubuntu
+      use: host-x86
       memory: 32G
       cpus: 16
     devices:

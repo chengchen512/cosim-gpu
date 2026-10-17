@@ -2,4 +2,4 @@
 version: 1
 imports: [machines/host-only-aarch64.yaml]
 machines:
-  - {id: m, use: tcg-aarch64-node, count: 2}
+  - {id: m, use: host-arm-node, count: 2}

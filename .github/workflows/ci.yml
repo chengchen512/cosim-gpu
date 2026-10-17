@@ -74,7 +74,7 @@ jobs:
           if [ -z "$base" ] || ! git cat-file -e "${base}^{commit}" 2>/dev/null; then
             base="HEAD^"
           fi
-          just checkpatch "$base"
+          just check-patch "$base"
 
   maintainers:
     name: Maintainers
@@ -90,7 +90,7 @@ jobs:
       - name: Install Python dependencies
         run: pip install -r scripts/ci/requirements.txt
       - name: Validate MAINTAINERS.yml and file coverage
-        run: just maintainers-check
+        run: just check-maintainers
 
   shellcheck:
     name: ShellCheck
@@ -101,7 +101,7 @@ jobs:
         with:
           just-version: ${{ env.JUST_VERSION }}
       - name: Run ShellCheck
-        run: just shellcheck
+        run: just check-shell
 
   modprobe-params:
     name: Modprobe Params (Regression #9)
@@ -116,7 +116,7 @@ jobs:
           git config --global url."https://github.com/".insteadOf "git@github.com:"
           git submodule update --init --depth 1 gem5-resources
       - name: Verify cosim modprobe parameters
-        run: just modprobe-params
+        run: just check-modprobe-params
 
   kernel-compile:
     name: GPU Kernel Compile
@@ -127,4 +127,4 @@ jobs:
         with:
           just-version: ${{ env.JUST_VERSION }}
       - name: Compile GPU kernels
-        run: just build-tests
+        run: just build-gpu-tests

@@ -3,12 +3,12 @@
 version: 1
 imports:
   - hosts/qemu.yaml
-  - hosts/tcg.yaml
+  - hosts/host-x86-tcg.yaml
   - devices/pci/qemu-edu.yaml
 machines:
   - id: m0
     host:
-      use: tcg
-      runtime: {binary: ../../qemu/build/qemu-system-x86_64}
+      use: host-x86-tcg
+      runtime: {binary: build/qemu/qemu-system-x86_64}
     devices:
       - {use: qemu-edu}

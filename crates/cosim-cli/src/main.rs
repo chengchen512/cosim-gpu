@@ -33,6 +33,9 @@ enum Command {
     /// Validate a topology; --assets also checks local input files.
     Validate {
         topology: PathBuf,
+        /// Optional guest boot and storage inputs stored separately from the topology.
+        #[arg(long)]
+        payload: Option<PathBuf>,
         #[arg(long)]
         assets: bool,
     },
@@ -41,7 +44,11 @@ enum Command {
     /// Print machines and device connections as a Mermaid flowchart.
     Graph { topology: PathBuf },
     /// Print the JSON Schema of topology documents.
-    Schema,
+    Schema {
+        /// Print the schema for a standalone payload document.
+        #[arg(long)]
+        payload: bool,
+    },
     /// Start every process and supervise the session until it ends.
     Run {
         #[command(flatten)]
@@ -71,6 +78,9 @@ enum Command {
 #[derive(Args)]
 struct Target {
     topology: PathBuf,
+    /// Guest boot and storage inputs stored separately from machine hardware.
+    #[arg(long)]
+    payload: Option<PathBuf>,
     /// New session directory; defaults to .cosim/<random name>.
     #[arg(long)]
     run_dir: Option<PathBuf>,
@@ -105,8 +115,17 @@ fn main() -> ExitCode {
 
 async fn execute(cli: Cli) -> Result<ExitCode> {
     match cli.command {
-        Command::Validate { topology, assets } => {
+        Command::Validate {
+            topology,
+            payload,
+            assets,
+        } => {
             let topology = cosim_topology::load(&topology, &cli.samples)?;
+            let payload = payload
+                .as_deref()
+                .map(cosim_topology::load_payload)
+                .transpose()?;
+            cosim_topology::validate_payload(&topology, payload.as_ref())?;
             SessionLayout::check_identifiers(&topology)?;
             let page_size = cosim_runtime::page_size()?;
             for machine in &topology.machines {
@@ -115,7 +134,7 @@ async fn execute(cli: Cli) -> Result<ExitCode> {
                     .with_context(|| format!("machine {}", machine.id))?;
             }
             if assets {
-                cosim_runtime::check_assets(&topology)?;
+                cosim_runtime::check_assets(&topology, payload.as_ref())?;
             }
             println!(
                 "valid: {} machines, {} devices",
@@ -125,19 +144,27 @@ async fn execute(cli: Cli) -> Result<ExitCode> {
         }
         Command::Plan(target) => {
             let topology = cosim_topology::load(&target.topology, &cli.samples)?;
+            let payload = target
+                .payload
+                .as_deref()
+                .map(cosim_topology::load_payload)
+                .transpose()?;
             let layout = target.layout(Purpose::Preview)?;
-            let plan = cosim_runtime::plan(&topology, &ExecEnv::local()?, &layout)?;
+            let plan =
+                cosim_runtime::plan(&topology, payload.as_ref(), &ExecEnv::local()?, &layout)?;
             println!("{}", serde_json::to_string_pretty(&plan)?);
         }
         Command::Graph { topology } => {
             let topology = cosim_topology::load(&topology, &cli.samples)?;
             print!("{}", cosim_topology::graph(&topology));
         }
-        Command::Schema => {
-            println!(
-                "{}",
-                serde_json::to_string_pretty(&cosim_topology::schema())?
-            );
+        Command::Schema { payload } => {
+            let schema = if payload {
+                cosim_topology::payload_schema()
+            } else {
+                cosim_topology::schema()
+            };
+            println!("{}", serde_json::to_string_pretty(&schema)?);
         }
         Command::Run {
             target,
@@ -152,9 +179,16 @@ async fn execute(cli: Cli) -> Result<ExitCode> {
                 qemu_img,
             )?;
             let topology = cosim_topology::load(&target.topology, &cli.samples)?;
-            cosim_runtime::check_assets(&topology)?;
+            let payload = target
+                .payload
+                .as_deref()
+                .map(cosim_topology::load_payload)
+                .transpose()?;
+            cosim_topology::validate_payload(&topology, payload.as_ref())?;
+            cosim_runtime::check_assets(&topology, payload.as_ref())?;
             let layout = target.layout(Purpose::Run)?;
-            let plan = cosim_runtime::plan(&topology, &ExecEnv::local()?, &layout)?;
+            let plan =
+                cosim_runtime::plan(&topology, payload.as_ref(), &ExecEnv::local()?, &layout)?;
             return run(&plan, &options, stdin_lifeline).await;
         }
         Command::Clean { run_dir } => cosim_runtime::clean(&run_dir)?,

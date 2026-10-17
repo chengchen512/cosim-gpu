@@ -6,7 +6,7 @@ use std::collections::BTreeMap;
 use std::path::PathBuf;
 
 use schemars::JsonSchema;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 
 use crate::model::{DeviceModel, DiskBus, DiskFormat, GuestHints, Pci, Role};
@@ -27,6 +27,19 @@ pub(crate) struct Document {
     #[schemars(with = "Vec<Machine>")]
     #[serde(default)]
     pub(crate) machines: Vec<Value>,
+}
+
+/// A payload document, kept separate from machine hardware.
+#[derive(Debug, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct PayloadDocument {
+    pub(crate) version: u32,
+    #[serde(default)]
+    pub(crate) boot: Boot,
+    #[serde(default)]
+    pub(crate) disks: Vec<Disk>,
+    #[serde(default)]
+    pub(crate) snapshot: bool,
 }
 
 /// A reusable machine, host or device fragment.
@@ -103,18 +116,12 @@ pub(crate) struct Host {
     #[serde(default)]
     pub(crate) no_reboot: bool,
     #[serde(default)]
-    pub(crate) boot: Boot,
-    #[serde(default)]
-    pub(crate) disks: Vec<Disk>,
-    #[serde(default)]
-    pub(crate) snapshot: bool,
-    #[serde(default)]
     pub(crate) serial: Serial,
     #[serde(default)]
     pub(crate) args: Vec<String>,
 }
 
-#[derive(Debug, Default, Deserialize, JsonSchema)]
+#[derive(Debug, Default, Deserialize, JsonSchema, Serialize)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct Boot {
     pub(crate) kernel: Option<PathBuf>,
@@ -130,7 +137,7 @@ pub(crate) struct Serial {
     pub(crate) timeout: Option<u64>,
 }
 
-#[derive(Debug, Deserialize, JsonSchema)]
+#[derive(Debug, Deserialize, JsonSchema, Serialize)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct Disk {
     pub(crate) id: String,

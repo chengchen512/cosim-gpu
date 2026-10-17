@@ -5,10 +5,10 @@ templates:
   qemu-edu:
     kind: qemu-device
     runtime:
-      binary: ../../../qemu/build/qemu-system-x86_64
+      binary: build/qemu/qemu-system-x86_64
     args:
       device: {driver: edu}
   qemu-edu-aarch64:
     use: qemu-edu
     runtime:
-      binary: ../../../qemu/build/qemu-system-aarch64
+      binary: build/qemu/qemu-system-aarch64

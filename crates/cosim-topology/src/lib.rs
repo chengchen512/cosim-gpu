@@ -22,12 +22,22 @@ pub use adapter::{
 };
 pub use graph::graph;
 pub use layout::{DeviceRegions, GuestRange, MemoryLayout, PageSize, Region};
-pub use loader::load;
+pub use loader::{load, load_payload, load_payload_with_workspace, load_with_workspace};
 pub use model::{
     Device, DeviceModel, DirectBoot, Disk, DiskBus, DiskFormat, DiskMode, GuestHints, Host,
-    Identifier, Machine, MemoryRegion, Pci, Program, Role, SerialReady, Topology,
+    Identifier, Machine, MemoryRegion, Payload, Pci, Program, Role, SerialReady, Topology,
 };
 pub use size::ByteSize;
+
+/// Validates optional payload constraints that depend on a topology.
+pub fn validate_payload(topology: &Topology, payload: Option<&Payload>) -> anyhow::Result<()> {
+    resolve::validate_payload(topology, payload)
+}
+
+/// Generates the JSON Schema of standalone payload documents.
+pub fn payload_schema() -> schemars::Schema {
+    schemars::schema_for!(raw::PayloadDocument)
+}
 
 /// Generates the JSON Schema of topology documents.
 pub fn schema() -> schemars::Schema {

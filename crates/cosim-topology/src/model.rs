@@ -88,6 +88,18 @@ pub struct Machine {
     pub placement: Option<String>,
 }
 
+/// Guest boot and storage inputs supplied separately from machine hardware.
+#[non_exhaustive]
+#[derive(Clone, Debug, Serialize)]
+pub struct Payload {
+    /// Canonical path of the payload document.
+    pub source: PathBuf,
+    /// Direct kernel boot configuration.
+    pub boot: Option<DirectBoot>,
+    /// Storage attached to each machine in the topology.
+    pub disks: Vec<Disk>,
+}
+
 /// An executable and the environment it receives.
 #[non_exhaustive]
 #[derive(Clone, Debug, Serialize)]
@@ -128,10 +140,6 @@ pub struct Host {
     pub monitor: Option<String>,
     /// Exit instead of rebooting the guest.
     pub no_reboot: bool,
-    /// Direct kernel boot, when configured.
-    pub boot: Option<DirectBoot>,
-    /// Storage attached to the guest.
-    pub disks: Vec<Disk>,
     /// Guest serial output that marks the host ready.
     pub serial_ready: Option<SerialReady>,
     /// Additional QEMU arguments.

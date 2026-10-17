@@ -38,6 +38,9 @@ if [ "$#" -eq 0 ]; then
     exit 2
 fi
 
+root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+export COSIM_WORKSPACE="${COSIM_WORKSPACE:-$root}"
+
 if [ "$(uname -s)" = Linux ]; then
     default_env=host
 else
@@ -45,6 +48,10 @@ else
 fi
 case "${COSIM_ENV:-$default_env}" in
     host)
+        export CARGO_HOME="$root/build/dev-cache/host/cargo"
+        export CARGO_TARGET_DIR="$root/build/cargo/host"
+        export TMPDIR="$root/build/tmp/host"
+        mkdir -p "$CARGO_HOME" "$CARGO_TARGET_DIR" "$TMPDIR"
         exec "$@"
         ;;
     container)
@@ -55,16 +62,17 @@ case "${COSIM_ENV:-$default_env}" in
         ;;
 esac
 
-root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 image="${COSIM_DEV_IMAGE:-cosim-dev:local}"
 if ! docker image inspect "$image" >/dev/null 2>&1; then
     echo "dev.sh: image $image is missing; run 'just dev-image'" >&2
     exit 1
 fi
 
-cache="$root/target/dev-cache"
+cache="$root/build/dev-cache/container"
+target_dir="$root/build/cargo/container"
+temp_dir="$root/build/tmp/container"
 lock_dir="${COSIM_DISK_LOCK_DIR:-$HOME/.cache/cosim-gpu/disk-locks}"
-mkdir -p "$cache/home" "$cache/cargo" "$lock_dir"
+mkdir -p "$cache/home" "$cache/cargo" "$target_dir" "$temp_dir" "$lock_dir"
 lock_dir="$(cd "$lock_dir" && pwd)"
 name="cosim-dev-$(od -An -N4 -tx1 /dev/urandom | tr -d '[:space:]')"
 
@@ -77,7 +85,8 @@ args=(
     --volume "$lock_dir:$lock_dir"
     --env HOME="$cache/home"
     --env CARGO_HOME="$cache/cargo"
-    --env CARGO_TARGET_DIR="$root/target/container"
+    --env CARGO_TARGET_DIR="$target_dir"
+    --env TMPDIR="$temp_dir"
     --env COSIM_DISK_LOCK_DIR="$lock_dir"
 )
 if [ -n "${COSIM_DEV_PLATFORM:-}" ]; then

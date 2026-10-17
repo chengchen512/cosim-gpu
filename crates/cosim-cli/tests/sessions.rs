@@ -31,9 +31,9 @@ fn samples() -> PathBuf {
     workspace().join("samples")
 }
 
-/// A test directory below the workspace target directory.
+/// A test directory below the workspace build directory.
 fn directory() -> tempfile::TempDir {
-    let root = workspace().join("target/tests");
+    let root = workspace().join("build/tests/runtime");
     fs::create_dir_all(&root).unwrap();
     tempfile::Builder::new()
         .prefix("s")
@@ -44,9 +44,9 @@ fn directory() -> tempfile::TempDir {
 /// Returns the host profile file and template for this architecture.
 fn host_profile() -> (&'static str, &'static str) {
     if cfg!(target_arch = "aarch64") {
-        ("hosts/tcg-aarch64.yaml", "tcg-aarch64")
+        ("hosts/host-arm-tcg.yaml", "host-arm-tcg")
     } else {
-        ("hosts/tcg.yaml", "tcg")
+        ("hosts/host-x86-tcg.yaml", "host-x86-tcg")
     }
 }
 
@@ -72,6 +72,40 @@ fn topology(root: &Path, machines: &[(&str, &str, &str)], extra: &str) -> PathBu
     }
     let path = root.join("topology.yaml");
     fs::write(&path, text).unwrap();
+    path
+}
+
+#[test]
+fn validate_plan_and_run_reject_guest_hints_without_payload() {
+    let root = directory();
+    let (profile, host) = host_profile();
+    let topology = root.path().join("topology.yaml");
+    fs::write(
+        &topology,
+        format!(
+            "version: 1\nimports: [{}, {}, {}]\nmachines:\n  - id: m0\n    host: {{use: {host}}}\n    devices: [{{use: mi300x, guest_hints: {{cmdline: quiet}}}}]\n",
+            samples().join("hosts/qemu.yaml").display(),
+            samples().join(profile).display(),
+            samples().join("devices/gpu/mi300x.yaml").display(),
+        ),
+    )
+    .unwrap();
+    for command in ["validate", "plan", "run"] {
+        let args = [OsString::from(command), topology.clone().into()];
+        let (status, output) = Launcher::start(root.path(), &args, Stdio::null()).finish();
+        assert!(!status.success(), "{command}: {output:#?}");
+        assert!(
+            output
+                .iter()
+                .any(|line| line.contains("guest_hints.cmdline requires payload boot.kernel")),
+            "{command}: {output:#?}"
+        );
+    }
+}
+
+fn payload(root: &Path, fields: &str) -> PathBuf {
+    let path = root.join("payload.yaml");
+    fs::write(&path, format!("version: 1\n{fields}\n")).unwrap();
     path
 }
 
@@ -133,6 +167,19 @@ impl Launcher {
         let mut args = vec![
             OsString::from("run"),
             topology.into(),
+            "--run-dir".into(),
+            root.join("r").into(),
+        ];
+        args.extend(extra.iter().map(OsString::from));
+        Self::start(root, &args, Stdio::null())
+    }
+
+    fn run_with_payload(root: &Path, topology: &Path, payload: &Path, extra: &[&str]) -> Self {
+        let mut args = vec![
+            OsString::from("run"),
+            topology.into(),
+            "--payload".into(),
+            payload.into(),
             "--run-dir".into(),
             root.join("r").into(),
         ];
@@ -576,11 +623,14 @@ fn invalid_explicit_image_helpers_leave_paths_available_for_retry() {
             fs::copy(&installed, &helper).unwrap();
             fs::set_permissions(&helper, fs::Permissions::from_mode(0o644)).unwrap();
         }
-        let disks = format!(
-            ", disks: [{{id: data, path: {}, format: raw, create: true, size: 1M, readonly: true}}]",
-            image.display()
+        let payload = payload(
+            root,
+            &format!(
+                "disks: [{{id: data, path: {}, format: raw, create: true, size: 1M, readonly: true}}]",
+                image.display()
+            ),
         );
-        let topology = topology(root, &[("m0", &disks, "")], "");
+        let topology = topology(root, &[("m0", "", "")], "");
         let extra = [
             "--qemu-img",
             helper.to_str().unwrap(),
@@ -590,7 +640,8 @@ fn invalid_explicit_image_helpers_leave_paths_available_for_retry() {
             "1",
         ];
         for _ in 0..2 {
-            let (status, output) = Launcher::run(root, &topology, &extra).finish();
+            let (status, output) =
+                Launcher::run_with_payload(root, &topology, &payload, &extra).finish();
             assert!(!status.success(), "{output:#?}");
             assert!(
                 output
@@ -606,7 +657,8 @@ fn invalid_explicit_image_helpers_leave_paths_available_for_retry() {
             fs::copy(&installed, &helper).unwrap();
         }
         fs::set_permissions(&helper, fs::Permissions::from_mode(0o755)).unwrap();
-        let (status, output) = Launcher::run(root, &topology, &extra).finish();
+        let (status, output) =
+            Launcher::run_with_payload(root, &topology, &payload, &extra).finish();
         assert!(status.success(), "{output:#?}");
         assert_eq!(verdict(&output)["status"], "PASS");
         assert_eq!(fs::metadata(&image).unwrap().len(), 1 << 20);
@@ -624,14 +676,17 @@ fn disks_use_overlays_and_creation_without_touching_base_images() {
     let base = images.join("base.raw");
     fs::write(&base, vec![7u8; 1 << 20]).unwrap();
     let created = images.join("data.raw");
-    let disks = format!(
-        ", disks: [{{id: root, backing: {}, format: raw, boot: true}}, \
-         {{id: data, path: {}, format: raw, create: true, size: 2M, readonly: true}}]",
-        base.display(),
-        created.display()
+    let payload = payload(
+        root,
+        &format!(
+            "disks: [{{id: root, backing: {}, format: raw, boot: true}}, \
+             {{id: data, path: {}, format: raw, create: true, size: 2M, readonly: true}}]",
+            base.display(),
+            created.display()
+        ),
     );
-    let topology = topology(root, &[("m0", &disks, "")], "");
-    let mut launcher = Launcher::run(root, &topology, &["--run-for", "2"]);
+    let topology = topology(root, &[("m0", "", "")], "");
+    let mut launcher = Launcher::run_with_payload(root, &topology, &payload, &["--run-for", "2"]);
     launcher.wait_for("ready: m0.host");
     let overlay = root.join("r/m0/root.qcow2");
     assert!(overlay.is_file(), "the overlay exists while the host runs");
@@ -662,12 +717,16 @@ fn image_leases_exclude_readers_while_a_direct_writer_runs() {
     fs::hard_link(&image, &alias).unwrap();
     let locks = writer_root.path().join("locks");
 
-    let writer_disk = format!(
-        ", disks: [{{id: d, path: {}, format: raw, readonly: false, shared: false}}]",
-        image.display()
+    let writer_payload = payload(
+        writer_root.path(),
+        &format!(
+            "disks: [{{id: d, path: {}, format: raw, readonly: false, shared: false}}]",
+            image.display()
+        ),
     );
-    let writer_topology = topology(writer_root.path(), &[("w", &writer_disk, "")], "");
-    let mut writer = Launcher::run(writer_root.path(), &writer_topology, &[]);
+    let writer_topology = topology(writer_root.path(), &[("w", "", "")], "");
+    let mut writer =
+        Launcher::run_with_payload(writer_root.path(), &writer_topology, &writer_payload, &[]);
     writer.wait_for("ready: w.host");
     #[cfg(target_os = "linux")]
     {
@@ -681,14 +740,19 @@ fn image_leases_exclude_readers_while_a_direct_writer_runs() {
         );
     }
 
-    let reader_disk = format!(
-        ", disks: [{{id: d, path: {}, format: raw, readonly: true}}]",
-        alias.display()
+    let reader_payload = payload(
+        reader_root.path(),
+        &format!(
+            "disks: [{{id: d, path: {}, format: raw, readonly: true}}]",
+            alias.display()
+        ),
     );
-    let reader_topology = topology(reader_root.path(), &[("r", &reader_disk, "")], "");
+    let reader_topology = topology(reader_root.path(), &[("r", "", "")], "");
     let args = [
         OsString::from("run"),
         reader_topology.into(),
+        "--payload".into(),
+        reader_payload.into(),
         "--run-dir".into(),
         reader_root.path().join("r").into(),
     ];
@@ -744,7 +808,7 @@ fn vfio_user_option_rom_is_checked_and_exposed() {
     } else {
         ("x86_64", "qemu-edu")
     };
-    let qemu = workspace().join(format!("qemu/build/qemu-system-{arch}"));
+    let qemu = workspace().join(format!("build/qemu/qemu-system-{arch}"));
     let source = root.join("topology.yaml");
     let rom = root.join("guest, firmware.rom");
     fs::write(

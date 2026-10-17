@@ -18,7 +18,7 @@ pub use qemu_device::QemuDevice;
 pub use template::{CommandTemplate, TemplateDevice};
 
 use crate::layout::MemoryLayout;
-use crate::model::{Device, Disk, DiskFormat, Host, Machine};
+use crate::model::{Device, DirectBoot, Disk, DiskFormat, Host, Machine};
 
 /// The launch contract of a device process.
 #[derive(Clone, Debug, Serialize)]
@@ -129,6 +129,8 @@ pub struct HostContext<'a> {
     pub node_dir: &'a Path,
     /// Session directory.
     pub run_dir: &'a Path,
+    /// Optional boot configuration supplied by a payload document.
+    pub boot: Option<&'a DirectBoot>,
     /// Disks in declaration order.
     pub disks: Vec<HostDisk<'a>>,
     /// Device endpoints in declaration order.
@@ -170,7 +172,8 @@ impl Host {
             "pool": context.pool, "ram": context.layout.ram,
             "guest_ranges": context.layout.guest_ranges, "disks": disks,
             "devices": devices, "qmp": context.qmp, "serial": context.serial,
-            "serial_log": context.serial_log, "cmdline": self.cmdline(context.machine),
+            "serial_log": context.serial_log, "boot": context.boot,
+            "cmdline": self.cmdline(context.machine, context.boot),
             "run_dir": context.run_dir, "node_dir": context.node_dir});
         let argv = self
             .command
@@ -195,8 +198,8 @@ impl Host {
     }
 
     /// Joins the boot command line with device guest hints.
-    fn cmdline(&self, machine: &Machine) -> Value {
-        let Some(boot) = &self.boot else {
+    fn cmdline(&self, machine: &Machine, boot: Option<&DirectBoot>) -> Value {
+        let Some(boot) = boot else {
             return Value::String(String::new());
         };
         let parts = boot

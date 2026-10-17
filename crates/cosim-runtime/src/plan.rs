@@ -9,7 +9,7 @@ use std::path::{Path, PathBuf};
 use anyhow::{Context, Result, ensure};
 use cosim_topology::{
     ByteSize, DeviceContext, DeviceModel, Disk, DiskFormat, DiskMode, HostContext, HostDevice,
-    HostDisk, Identifier, Launch, Machine, MemoryLayout, Probe, Program, Topology,
+    HostDisk, Identifier, Launch, Machine, MemoryLayout, Payload, Probe, Program, Topology,
 };
 use nix::unistd::{self, AccessFlags};
 use serde::Serialize;
@@ -28,6 +28,8 @@ const SOCKET_PATH_LIMIT: usize = if cfg!(target_os = "linux") { 108 } else { 104
 pub struct Plan {
     /// Topology document the plan was built from.
     pub source: PathBuf,
+    /// Optional payload document applied to every machine.
+    pub payload: Option<Payload>,
     /// Host facts used for planning.
     pub env: ExecEnv,
     /// Session directories.
@@ -118,8 +120,14 @@ pub struct ProcessPlan {
 
 /// Resolves commands, paths and executables without creating files or
 /// starting processes.
-pub fn plan(topology: &Topology, env: &ExecEnv, layout: &SessionLayout) -> Result<Plan> {
+pub fn plan(
+    topology: &Topology,
+    payload: Option<&Payload>,
+    env: &ExecEnv,
+    layout: &SessionLayout,
+) -> Result<Plan> {
     SessionLayout::check_identifiers(topology)?;
+    cosim_topology::validate_payload(topology, payload)?;
     // Lock files outlive sessions, so they cannot live in a directory that a
     // session removes.
     ensure!(
@@ -131,12 +139,13 @@ pub fn plan(topology: &Topology, env: &ExecEnv, layout: &SessionLayout) -> Resul
     let mut machines = Vec::with_capacity(topology.machines.len());
     let mut processes = Vec::new();
     for (index, machine) in topology.machines.iter().enumerate() {
-        let planned = plan_machine(index, machine, env, layout, &mut processes)
+        let planned = plan_machine(index, machine, payload, env, layout, &mut processes)
             .with_context(|| format!("machine {}", machine.id))?;
         machines.push(planned);
     }
     Ok(Plan {
         source: topology.source.clone(),
+        payload: payload.cloned(),
         env: env.clone(),
         layout: layout.clone(),
         machines,
@@ -147,15 +156,15 @@ pub fn plan(topology: &Topology, env: &ExecEnv, layout: &SessionLayout) -> Resul
 fn plan_machine(
     index: usize,
     machine: &Machine,
+    payload: Option<&Payload>,
     env: &ExecEnv,
     layout: &SessionLayout,
     processes: &mut Vec<ProcessPlan>,
 ) -> Result<MachinePlan> {
     let memory = machine.memory_layout(env.page_size)?;
     let pool = layout.pool(&machine.id);
-    let disks = machine
-        .host
-        .disks
+    let payload_disks = payload.map_or(&[][..], |payload| payload.disks.as_slice());
+    let disks = payload_disks
         .iter()
         .map(|disk| disk_plan(disk, &machine.id, layout))
         .collect::<Result<Vec<_>>>()?;
@@ -207,9 +216,10 @@ fn plan_machine(
         serial_log: &serial_log,
         node_dir: &directory,
         run_dir: &layout.run_dir,
+        boot: payload.and_then(|payload| payload.boot.as_ref()),
         disks: disks
             .iter()
-            .zip(&machine.host.disks)
+            .zip(payload_disks)
             .map(|(plan, disk)| HostDisk {
                 disk,
                 path: &plan.target,

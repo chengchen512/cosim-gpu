@@ -4,8 +4,9 @@
 #
 # Adapted for the local development layout:
 #   cosim-gpu/
-#     gem5/                     <- gem5 source & build
-#     gem5-resources/           <- disk image, kernel, GPU apps
+#     gem5/                     <- gem5 source
+#     build/gem5/               <- gem5 build output
+#     gem5-resources/           <- image recipe, ROM and GPU app sources
 #     scripts/                  <- this script
 #
 # Usage:
@@ -24,20 +25,23 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 COSIM_DIR="$(dirname "$SCRIPT_DIR")"
+# shellcheck disable=SC1091
+source "${SCRIPT_DIR}/cosim_lib.sh"
 GEM5_DIR="${COSIM_DIR}/gem5"
 RESOURCES_DIR="${COSIM_DIR}/gem5-resources"
 
 # Built artifacts (ROCm 7.0 disk image)
-DISK_IMAGE_DIR="${RESOURCES_DIR}/src/x86-ubuntu-gpu-ml/disk-image"
-DISK_IMAGE="${DISK_IMAGE_DIR}/x86-ubuntu-rocm70"
-KERNEL="${RESOURCES_DIR}/src/x86-ubuntu-gpu-ml/vmlinux-rocm70"
-SQUARE_APP="${RESOURCES_DIR}/src/gpu/square/bin.default/square.default"
+DISK_IMAGE_DIR="${COSIM_DIR}/build/rocm-local-installed"
+DISK_IMAGE="${DISK_IMAGE_DIR}/disk"
+KERNEL="${DISK_IMAGE_DIR}/kernel"
+SQUARE_APP="${COSIM_DIR}/build/apps/square/square.default"
 GEM5_BUILD_DIR="$(just --justfile "${COSIM_DIR}/justfile" \
     --evaluate gem5_build_dir)"
-GEM5_BIN="${GEM5_DIR}/${GEM5_BUILD_DIR}/gem5.opt"
+GEM5_BUILD_RELATIVE="$(cosim_gem5_build_dir "$COSIM_DIR" "$GEM5_BUILD_DIR")"
+GEM5_BIN="${COSIM_DIR}/${GEM5_BUILD_RELATIVE}/gem5.opt"
 
 # QEMU: $QEMU_BIN, else the qemu submodule build, else PATH
-QEMU_SUBMODULE_BIN="${COSIM_DIR}/qemu/build/qemu-system-x86_64"
+QEMU_SUBMODULE_BIN="${COSIM_DIR}/build/qemu/qemu-system-x86_64"
 if [ -z "${QEMU_BIN:-}" ]; then
     if [ -x "$QEMU_SUBMODULE_BIN" ]; then
         QEMU_BIN="$QEMU_SUBMODULE_BIN"
@@ -47,8 +51,6 @@ if [ -z "${QEMU_BIN:-}" ]; then
 fi
 
 # Logs
-LOGS_DIR="${COSIM_DIR}/logs"
-BUILD_DISK_LOG="${LOGS_DIR}/build-disk.log"
 
 # Docker images
 GEM5_BUILD_IMAGE="${GEM5_RUN_IMAGE:-cosim-dev:local}"
@@ -87,14 +89,18 @@ check_kvm() {
 
 # Translate host path to container path (/gem5/...)
 to_container_path() {
-    echo "${1/$GEM5_DIR//gem5}"
+    case "$1" in
+        "$GEM5_DIR"/*) echo "/gem5/${1#"$GEM5_DIR"/}" ;;
+        "$COSIM_DIR"/build/*) echo "/build/${1#"$COSIM_DIR"/build/}" ;;
+        *) echo "$1" ;;
+    esac
 }
 
 # Run gem5 binary inside Docker (Ubuntu 24.04 deps) with KVM passthrough
 run_gem5_docker() {
     require_docker
     local docker_args=("--rm" "-u" "$(id -u):$(id -g)"
-        "-v" "${GEM5_DIR}:/gem5" "-w" "/gem5"
+        "-v" "${GEM5_DIR}:/gem5" "-v" "${COSIM_DIR}/build:/build" "-w" "/gem5"
         "-e" "PYTHONPATH=/usr/lib/python3.12/lib-dynload"
         "-p" "3456:3456" "-p" "7000:7000")
     if [ -e /dev/kvm ]; then
@@ -148,36 +154,9 @@ get_resources() {
 # Build disk image
 # ==========================
 build_disk_image() {
-    info "Building disk image (Ubuntu 22.04 + ROCm)..."
+    info "Building disk image (Ubuntu 24.04 + ROCm)..."
     info "This takes ~30 min and needs ~60GB disk space"
-
-    if [ -z "$QEMU_BIN" ] || [ ! -x "$QEMU_BIN" ]; then
-        error "qemu-system-x86_64 not found. Run: just build-qemu" \
-              "(or install QEMU, or set QEMU_BIN)"
-    fi
-    command -v unzip >/dev/null || \
-        error "unzip not found. Install: sudo apt install unzip"
-    check_kvm || error "KVM required for disk image build"
-
-    if [ -f "$DISK_IMAGE" ]; then
-        info "Disk image exists: $DISK_IMAGE"
-        read -p "Rebuild? [y/N] " -n 1 -r
-        echo
-        [[ ! $REPLY =~ ^[Yy]$ ]] && return 0
-    fi
-
-    info "Using QEMU: $QEMU_BIN"
-    info "Build log:  $BUILD_DISK_LOG"
-
-    mkdir -p "$LOGS_DIR"
-    cd "${RESOURCES_DIR}/src/x86-ubuntu-gpu-ml"
-    local proxy_args=()
-    if [ -n "${https_proxy:-}" ]; then
-        proxy_args+=(-var "http_proxy=${https_proxy}")
-    fi
-    ./build.sh -var "qemu_path=${QEMU_BIN}" "${proxy_args[@]}" \
-        2>&1 | awk '{ print strftime("[%H:%M:%S]"), $0; fflush() }' | tee "$BUILD_DISK_LOG"
-
+    just --justfile "${COSIM_DIR}/justfile" build-disk
     [ -f "$DISK_IMAGE" ] || error "Disk image build failed"
     info "Disk image: $DISK_IMAGE"
     info "Kernel:     $KERNEL"
@@ -189,7 +168,8 @@ build_disk_image() {
 build_gpu_app() {
     local app_name="${1:-square}"
     local app_src="${RESOURCES_DIR}/src/gpu/${app_name}"
-    local app_bin="${app_src}/bin.default/${app_name}.default"
+    local app_output="${COSIM_DIR}/build/apps/${app_name}"
+    local app_bin="${app_output}/${app_name}.default"
 
     info "Building GPU app: ${app_name}..."
 
@@ -202,15 +182,17 @@ build_gpu_app() {
 
     if command -v docker >/dev/null && docker info >/dev/null 2>&1; then
         info "Building via Docker (${GPU_APP_BUILD_IMAGE})..."
+        mkdir -p "$app_output"
         docker run --rm \
             -u "$(id -u):$(id -g)" \
-            -v "${app_src}:${app_src}" \
+            -v "${COSIM_DIR}:${COSIM_DIR}" \
             -w "${app_src}" \
             "$GPU_APP_BUILD_IMAGE" \
-            make -f Makefile.default
+            make -f Makefile.default "BIN_DIR=${app_output}"
     elif command -v hipcc >/dev/null; then
         info "Building with local hipcc..."
-        make -C "$app_src" -f Makefile.default
+        mkdir -p "$app_output"
+        make -C "$app_src" -f Makefile.default "BIN_DIR=${app_output}"
     else
         error "Need Docker or hipcc (ROCm) to build GPU apps"
     fi
@@ -235,7 +217,7 @@ run_simulation() {
 
     local app_args=()
     if [ -n "$app" ]; then
-        [ -f "$app" ] || error "App not found: $app. Run: just build-app"
+        [ -f "$app" ] || error "App not found: $app. Run: just build-gpu-app"
         info "  App: $app"
         app_args=("--app" "$(to_container_path "$app")")
     else
@@ -272,7 +254,7 @@ run_simulation_legacy() {
     [ -f "$LEGACY_CONFIG" ] || error "Config missing: $LEGACY_CONFIG"
     [ -f "$DISK_IMAGE" ] || error "Disk image missing. Run: just build-disk"
     [ -f "$KERNEL" ]     || error "Kernel missing. Run: just build-disk"
-    [ -f "$app" ]        || error "App not found: $app. Run: just build-app"
+    [ -f "$app" ]        || error "App not found: $app. Run: just build-gpu-app"
     check_kvm            || error "KVM required. Legacy config uses X86KvmCPU."
 
     cd "$GEM5_DIR"
@@ -328,7 +310,7 @@ show_status() {
     if [ -f "$SQUARE_APP" ]; then
         info "Square app:      $SQUARE_APP"
     else
-        warn "Square app:      MISSING (run: just build-app)"
+        warn "Square app:      MISSING (run: just build-gpu-app)"
     fi
 
     echo ""
@@ -388,7 +370,7 @@ Environment variables:
   GPU_APP_BUILD_IMAGE  Docker image for GPU app build
                      (default: $GPU_APP_BUILD_IMAGE)
   QEMU_BIN            QEMU binary used to build the disk image
-                     (default: qemu/build/qemu-system-x86_64, else PATH)
+                     (default: build/qemu/qemu-system-x86_64, else PATH)
 
 Layout:
   gem5 source:       $GEM5_DIR
@@ -399,7 +381,7 @@ Layout:
 
 Quick start (just recipes, see \`just --list\`):
   just build-all
-  just run-fs
+  just run-gem5-fs
 USAGE
 }
 
@@ -414,7 +396,7 @@ main() {
             build_disk_image
             build_gpu_app "${1:-square}"
             info "All components built!"
-            info "Run: just run-fs"
+            info "Run: just run-gem5-fs"
             ;;
         build-gem5)
             build_gem5

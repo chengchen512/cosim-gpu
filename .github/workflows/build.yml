@@ -51,7 +51,7 @@ jobs:
       - uses: actions/cache/restore@v4
         id: gem5-cache
         with:
-          path: artifacts/gem5-cache/
+          path: build/cache/gem5-runtime/
           key: gem5-runtime-v2-${{ steps.build-key.outputs.key }}
 
       - name: Build the development image
@@ -64,29 +64,29 @@ jobs:
 
       - name: Verify binary
         if: steps.gem5-cache.outputs.cache-hit != 'true'
-        run: test -f "gem5/$(just --evaluate gem5_build_dir)/gem5.opt"
+        run: test -f "$(just --evaluate gem5_build_dir)/gem5.opt"
 
       - name: Package gem5 and its runtime environment
         if: steps.gem5-cache.outputs.cache-hit != 'true'
-        run: just ci-package artifacts/gem5-cache
+        run: just ci-package-gem5 build/cache/gem5-runtime
 
       - uses: actions/cache/save@v4
         if: steps.gem5-cache.outputs.cache-hit != 'true'
         with:
-          path: artifacts/gem5-cache/
+          path: build/cache/gem5-runtime/
           key: gem5-runtime-v2-${{ steps.build-key.outputs.key }}
 
       - name: Publish a verified build for this workflow run
-        run: just ci-reuse artifacts/gem5-cache artifacts/ci-build
+        run: just ci-reuse-gem5 build/cache/gem5-runtime build/ci-build
 
       - name: Verify runtime cache integrity and provenance
-        run: just test-ci-artifact artifacts/gem5-cache artifacts/ci-build
+        run: just test-ci-artifact build/cache/gem5-runtime build/ci-build
 
       - uses: actions/upload-artifact@v4
         id: runtime
         with:
           name: gem5-runtime-${{ github.run_id }}-${{ github.run_attempt }}
-          path: artifacts/ci-build/
+          path: build/ci-build/
           if-no-files-found: error
           compression-level: 0
           retention-days: 2
@@ -112,7 +112,7 @@ jobs:
         with:
           just-version: 1.51.0
       - name: Prepare dedicated image-build host
-        run: just ci-image-host
+        run: just ci-prepare-image-host
       - name: Initialize image and m5 sources
         run: |
           git config --global url."https://github.com/".insteadOf "git@github.com:"
@@ -123,7 +123,7 @@ jobs:
         run: just check-rocm-image
       - name: Identify exact image inputs
         id: image-key
-        run: echo "key=$(just ci-assets key)" >> "$GITHUB_OUTPUT"
+        run: echo "key=$(just ci-rocm-assets key)" >> "$GITHUB_OUTPUT"
       - name: Find a verified image from the same source branch
         id: retained
         env:
@@ -149,7 +149,7 @@ jobs:
         env:
           IMAGE_KEY: ${{ steps.image-key.outputs.key }}
           DOWNLOAD_DIR: ${{ steps.retained.outputs.download-dir }}
-        run: just ci-adopt-rocm-artifact "$DOWNLOAD_DIR" artifacts/rocm-assets "$IMAGE_KEY"
+        run: just ci-adopt-rocm-artifact "$DOWNLOAD_DIR" build/rocm-assets "$IMAGE_KEY"
       - name: Build or verify the paired ROCm disk and kernel
         run: just build-rocm-assets
       - name: Verify reuse and corruption rejection with the built image
@@ -158,7 +158,7 @@ jobs:
         id: guest
         with:
           name: rocm-guest-${{ github.run_id }}-${{ github.run_attempt }}
-          path: artifacts/rocm-assets/
+          path: build/rocm-assets/
           if-no-files-found: error
           compression-level: 0
           retention-days: 2
@@ -169,24 +169,24 @@ jobs:
           name: rocm-image-logs-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
             artifacts/rocm-selection.json
-            artifacts/rocm-image-build-*/build.log
-            artifacts/rocm-image-build-*/packer.log
-            artifacts/rocm-image-build-*/products/manifest.json
-            artifacts/rocm-image-build-*/products/image-packages.tsv
-            artifacts/rocm-image-build-*/products/kernel-release
-            artifacts/rocm-image-build-*/products/python-packages.json
-            artifacts/rocm-image-build-*/products/amdgpu-module.txt
-            artifacts/rocm-image-build-*/products/hipcc-version.txt
-            artifacts/rocm-image-build-*/products/os-release
+            build/rocm-image-build-*/build.log
+            build/rocm-image-build-*/packer.log
+            build/rocm-image-build-*/products/manifest.json
+            build/rocm-image-build-*/products/image-packages.tsv
+            build/rocm-image-build-*/products/kernel-release
+            build/rocm-image-build-*/products/python-packages.json
+            build/rocm-image-build-*/products/amdgpu-module.txt
+            build/rocm-image-build-*/products/hipcc-version.txt
+            build/rocm-image-build-*/products/os-release
             artifacts/rocm-image-validate/*.log
-            artifacts/rocm-assets/*.log
-            artifacts/rocm-assets/manifest.json
-            artifacts/rocm-assets/image-packages.tsv
-            artifacts/rocm-assets/kernel-release
-            artifacts/rocm-assets/python-packages.json
-            artifacts/rocm-assets/amdgpu-module.txt
-            artifacts/rocm-assets/hipcc-version.txt
-            artifacts/rocm-assets/os-release
+            build/rocm-assets/*.log
+            build/rocm-assets/manifest.json
+            build/rocm-assets/image-packages.tsv
+            build/rocm-assets/kernel-release
+            build/rocm-assets/python-packages.json
+            build/rocm-assets/amdgpu-module.txt
+            build/rocm-assets/hipcc-version.txt
+            build/rocm-assets/os-release
           if-no-files-found: warn
           retention-days: 14
       - name: Verify published image selection and source isolation
