@@ -34,16 +34,19 @@ Packer, passes the public key through cloud-init, and uses the matching private
 key for the SSH communicator. The Packer [Ansible
 provisioner](https://developer.hashicorp.com/packer/integrations/hashicorp/ansible/latest/components/provisioner/ansible)
 installs the
-selected kernel packages, ROCm, PyTorch and cosim services, builds the gem5 WMI
-module, and exports the matching kernel and package inventory. The shared
+selected kernel packages, the pinned AMDGPU DKMS package
+`1:6.14.14.30100000-2204008.24.04`, ROCm, PyTorch and cosim services, builds
+the gem5 WMI module, and exports the matching kernel and package inventory.
+When DKMS fails, the image build prints its `make.log` files. The shared
 Packer template and Ansible entry point are in `resources/images/packer/` and
 `resources/images/ansible/`; the profile contains its OS and package data.
 
-`gem5-resources` remains under `third_party/` for inputs that are still used by
-the ROCm vHost image and GPU examples, including ROM and discovery firmware files.
-The profile recipe, Packer template and Ansible tasks are maintained in this
-repository. The `gem5` submodule builds the `m5` utility and simulator; the
-`qemu` submodule provides the QEMU build used by co-simulation.
+The ROCm profile keeps its guest scripts and WMI source in its profile
+directory. Its ROM and discovery firmware inputs come from the pinned
+`third_party/gem5-resources` submodule, which also supplies GPU application
+sources. The profile, shared Packer template and Ansible tasks are maintained
+in this repository. The `gem5` submodule builds the `m5` utility and simulator,
+and the `qemu` submodule provides the QEMU build used by co-simulation.
 
 ## Build and inspect
 
@@ -72,8 +75,8 @@ bundle, then validates its kernel and disk before launching.
 The verified bundle is stored under
 `build/images/guest/ubuntu/24.04/x86_64/rocm7_0/`. It contains `disk`, the
 matching `kernel`, package inventories, build logs and `manifest.json`. The
-manifest records the pinned base image, profile files, external firmware and
-`m5` inputs, QEMU and QEMU image tool versions, Packer and Ansible versions,
+manifest records the pinned base image, profile files, declared external
+firmware and `m5` inputs, QEMU and QEMU image tool versions, Packer and Ansible versions,
 and SHA-256 values for each artifact. QCOW2 bundles must pass `qemu-img check`
 and must not depend on a backing file. A profile or input change creates a new
 input identity; a matching verified bundle is reused.

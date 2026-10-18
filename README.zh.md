@@ -133,8 +133,8 @@ QEMU Device Model 示例使用 <code>just build-qemu</code> 构建的 QEMU，通
 - **Rust 工作区：** <code>crates/cosim-topology/</code>、
   <code>crates/cosim-runtime/</code> 和 <code>crates/cosim-cli/</code>。
 - **模拟器模型：** <code>third_party/gem5/</code>、
-  <code>third_party/qemu/</code>、<code>third_party/gem5-resources/</code> 和
-  <code>configs/sst/</code>。
+  <code>third_party/qemu/</code> 和 <code>configs/sst/</code>。
+- **GPU 工作负载和 vHost 固件输入：** <code>third_party/gem5-resources/</code>。
 - **项目工具：** <code>samples/</code>、<code>scripts/</code>、
   <code>justfile</code> 和 <code>.agents/</code>。
 - **vHost 镜像配方：** <code>resources/images/</code> 中按操作系统组织的 Packer/QEMU

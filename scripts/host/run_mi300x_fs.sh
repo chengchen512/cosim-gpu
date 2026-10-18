@@ -6,7 +6,7 @@
 #   cosim-gpu/
 #     third_party/gem5/         <- gem5 source
 #     build/gem5/               <- gem5 build output
-#     third_party/gem5-resources/ <- ROM and GPU app sources
+#     third_party/gem5-resources/ <- external GPU application sources
 #     scripts/host/             <- this script
 #
 # Usage:

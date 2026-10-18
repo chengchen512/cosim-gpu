@@ -114,9 +114,10 @@ just build-disk
 just test-rocm-assets
 ```
 
-The image recipe and Ansible tasks are stored in `resources/images/`. The
-builder uses firmware, WMI source and GPU support files from
-`third_party/gem5-resources/`.
+The image profile, guest scripts and WMI source are stored in
+`resources/images/profiles/guest/ubuntu/24.04/x86_64/rocm7_0/`.
+The pinned `third_party/gem5-resources/` submodule provides GPU applications
+and the ROM and discovery firmware inputs used by the image profile.
 
 ### Custom Image Build
 

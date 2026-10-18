@@ -29,13 +29,16 @@ flowchart LR
 设置 `disk_image = true`，生成独立的 QCOW2 镜像并通过 QEMU 启动。镜像构建程序会在启动
 Packer 前生成临时 SSH 密钥对，通过 cloud-init 传入公钥，并将对应私钥交给 SSH communicator。
 Packer 的 [Ansible provisioner](https://developer.hashicorp.com/packer/integrations/hashicorp/ansible/latest/components/provisioner/ansible)
-安装指定的 kernel 软件包、ROCm、PyTorch 和 cosim 服务，编译 gem5 WMI 模块，并导出匹配的 kernel 与软件包清单。
+安装指定的 kernel 软件包、固定版本 `1:6.14.14.30100000-2204008.24.04` 的 AMDGPU DKMS、
+ROCm、PyTorch 和 cosim 服务，编译 gem5 WMI 模块，并导出匹配的 kernel 与软件包清单。
+DKMS 构建失败时，日志会输出对应的 `make.log`。
 共享 Packer 模板和 Ansible 入口分别位于 `resources/images/packer/` 和
 `resources/images/ansible/`；配方文件保存操作系统和软件包配置。
 
-`gem5-resources` 保留在 `third_party/`，继续提供 ROCm vHost 镜像和 GPU 示例仍在使用的
-ROM、discovery 固件等输入。配方、Packer 模板和 Ansible 任务由当前仓库维护。`gem5`
-子模块用于构建 `m5` 工具和 gem5 模拟器；`qemu` 子模块提供联合仿真使用的 QEMU 构建。
+ROCm 配方目录包含 guest 脚本和 WMI 源码。ROM 与 discovery 固件输入来自固定版本的
+`third_party/gem5-resources` 子模块，该子模块也提供 GPU 应用源码。配方、共享 Packer 模板和
+Ansible 任务由当前仓库维护。`gem5` 子模块用于构建 `m5` 工具和 gem5 模拟器；
+`qemu` 子模块提供联合仿真使用的 QEMU 构建。
 
 ## 构建和检查
 
@@ -58,7 +61,7 @@ Host 侧 Bash 入口 `scripts/host/cosim-image` 可以在不启动模拟器的�
 
 验证后的 bundle 保存在
 `build/images/guest/ubuntu/24.04/x86_64/rocm7_0/`，包含 `disk`、配套 `kernel`、软件包
-清单、构建日志和 `manifest.json`。清单记录固定版本的基础镜像、配方文件、外部固件与
+清单、构建日志和 `manifest.json`。清单记录固定版本的基础镜像、配方文件、声明的外部固件与
 `m5` 输入、QEMU 和 QEMU 镜像工具版本、Packer 与 Ansible 版本，以及每个产物的
 SHA-256。QCOW2 bundle 必须通过 `qemu-img check`，并且不能依赖 backing file。配方或
 输入变化会产生新的输入标识；输入一致且校验通过的 bundle 会直接复用。

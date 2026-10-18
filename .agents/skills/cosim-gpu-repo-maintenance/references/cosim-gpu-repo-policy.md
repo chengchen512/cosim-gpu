@@ -12,7 +12,7 @@ The top-level repository records all source submodules under `third_party/`:
 |---|---|
 | `.agents` | reusable cosim GPU skills vendored in-tree |
 | `third_party/gem5` | gem5 simulator source submodule |
-| `third_party/gem5-resources` | gem5 resources and vHost image inputs |
+| `third_party/gem5-resources` | GPU applications, workloads and vHost firmware inputs |
 | `third_party/qemu` | QEMU source submodule |
 
 The superproject records each submodule commit as a gitlink in `.gitmodules`.

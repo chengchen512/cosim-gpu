@@ -103,8 +103,10 @@ just build-disk
 just test-rocm-assets
 ```
 
-镜像配方和 Ansible 任务放在 `resources/images/`。构建过程使用保留在
-`third_party/gem5-resources/` 中的固件、WMI 源码和 GPU 支持文件。
+镜像配方、guest 脚本和 WMI 源码放在
+`resources/images/profiles/guest/ubuntu/24.04/x86_64/rocm7_0/`。
+固定版本的 `third_party/gem5-resources/` 子模块提供 GPU 应用源码，以及镜像配方使用的 ROM
+和 discovery 固件输入。
 
 ### 自定义镜像构建
 

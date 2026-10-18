@@ -109,8 +109,8 @@ gem5 任务只编译一次 `VEGA_X86`，上传压缩后的二进制文件、模�
 `resources/images/profiles/guest/ubuntu/24.04/x86_64/rocm7_0`。任务从校验值固定的
 Ubuntu cloud 磁盘镜像开始，安装 ROCm 7.0、AMDGPU DKMS、PyTorch 和 GPU 初始化服务，
 再导出配套的 Linux 6.8.0-124-generic 内核。QCOW2 磁盘、内核、软件包清单和文件摘要
-组成可复用产物。ROM、discovery 固件和 WMI 源码仍从 `third_party/gem5-resources`
-读取。
+组成可复用产物。WMI 源码和 guest 脚本由镜像配方目录维护；`third_party/gem5-resources`
+子模块提供 GPU 应用源码，以及 ROCm 镜像配方声明的 ROM 和 discovery 固件输入。
 
 镜像缓存标识包含基础镜像摘要、profile 与 Ansible 输入、外部文件摘要、`m5` 二进制、
 QEMU、Packer、Ansible 和磁盘格式。复用时校验输入标识和产物摘要。

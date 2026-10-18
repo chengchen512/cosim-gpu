@@ -139,8 +139,8 @@ container from <code>scripts/host/Dockerfile.dev</code>. vHost image and HIP bui
 - **Rust workspace:** <code>crates/cosim-topology/</code>,
   <code>crates/cosim-runtime/</code> and <code>crates/cosim-cli/</code>.
 - **Simulation models:** <code>third_party/gem5/</code>,
-  <code>third_party/qemu/</code>, <code>third_party/gem5-resources/</code> and
-  <code>configs/sst/</code>.
+  <code>third_party/qemu/</code> and <code>configs/sst/</code>.
+- **GPU workloads and vHost firmware inputs:** <code>third_party/gem5-resources/</code>.
 - **Project tools:** <code>samples/</code>, <code>scripts/</code>,
   <code>justfile</code> and <code>.agents/</code>.
 - **vHost image profiles:** <code>resources/images/</code> with Packer/QEMU and

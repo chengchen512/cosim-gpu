@@ -145,8 +145,10 @@ Packer/Ansible profile at `resources/images/profiles/guest/ubuntu/24.04/x86_64/r
 It starts from a checksum-pinned Ubuntu cloud disk, installs ROCm 7.0, AMDGPU
 DKMS, PyTorch and the GPU initialization service, then exports the paired
 Linux 6.8.0-124-generic kernel. The QCOW2 disk, kernel, package inventory and
-checksums form one reusable artifact. ROM, discovery firmware and WMI source
-inputs remain sourced from `third_party/gem5-resources`.
+checksums form one reusable artifact. Its WMI source and guest scripts are
+maintained inside the profile directory. The `third_party/gem5-resources`
+submodule supplies GPU application sources and the ROM and discovery firmware
+inputs declared by the ROCm image profile.
 
 The image cache key includes the base-image digest, profile and Ansible inputs,
 external input file hashes, the `m5` binary, QEMU, Packer, Ansible and disk

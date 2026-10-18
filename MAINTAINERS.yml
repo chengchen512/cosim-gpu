@@ -177,13 +177,23 @@ vHost Image:
     - resources/__init__.py
     - resources/images/
     - resources/vhost/
-  files-regex:
-    - ^third_party/gem5-resources$
   labels:
     - "area: vHost image"
   description: >-
     vHost operating system image profiles built with Packer and Ansible,
     along with profile-specific scripts, kernel and driver setup.
+
+GPU Applications and Firmware Inputs:
+  status: maintained
+  maintainers:
+    - zevorn
+  files-regex:
+    - ^third_party/gem5-resources$
+  labels:
+    - "area: tests"
+  description: >-
+    GPU application programs, workload sources and vHost firmware inputs
+    provided by gem5-resources for regressions and standalone gem5 examples.
 
 vHost Tests:
   status: maintained
