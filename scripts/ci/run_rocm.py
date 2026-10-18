@@ -8,6 +8,7 @@ import json
 import os
 from pathlib import Path
 import platform
+import shlex
 import shutil
 import socket
 import subprocess
@@ -27,6 +28,7 @@ from runtime_artifact import ROOT, sha256
 PROGRAMS = (
     "vector_add", "gemm", "reduction", "transpose", "prefix_scan", "histogram"
 )
+VHOST_REGRESSION_SCRIPT = "/usr/local/bin/cosim-rocm-regression.sh"
 
 
 @dataclass(frozen=True)
@@ -57,13 +59,13 @@ def write_json(path: Path, value: object) -> None:
 
 def prepare(inputs: Inputs) -> dict:
     if platform.system() != "Linux" or platform.machine() != "x86_64":
-        raise RuntimeError("the ROCm guest requires Linux x86_64 with KVM")
+        raise RuntimeError("the ROCm vHost requires Linux x86_64 with KVM")
     with Path("/dev/kvm").open("rb+"):
         pass
     metadata = json.loads((inputs.assets / "manifest.json").read_text())
     for name in ("kernel", "disk"):
         if sha256(inputs.assets / name) != metadata["files"][name]["sha256"]:
-            raise ValueError(f"guest asset checksum mismatch: {name}")
+            raise ValueError(f"vHost asset checksum mismatch: {name}")
     for path in (inputs.launcher, inputs.gem5, inputs.qemu):
         if not path.is_file() or not os.access(path, os.X_OK):
             raise ValueError(f"missing executable: {path}")
@@ -154,7 +156,7 @@ def connect(
         lifecycle.check()
         if process.poll() is not None:
             raise RuntimeError(
-                f"launcher exited before guest boot: {process.returncode}"
+                f"launcher exited before vHost boot: {process.returncode}"
             )
         stream = socket.socket(socket.AF_UNIX)
         try:
@@ -163,7 +165,7 @@ def connect(
         except (FileNotFoundError, ConnectionRefusedError):
             stream.close()
             time.sleep(0.2)
-    raise TimeoutError("guest serial socket did not appear")
+    raise TimeoutError("vHost serial socket did not appear")
 
 
 def stop(process: subprocess.Popen, session: Path) -> None:
@@ -193,7 +195,7 @@ def archive(session: Path, output: Path) -> None:
             shutil.copy2(path, destination)
 
 
-def exercise_guest(
+def exercise_vhost(
     stream: socket.socket, row: Path, inputs: Inputs, program: str
 ) -> None:
     transport = fdspawn(stream, timeout=inputs.boot_timeout)
@@ -209,13 +211,14 @@ def exercise_guest(
             "-o trans=virtio,version=9p2000.L,ro cosimci /mnt/cosim-ci", 30
         ).require_success()
         outcome = console.run(
-            f"bash /mnt/cosim-ci/run.sh {program} {inputs.test_timeout}",
+            f"bash {shlex.quote(VHOST_REGRESSION_SCRIPT)} "
+            f"{shlex.quote(program)} {inputs.test_timeout}",
             inputs.test_timeout + 600,
         )
         name = "gemm_tiled" if program == "gemm" else program
         outcome.require_workload(name)
         if b"[COSIM_ENV] HSA_ENABLE_INTERRUPT=0" not in outcome.output:
-            raise RuntimeError("guest environment was not confirmed")
+            raise RuntimeError("vHost environment was not confirmed")
 
 
 def run_case(inputs: Inputs, program: str, lifecycle: Lifecycle) -> Result:
@@ -229,7 +232,6 @@ def run_case(inputs: Inputs, program: str, lifecycle: Lifecycle) -> Result:
     for name in ("kernels", "common"):
         shutil.copytree(ROOT / "tests" / name, share / name)
     shutil.copy2(ROOT / "tests/Makefile", share / "Makefile")
-    shutil.copy2(ROOT / "scripts/ci/rocm_guest.sh", share / "run.sh")
     source = ROOT / "tests/kernels" / f"{program}.cpp"
     config = row / "topology.yaml"
     config.write_text(yaml.safe_dump(topology(inputs, share)))
@@ -244,13 +246,14 @@ def run_case(inputs: Inputs, program: str, lifecycle: Lifecycle) -> Result:
     write_json(row / "run-manifest.json", {
         "program": str(source.relative_to(ROOT)),
         "source_sha256": sha256(source), "mode": "pure_test", "repeat": 1,
-        "guest_environment": {"HSA_ENABLE_INTERRUPT": "0"},
+        "vhost_environment": {"HSA_ENABLE_INTERRUPT": "0"},
         "boot_timeout": inputs.boot_timeout,
         "test_timeout": inputs.test_timeout,
         "artifact_dir": str(row), "command": command,
         "payload": str(payload_path),
         "gem5_binary": str(inputs.gem5),
-        "guest_script": "/mnt/cosim-ci/run.sh", "runner_argument": program,
+        "vhost_script": VHOST_REGRESSION_SCRIPT,
+        "runner_argument": program,
     })
     try:
         with (row / "launcher.log").open("wb") as log:
@@ -264,7 +267,7 @@ def run_case(inputs: Inputs, program: str, lifecycle: Lifecycle) -> Result:
                         session / "m0/serial.sock", process,
                         inputs.boot_timeout, lifecycle,
                     ) as stream:
-                        exercise_guest(stream, row, inputs, program)
+                        exercise_vhost(stream, row, inputs, program)
                     lifecycle.check()
                 finally:
                     stop(process, session)
@@ -284,7 +287,7 @@ def run_case(inputs: Inputs, program: str, lifecycle: Lifecycle) -> Result:
 
 def execute(lifecycle: Lifecycle) -> int:
     parser = argparse.ArgumentParser(
-        description="Run real HIP workloads in fresh cosim guests"
+        description="Run real HIP workloads in fresh cosim vHosts"
     )
     parser.add_argument("output", type=Path)
     parser.add_argument("assets", type=Path)

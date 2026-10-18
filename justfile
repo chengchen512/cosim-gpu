@@ -19,12 +19,12 @@ gpu_fs_image := env("GPU_APP_BUILD_IMAGE", "ghcr.io/gem5/gpu-fs:latest")
 build_jobs := env("JOBS", num_cpus())
 m5_abi := if host_arch == "aarch64" { "arm64" } else { "x86" }
 
-# Recipes that use {{ dev }} run on the host or in a temporary development
+# Recipes that use {{ dev }} run on the Host or in a temporary development
 # container, as selected by COSIM_ENV.
 export COSIM_ENV := env("COSIM_ENV", if os() == "linux" { "host" } else { "container" })
 export COSIM_DEV_IMAGE := dev_image
 export COSIM_DEV_PLATFORM := container_platform
-dev := "scripts/dev.sh"
+dev := "scripts/host/dev.sh"
 
 # List the available recipes
 default:
@@ -42,7 +42,7 @@ dev-submodules:
 # Build the development container image
 [group('dev')]
 dev-image:
-    docker build --platform {{ container_platform }} -t {{ dev_image }} -f scripts/Dockerfile.dev scripts
+    docker build --platform {{ container_platform }} -t {{ dev_image }} -f scripts/host/Dockerfile.dev scripts/host
 
 # Open a shell in a temporary development container
 [group('dev')]
@@ -52,17 +52,17 @@ dev-shell:
 # Build QEMU with KVM and vfio-user support
 [group('build')]
 build-qemu jobs=build_jobs:
-    {{ dev }} scripts/build.sh qemu {{ host_arch }} "$1"
+    {{ dev }} scripts/host/build.sh qemu {{ host_arch }} "$1"
 
 # Build gem5 (VEGA_X86); use jobs=1 if linking is OOM-killed
 [group('build')]
 build-gem5 jobs=build_jobs *scons_args:
-    {{ dev }} scripts/build.sh gem5 {{ gem5_build_dir }} "$@"
+    {{ dev }} scripts/host/build.sh gem5 {{ gem5_build_dir }} "$@"
 
 # Build the m5 utility under the top-level build directory
 [group('build')]
 build-m5 abi=m5_abi: dev-rocm-sources
-    {{ dev }} scripts/build.sh m5 "$1"
+    {{ dev }} scripts/host/build.sh m5 "$1"
 
 # Initialize missing image sources while preserving existing worktrees
 [group('dev')]
@@ -70,17 +70,17 @@ dev-rocm-sources:
     if [ ! -e third_party/gem5/.git ]; then git submodule update --init third_party/gem5; fi
     if [ ! -e third_party/gem5-resources/.git ]; then git submodule update --init third_party/gem5-resources; fi
 
-# Build the x86 guest disk image and kernel (needs Linux KVM, QEMU, ~60 GB disk)
+# Build the x86 vHost OS disk image and kernel (needs Linux KVM, QEMU, ~60 GB disk)
 [group('build')]
 build-disk:
     just build-m5 x86
-    scripts/cosim-image build {{ rocm_profile }}
+    scripts/host/cosim-image build {{ rocm_profile }}
 
-# Build a reusable kernel/disk bundle from the guest image recipe library
+# Build a reusable kernel/disk bundle from the vHost image recipe library
 [group('build')]
 build-rocm-assets:
     just build-m5 x86
-    scripts/cosim-image build {{ rocm_profile }}
+    scripts/host/cosim-image build {{ rocm_profile }}
 
 # Prepare disk capacity and dependencies on a disposable CI image builder
 [group('ci')]
@@ -90,7 +90,7 @@ ci-prepare-image-host:
 # Build a GPU application from third_party/gem5-resources/src/gpu
 [group('build')]
 build-gpu-app name="square":
-    ./scripts/run_mi300x_fs.sh build-app "$1"
+    ./scripts/host/run_mi300x_fs.sh build-app "$1"
 
 # Compile the HIP test kernels under tests/ in the ROCm container
 [group('build')]
@@ -151,7 +151,7 @@ ci-reuse-gem5 source output:
 
 # Check cache invalidation, corruption rejection and original provenance
 [group('test')]
-test-ci-artifact source output:
+test-runtime-artifact source output:
     python3 scripts/ci/verify_runtime_artifact.py "$@"
 
 # Restore a build from the same source revision and CI run
@@ -162,22 +162,22 @@ ci-restore-gem5 source:
 # Inspect the input key or verify a locally built ROCm kernel/disk bundle
 [group('ci')]
 ci-rocm-assets operation *args:
-    scripts/cosim-image "$@"
+    scripts/host/cosim-image "$@"
 
 # Validate the complete image configuration with real Packer plugins
 [group('check')]
 check-rocm-image:
-    scripts/cosim-image validate {{ rocm_profile }}
+    scripts/host/cosim-image validate {{ rocm_profile }}
 
-# Check Packer HCL and Ansible syntax on a supported build host
+# Check Packer HCL and Ansible syntax on a supported Host
 [group('check')]
 check-rocm-syntax:
-    scripts/cosim-image validate {{ rocm_profile }} --syntax-only
+    scripts/host/cosim-image validate {{ rocm_profile }} --syntax-only
 
 # Check the resource scripts used by the image producer
 [group('check')]
 check-rocm-build-scripts:
-    shellcheck scripts/cosim-image scripts/cosim_guest_setup.sh
+    shellcheck scripts/host/cosim-image resources/images/profiles/guest/ubuntu/24.04/x86_64/rocm7_0/files/*.sh
 
 # Exercise reuse and corruption rejection against a real built ROCm bundle
 [group('test')]
@@ -187,7 +187,7 @@ test-rocm-assets output=rocm_image_dir:
 # Show which build artifacts are present
 [group('build')]
 build-status:
-    ./scripts/run_mi300x_fs.sh status
+    ./scripts/host/run_mi300x_fs.sh status
 
 # ---------------------------------------------------------------------------
 # Run
@@ -211,37 +211,37 @@ run-cli +args:
 # Launch QEMU + gem5 co-simulation (options are passed to cosim_launch.sh)
 [group('run')]
 run-launch *args:
-    ./scripts/cosim_launch.sh "$@"
+    ./scripts/host/cosim_launch.sh "$@"
 
-# Run guest GPU tests in fresh co-simulation sessions (see run_cosim_tests.sh)
+# Run vHost GPU tests in fresh co-simulation sessions (see run_cosim_tests.sh)
 [group('test')]
 test-gpu *args:
-    ./scripts/run_cosim_tests.sh "$@"
+    ./scripts/host/run_cosim_tests.sh "$@"
 
 # Run the ROCm regression suite with the built Rust launcher and verified assets
 [group('test')]
 test-rocm-regression output assets *args:
     {{ dev }} python3 scripts/ci/run_rocm.py "$@" --gem5 "{{ gem5_build_dir }}/gem5.opt" --qemu build/qemu/qemu-system-x86_64
 
-# List co-simulation resources left on the host without changing them
+# List co-simulation resources left on the Host without changing them
 [group('run')]
 run-preflight:
-    ./scripts/cosim_preflight.sh
+    ./scripts/host/cosim_preflight.sh
 
 # Delete orphaned co-simulation resources (sockets, shared memory, containers)
 [group('run')]
 run-clean-orphans:
-    ./scripts/cosim_launch.sh --force-clean --confirm
+    ./scripts/host/cosim_launch.sh --force-clean --confirm
 
 # Run standalone gem5 full-system simulation with the stdlib config
 [group('run')]
 run-gem5-fs app="":
-    ./scripts/run_mi300x_fs.sh run ${1:+"$1"}
+    ./scripts/host/run_mi300x_fs.sh run ${1:+"$1"}
 
 # Run standalone gem5 full-system simulation with the legacy gpufs config
 [group('run')]
 run-gem5-fs-legacy app="":
-    ./scripts/run_mi300x_fs.sh run-legacy ${1:+"$1"}
+    ./scripts/host/run_mi300x_fs.sh run-legacy ${1:+"$1"}
 
 # ---------------------------------------------------------------------------
 # Checks
@@ -283,25 +283,14 @@ check-gem5-message message:
 check-gem5-ci:
     actionlint .github/workflows/build.yml third_party/gem5/.github/workflows/mi300x-ci.yaml
 
-# Validate the build and regression workflow dependency graph
-[group('check')]
-check-ci:
-    actionlint .github/workflows/build.yml .github/workflows/integration.yml .github/workflows/ci.yml .github/workflows/update-simulator-submodules.yml
-
-# Exercise guest command completion and failure reporting using real shells
-[group('test')]
-test-ci:
-    mkdir -p artifacts/ci-check/scratch
-    {{ dev }} env TMPDIR="$PWD/artifacts/ci-check/scratch" python3 -m unittest discover -s scripts/ci -p 'test_*.py' -v
-
-# Check the legacy build entry against the host's actual Docker daemon
+# Check the legacy build entry against the Host's Docker daemon
 [group('test')]
 test-legacy-build-image output="artifacts/ci-check":
     python3 scripts/ci/verify_legacy_image.py "$1"
 
 # Verify CI cancellation through the real Rust launcher and QEMU
 [group('test')]
-test-ci-integration: build-cosim
+test-session-lifecycle: build-cosim
     {{ dev }} python3 -m unittest discover -s scripts/ci -p 'integration_*.py' -v
 
 # Exercise MI300X pool ownership and its GPU_VIPER memory protocol
@@ -345,7 +334,7 @@ test-cosim-memory:
         {{ dev_image }} cargo test --locked -p cosim-cli --test sessions \
         bounded_memory_pool -- --ignored --test-threads=1
 
-# Run a QEMU host with a QEMU vfio-user device built by build-qemu
+# Run a vHost with a QEMU Device Model built by build-qemu
 [group('test')]
 test-cosim-vfio-user: dev-rocm-sources
     {{ dev }} cargo test --locked -p cosim-cli --test sessions -- --ignored vfio_user
@@ -353,17 +342,21 @@ test-cosim-vfio-user: dev-rocm-sources
 # Run checkpatch.pl on every commit since BASE (default: merge base with origin/main)
 [group('check')]
 check-patch base="":
-    ./scripts/check_patch.sh ${1:+"$1"}
+    ./scripts/host/check_patch.sh ${1:+"$1"}
 
 # Check an uncommitted patch file before creating its signed commit
 [group('check')]
 check-patch-file patch:
-    perl scripts/checkpatch.pl --no-signoff --no-tree "$1"
+    perl scripts/host/checkpatch.pl --no-signoff --no-tree "$1"
 
 # Run ShellCheck on the shell scripts
 [group('check')]
 check-shell:
-    shellcheck scripts/*.sh scripts/ci/*.sh tests/run_tests.sh tests/test_modprobe_params.sh
+    shellcheck \
+        scripts/host/*.sh \
+        scripts/ci/*.sh \
+        resources/images/profiles/guest/ubuntu/24.04/x86_64/rocm7_0/files/*.sh \
+        tests/run_tests.sh tests/test_modprobe_params.sh
 
 # Check that cosim modprobe commands carry the required amdgpu parameters
 [group('check')]
@@ -375,7 +368,7 @@ check-modprobe-params:
 check-maintainers:
     #!/usr/bin/env bash
     set -euo pipefail
-    orphaned="$(python3 scripts/get_maintainer.py orphaned)"
+    orphaned="$(python3 scripts/host/get_maintainer.py orphaned)"
     if [ -n "$orphaned" ]; then
         echo "Files not covered by any area in MAINTAINERS.yml:" >&2
         echo "$orphaned" >&2
@@ -383,7 +376,7 @@ check-maintainers:
     fi
     echo "MAINTAINERS.yml: valid, every tracked file belongs to an area"
 
-# Run all host-side checks that need no submodules or KVM
+# Run all Host-side checks that need no submodules or KVM
 [group('check')]
 check: check-patch check-shell check-maintainers check-cosim
 
@@ -394,14 +387,14 @@ check: check-patch check-shell check-maintainers check-cosim
 # Show the areas, maintainers and collaborators for PATHs
 [group('maint')]
 maint-paths +paths:
-    @python3 scripts/get_maintainer.py path "$@"
+    @python3 scripts/host/get_maintainer.py path "$@"
 
 # Show the areas touched by a commit range (default: HEAD~..)
 [group('maint')]
 maint-commits range="HEAD~..":
-    @python3 scripts/get_maintainer.py commits "$1"
+    @python3 scripts/host/get_maintainer.py commits "$1"
 
 # List all areas with their maintainers and collaborators
 [group('maint')]
 maint-areas:
-    @python3 scripts/get_maintainer.py areas
+    @python3 scripts/host/get_maintainer.py areas

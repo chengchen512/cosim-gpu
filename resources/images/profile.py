@@ -149,7 +149,7 @@ def load_profile(workspace: Path, identifier: str) -> ImageProfile:
         _require(data, key, str)
     if data["architecture"] not in {"x86_64", "aarch64", "riscv64"}:
         raise ProfileError(
-            f"unsupported guest architecture {data['architecture']!r}"
+            f"unsupported vHost architecture {data['architecture']!r}"
         )
     base = _mapping(data, "base")
     _require(base, "url", str)
@@ -252,7 +252,7 @@ def load_profile(workspace: Path, identifier: str) -> ImageProfile:
     inputs_data = _mapping(data, "inputs")
     if not inputs_data:
         raise ProfileError(
-            "inputs must list the host files used by the profile"
+            "inputs must list the Host files used by the profile"
         )
     inputs = {
         name: workspace / _relative_path(path, f"inputs.{name}")

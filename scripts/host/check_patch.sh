@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: Apache-2.0
 #
-# Run scripts/checkpatch.pl on every non-merge commit in BASE..HEAD.
+# Run scripts/host/checkpatch.pl on every non-merge commit in BASE..HEAD.
 #
-# Usage: scripts/check_patch.sh [BASE]
+# Usage: scripts/host/check_patch.sh [BASE]
 #
 # BASE defaults to the merge base of HEAD and origin/main.
 
 set -euo pipefail
 
-SOURCE_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+SOURCE_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$SOURCE_ROOT"
 
 usage() {
@@ -49,10 +49,10 @@ echo "Checking $count commit(s) since $base..."
 
 # Print only the commits that have problems, with the full hash and the
 # offending patch lines.
-if ! perl scripts/checkpatch.pl --emacs --quiet --color=never \
+if ! perl scripts/host/checkpatch.pl --emacs --quiet --color=never \
         "$base..HEAD"; then
-    echo "FAIL: one or more commits failed scripts/checkpatch.pl" >&2
+    echo "FAIL: one or more commits failed scripts/host/checkpatch.pl" >&2
     exit 1
 fi
 
-echo "PASS: all commits passed scripts/checkpatch.pl"
+echo "PASS: all commits passed scripts/host/checkpatch.pl"

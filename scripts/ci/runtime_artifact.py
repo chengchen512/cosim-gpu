@@ -74,7 +74,8 @@ def build_key() -> str:
                     for name in ("build-gem5", "dev-image")},
         "assignments": recipes["assignments"], "settings": recipes["settings"],
         "files": {name: sha256(ROOT / name) for name in (
-            "scripts/build.sh", "scripts/dev.sh", "scripts/Dockerfile.dev",
+            "scripts/host/build.sh", "scripts/host/dev.sh",
+            "scripts/host/Dockerfile.dev",
             "scripts/ci/runtime_artifact.py", ".gitmodules",
         )},
         "epoch": os.environ.get("COSIM_GEM5_CACHE_EPOCH", "1"),

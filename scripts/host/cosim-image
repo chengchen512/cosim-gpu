@@ -4,7 +4,7 @@
 set -euo pipefail
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-workspace="${COSIM_WORKSPACE:-$(dirname "$script_dir")}"
+workspace="${COSIM_WORKSPACE:-$(cd "$script_dir/../.." && pwd)}"
 cd "$workspace"
 export PYTHONDONTWRITEBYTECODE=1
 exec python3 -m resources.images.cli --workspace "$workspace" "$@"

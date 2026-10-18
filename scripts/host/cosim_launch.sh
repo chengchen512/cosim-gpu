@@ -2,14 +2,14 @@
 # ==========================================================================
 # QEMU + gem5 MI300X Co-simulation Launcher
 #
-# gem5 runs inside Docker (GPU-only, no kernel), while QEMU runs on the host
-# with KVM and connects through standard vfio-user. QEMU comes from the
+# gem5 Device Model runs inside Docker (GPU-only, no kernel), while Host-side
+# QEMU runs with KVM or TCG and connects through vfio-user. QEMU comes from the
 # third_party/qemu build (just build-qemu) when present, else from PATH.
 #
 # Usage:
-#   ./scripts/cosim_launch.sh                              # vfio-user
-#   ./scripts/cosim_launch.sh --gem5-debug MI300XCosim      # with debug
-#   ./scripts/cosim_launch.sh --help
+#   ./scripts/host/cosim_launch.sh                         # vfio-user
+#   ./scripts/host/cosim_launch.sh --gem5-debug MI300XCosim # with debug
+#   ./scripts/host/cosim_launch.sh --help
 # ==========================================================================
 
 set -euo pipefail
@@ -17,7 +17,7 @@ set -euo pipefail
 # ---- Shared library ----
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-COSIM_DIR="$(dirname "$SCRIPT_DIR")"
+COSIM_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
 # shellcheck disable=SC1091
 source "${SCRIPT_DIR}/cosim_lib.sh"
@@ -106,13 +106,14 @@ Options:
                          (default: build/gem5/<native>/VEGA_X86/gem5.opt)
   --gem5-docker IMAGE     Docker image for gem5 (default: cosim-dev:local)
   --socket-path PATH      Unix socket (default: /tmp/gem5-mi300x.sock)
-  --host-mem SIZE         Guest RAM   (default: 8G)
-  --host-cpus N           Guest CPUs  (default: 4)
+  --host-mem SIZE         vHost RAM   (default: 8G)
+  --host-cpus N           vHost CPUs  (default: 4)
   --vram-size SIZE        GPU VRAM    (default: 16GiB)
   --num-cus N             Compute units (default: 40)
   --gem5-debug FLAGS      gem5 debug flags (e.g. MI300XCosim,AMDGPUDevice)
   --qemu-trace EVENTS     QEMU trace events
-  --share-dir PATH        Share host dir with guest via 9p (mount tag: cosim_share)
+  --share-dir PATH        Share a Host directory with vHost through 9p
+                          (mount tag: cosim_share)
   --num-gpus N            Number of GPU instances (default: 1)
   --timeout SECS          gem5 init timeout (default: 120)
   --force-clean           List orphaned cosim resources (dry-run)
@@ -422,7 +423,7 @@ done
 echo "============================================================"
 echo ""
 echo "GPU driver loads automatically via cosim-gpu-setup.service (~40s)."
-echo "After guest boots (auto-login as root), verify:"
+echo "After vHost boots (auto-login as root), verify:"
 echo "  rocm-smi          # should show device 0x74a0"
 echo "  rocminfo          # should show gfx942"
 echo ""
@@ -432,7 +433,7 @@ echo "  modprobe amdgpu ip_block_mask=0x67 ppfeaturemask=0 dpm=0 audio=0 ras_ena
 echo ""
 if [[ -n "$SHARE_DIR" ]]; then
     echo "Shared directory: $SHARE_DIR"
-    echo "  In guest, run:"
+    echo "  In vHost, run:"
     echo "  mount -t 9p -o trans=virtio,version=9p2000.L cosim_share /mnt"
     echo ""
 fi
@@ -487,7 +488,8 @@ if [[ -n "$SHARE_DIR" ]]; then
         -fsdev "local,id=cosim_fs,path=${SHARE_DIR},security_model=none"
         -device "virtio-9p-pci,fsdev=cosim_fs,mount_tag=cosim_share"
     )
-    info "Sharing host dir: $SHARE_DIR (mount: mount -t 9p -o trans=virtio cosim_share /mnt)"
+    info "Sharing Host directory with vHost: $SHARE_DIR"
+    info "Mount with: mount -t 9p -o trans=virtio cosim_share /mnt"
 fi
 
 # Run QEMU in foreground — do NOT exec, so the EXIT trap runs on QEMU exit

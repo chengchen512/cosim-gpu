@@ -14,7 +14,7 @@ class CommandResult:
 
     def require_success(self) -> None:
         if self.exit_code != 0:
-            raise RuntimeError(f"guest command exited with {self.exit_code}")
+            raise RuntimeError(f"vHost command exited with {self.exit_code}")
 
     def require_workload(self, name: str) -> None:
         self.require_success()

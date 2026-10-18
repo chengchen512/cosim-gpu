@@ -7,16 +7,16 @@
 #     third_party/gem5/         <- gem5 source
 #     build/gem5/               <- gem5 build output
 #     third_party/gem5-resources/ <- ROM and GPU app sources
-#     scripts/                  <- this script
+#     scripts/host/             <- this script
 #
 # Usage:
-#   ./scripts/run_mi300x_fs.sh build-gem5          # Build gem5 via Docker
-#   ./scripts/run_mi300x_fs.sh build-disk           # Build disk image (KVM)
-#   ./scripts/run_mi300x_fs.sh build-app [name]     # Build GPU test app (default: square)
-#   ./scripts/run_mi300x_fs.sh build-all            # Full setup from scratch
-#   ./scripts/run_mi300x_fs.sh run [app]            # Run with stdlib config (KVM)
-#   ./scripts/run_mi300x_fs.sh run-legacy [app]     # Run with legacy gpufs/mi300.py
-#   ./scripts/run_mi300x_fs.sh status               # Show build status
+#   ./scripts/host/run_mi300x_fs.sh build-gem5       # Build gem5 via Docker
+#   ./scripts/host/run_mi300x_fs.sh build-disk       # Build disk image (KVM)
+#   run_mi300x_fs.sh build-app [name] # Build GPU app (default: square)
+#   run_mi300x_fs.sh build-all        # Full setup from scratch
+#   run_mi300x_fs.sh run [app]        # Run with stdlib config
+#   run_mi300x_fs.sh run-legacy [app] # Use legacy gpufs/mi300.py
+#   run_mi300x_fs.sh status           # Show build status
 # =============================================================================
 
 set -euo pipefail
@@ -24,7 +24,7 @@ set -euo pipefail
 # ---- Path layout ----
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-COSIM_DIR="$(dirname "$SCRIPT_DIR")"
+COSIM_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 # shellcheck disable=SC1091
 source "${SCRIPT_DIR}/cosim_lib.sh"
 GEM5_DIR="${COSIM_DIR}/third_party/gem5"
@@ -87,7 +87,7 @@ check_kvm() {
     return 1
 }
 
-# Translate host path to container path (/gem5/...)
+# Translate Host path to container path (/gem5/...)
 to_container_path() {
     case "$1" in
         "$GEM5_DIR"/*) echo "/gem5/${1#"$GEM5_DIR"/}" ;;
@@ -221,7 +221,7 @@ run_simulation() {
         info "  App: $app"
         app_args=("--app" "$(to_container_path "$app")")
     else
-        info "  No GPU app specified, booting guest Linux only"
+        info "  No GPU app specified, booting the vHost Linux OS only"
     fi
 
     cd "$GEM5_DIR"

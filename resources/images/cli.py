@@ -20,7 +20,7 @@ from .profile import ProfileError, list_profiles, load_profile
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Build and verify guest image profiles"
+        description="Build and verify vHost OS image profiles"
     )
     parser.add_argument(
         "--workspace",

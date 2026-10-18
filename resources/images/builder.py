@@ -104,8 +104,8 @@ def inspect_profile(
         "kernel_cmdline": profile.kernel_cmdline,
         "reasons": reasons,
         "commands": [
-            ["scripts/cosim-image", "validate", profile.identifier],
-            ["scripts/cosim-image", "build", profile.identifier],
+            ["scripts/host/cosim-image", "validate", profile.identifier],
+            ["scripts/host/cosim-image", "build", profile.identifier],
         ],
     }
 

@@ -22,7 +22,7 @@
     group: gem5
     mode: "0755"
 
-- name: Install the selected guest kernel and build dependencies
+- name: Install the selected vHost kernel and build dependencies
   ansible.builtin.apt:
     update_cache: true
     cache_valid_time: 1800
@@ -128,7 +128,8 @@
     - {source: "{{ cosim_inputs.gem5_wmi_source }}", destination: /home/gem5/gem5_wmi.c, mode: "0644"}
     - {source: "{{ cosim_inputs.gem5_wmi_makefile }}", destination: /home/gem5/Makefile, mode: "0644"}
     - {source: "{{ cosim_inputs.setup_service }}", destination: /lib/systemd/system/cosim-gpu-setup.service, mode: "0644"}
-    - {source: "{{ cosim_inputs.guest_setup }}", destination: /usr/local/bin/cosim-gpu-setup.sh, mode: "0755"}
+    - {source: "{{ cosim_inputs.vhost_gpu_setup }}", destination: /usr/local/bin/cosim-gpu-setup.sh, mode: "0755"}
+    - {source: "{{ cosim_inputs.vhost_rocm_regression }}", destination: /usr/local/bin/cosim-rocm-regression.sh, mode: "0755"}
 
 - name: Create firmware directories
   ansible.builtin.file:
@@ -162,7 +163,7 @@
     group: root
     mode: "0644"
 
-- name: Extract the selected guest kernel
+- name: Extract the selected vHost kernel
   ansible.builtin.shell:
     cmd: >-
       /usr/src/linux-headers-{{ cosim_profile_variables.kernel_release }}/scripts/extract-vmlinux
@@ -170,7 +171,7 @@
       > /home/gem5/vmlinux-gpu-ml
     creates: /home/gem5/vmlinux-gpu-ml
 
-- name: Record the selected guest kernel release
+- name: Record the selected vHost kernel release
   ansible.builtin.copy:
     dest: /home/gem5/kernel-release
     owner: root

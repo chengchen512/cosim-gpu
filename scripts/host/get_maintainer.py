@@ -29,7 +29,7 @@ file format.
 
 See the help texts for the subcommands for more information, e.g.
 
-    python3 scripts/get_maintainer.py path --help
+    python3 scripts/host/get_maintainer.py path --help
 
 This file doubles as a Python library: identifiers not prefixed with '_' are
 part of the library API.

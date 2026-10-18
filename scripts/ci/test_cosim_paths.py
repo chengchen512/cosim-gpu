@@ -6,7 +6,7 @@ import unittest
 
 
 ROOT = Path(__file__).resolve().parents[2]
-PATH_HELPERS = ROOT / "scripts/cosim_lib.sh"
+PATH_HELPERS = ROOT / "scripts/host/cosim_lib.sh"
 
 
 def resolve_gem5_build_dir(configured: str) -> subprocess.CompletedProcess[str]:
