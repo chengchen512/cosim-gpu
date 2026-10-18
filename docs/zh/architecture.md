@@ -76,7 +76,8 @@ Host-side QEMU 运行 vHost Linux 操作系统、amdgpu 驱动和 ROCm 程序。
   以及本地输入文件检查。
 - `cosim-runtime/src/images.rs`：调用统一的镜像配方工具，把验证后的磁盘及可选内核
   加入 payload。
-- `resources/images/`：共享 Packer/QEMU 模板、Ansible 入口和按操作系统组织的配方。
+- `resources/images/`：共享 Packer/QEMU 模板和镜像构建程序，以及按操作系统组织的配方；
+  每个配方包含自身的 Ansible playbook 和任务。
   `scripts/host/cosim-image` 允许 Bash 调用相同的构建和校验接口，不启动模拟器。
 
 拓扑库公开 `load`、`graph`、`schema`，校验后的类型根据 `DeviceContext` 和
