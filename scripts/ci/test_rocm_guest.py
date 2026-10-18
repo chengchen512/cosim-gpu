@@ -125,7 +125,7 @@ class GuestBuildTargetTests(unittest.TestCase):
             install_task["ansible.builtin.apt"]["name"],
         )
 
-    def test_dkms_failure_path_prints_build_logs(self):
+    def test_dkms_failure_path_prints_logs_and_fails_the_build(self):
         profile = load_profile(
             ROOT, "guest/ubuntu/24.04/x86_64/rocm7_0"
         )
@@ -142,4 +142,17 @@ class GuestBuildTargetTests(unittest.TestCase):
             task for task in dkms_task["rescue"]
             if task["name"] == "Print AMDGPU DKMS build logs"
         )
+        failure_task = dkms_task["rescue"][-1]
+
+        self.assertEqual(
+            log_task["ansible.builtin.command"]["argv"],
+            ["cat", "{{ item.path }}"],
+        )
+        self.assertEqual(
+            log_task["loop"], "{{ amdgpu_dkms_logs.files | default([]) }}"
+        )
         self.assertIs(log_task["changed_when"], True)
+        self.assertEqual(
+            failure_task["name"], "Report AMDGPU DKMS build failure"
+        )
+        self.assertIn("ansible.builtin.fail", failure_task)
