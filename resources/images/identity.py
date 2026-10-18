@@ -2,14 +2,16 @@
 
 import os
 from pathlib import Path
+import shutil
+import subprocess
 import sys
+from dataclasses import replace
 
 from .errors import ImageError
 from .fingerprint import digest_json, sha256_file
-from .profile import ImageProfile
+from .recipe import ImageRecipe
 from .toolchain import (
     ANSIBLE_REQUIREMENTS,
-    ANSIBLE_ROOT,
     PACKER_ROOT,
     ANSIBLE_CORE_VERSION,
     PACKER_VERSION,
@@ -19,21 +21,21 @@ from .toolchain import (
 
 def input_fingerprint(
     workspace: Path,
-    profile: ImageProfile,
+    recipe: ImageRecipe,
     tools: Toolchain,
 ) -> dict:
-    files = input_files(workspace, profile)
+    files = input_files(workspace, recipe)
     file_hashes = {
         path.relative_to(workspace).as_posix(): sha256_file(path)
         for path in files
     }
     inputs = {
         "schema": 1,
-        "profile": profile.identifier,
+        "recipe": recipe.identifier,
         "base": {
-            "url": profile.base_url,
-            "sha256": profile.base_sha256,
-            "format": profile.base_format,
+            "url": recipe.base_url,
+            "sha256": recipe.base_sha256,
+            "format": recipe.base_format,
         },
         "files": file_hashes,
         "toolchain": {
@@ -51,8 +53,8 @@ def input_fingerprint(
     return {"inputs": inputs, "input_key": digest_json(inputs)}
 
 
-def input_files(workspace: Path, profile: ImageProfile) -> list[Path]:
-    files = [path for _, path in _input_candidates(workspace, profile)]
+def input_files(workspace: Path, recipe: ImageRecipe) -> list[Path]:
+    files = [path for _, path in _input_candidates(workspace, recipe)]
     for path in files:
         resolved = path.resolve()
         if not resolved.is_relative_to(workspace):
@@ -64,18 +66,18 @@ def input_files(workspace: Path, profile: ImageProfile) -> list[Path]:
 
 def reusable_input_issues(
     workspace: Path,
-    profile: ImageProfile,
+    recipe: ImageRecipe,
     stored: object,
 ) -> list[str]:
     if not isinstance(stored, dict):
         return ["image manifest has no input record"]
     issues = []
-    if stored.get("schema") != 1 or stored.get("profile") != profile.identifier:
-        issues.append("profile identity changed")
+    if stored.get("schema") != 1 or stored.get("recipe") != recipe.identifier:
+        issues.append("recipe identity changed")
     expected_base = {
-        "url": profile.base_url,
-        "sha256": profile.base_sha256,
-        "format": profile.base_format,
+        "url": recipe.base_url,
+        "sha256": recipe.base_sha256,
+        "format": recipe.base_format,
     }
     if stored.get("base") != expected_base:
         issues.append("base image identity changed")
@@ -92,7 +94,7 @@ def reusable_input_issues(
     if not isinstance(stored_files, dict):
         return issues + ["image manifest has no input file hashes"]
     current_files = set()
-    for name, path in _input_candidates(workspace, profile):
+    for name, path in _input_candidates(workspace, recipe):
         resolved = path.resolve()
         if not resolved.is_relative_to(workspace):
             issues.append(f"image input escapes workspace ({name}): {path}")
@@ -100,7 +102,7 @@ def reusable_input_issues(
         relative = resolved.relative_to(workspace).as_posix()
         current_files.add(relative)
         if not resolved.is_file():
-            if name in profile.reuse_optional_inputs:
+            if name in recipe.reuse_optional_inputs:
                 continue
             issues.append(f"missing image input ({name}): {path}")
             continue
@@ -114,12 +116,9 @@ def reusable_input_issues(
 
 def _input_candidates(
     workspace: Path,
-    profile: ImageProfile,
+    recipe: ImageRecipe,
 ) -> list[tuple[str, Path]]:
-    shared_directories = [
-        workspace / PACKER_ROOT,
-        workspace / ANSIBLE_ROOT,
-    ]
+    shared_directories = [workspace / PACKER_ROOT]
     candidates = [
         (path.relative_to(workspace).as_posix(), path)
         for directory in shared_directories
@@ -133,8 +132,8 @@ def _input_candidates(
             workspace / "resources/images/builder.py",
         ),
         (
-            "resources/images/profile.py",
-            workspace / "resources/images/profile.py",
+            "resources/images/recipe.py",
+            workspace / "resources/images/recipe.py",
         ),
         (
             "resources/images/process.py",
@@ -161,26 +160,18 @@ def _input_candidates(
             workspace / "resources/images/identity.py",
         ),
         ("resources/images/cli.py", workspace / "resources/images/cli.py"),
-        (
-            profile.profile_file.relative_to(workspace).as_posix(),
-            profile.profile_file,
-        ),
-        (
-            profile.tasks_file.relative_to(workspace).as_posix(),
-            profile.tasks_file,
-        ),
-        *profile.inputs.items(),
+        *recipe_source_files(workspace, recipe),
+        *recipe.inputs.items(),
     ])
     return candidates
 
 
-def missing_inputs(workspace: Path, profile: ImageProfile) -> list[str]:
+def missing_inputs(workspace: Path, recipe: ImageRecipe) -> list[str]:
     sources: list[tuple[str, Path]] = [
         ("Packer templates", workspace / PACKER_ROOT),
-        ("Ansible profiles", workspace / ANSIBLE_ROOT),
         ("Ansible requirements", workspace / ANSIBLE_REQUIREMENTS),
         ("image builder", workspace / "resources/images/builder.py"),
-        ("profile loader", workspace / "resources/images/profile.py"),
+        ("recipe loader", workspace / "resources/images/recipe.py"),
         ("process runner", workspace / "resources/images/process.py"),
         ("toolchain manager", workspace / "resources/images/toolchain.py"),
         ("bundle manager", workspace / "resources/images/bundle.py"),
@@ -188,13 +179,14 @@ def missing_inputs(workspace: Path, profile: ImageProfile) -> list[str]:
         ("fingerprint helper", workspace / "resources/images/fingerprint.py"),
         ("identity helper", workspace / "resources/images/identity.py"),
         ("image CLI", workspace / "resources/images/cli.py"),
-        ("profile tasks", profile.tasks_file),
-        ("profile metadata", profile.profile_file),
-        *profile.inputs.items(),
+        ("recipe playbook", recipe.playbook_file),
+        ("recipe tasks", recipe.tasks_file),
+        ("recipe metadata", recipe.recipe_file),
+        *recipe.inputs.items(),
     ]
     missing = []
     for label, path in sources:
-        if label in {"Packer templates", "Ansible profiles"}:
+        if label == "Packer templates":
             if not path.is_dir():
                 missing.append(f"{label}: {path}")
             elif not path.resolve().is_relative_to(workspace):
@@ -214,10 +206,10 @@ def missing_inputs(workspace: Path, profile: ImageProfile) -> list[str]:
     return missing
 
 
-def missing_recipe_files(workspace: Path, profile: ImageProfile) -> list[str]:
+def missing_recipe_files(workspace: Path, recipe: ImageRecipe) -> list[str]:
     names = [
         "resources/images/builder.py",
-        "resources/images/profile.py",
+        "resources/images/recipe.py",
         "resources/images/process.py",
         "resources/images/toolchain.py",
         "resources/images/bundle.py",
@@ -228,10 +220,79 @@ def missing_recipe_files(workspace: Path, profile: ImageProfile) -> list[str]:
     ]
     paths = [
         workspace / PACKER_ROOT / "qemu.pkr.hcl",
-        workspace / ANSIBLE_ROOT / "provision.yml",
         workspace / ANSIBLE_REQUIREMENTS,
-        profile.profile_file,
-        profile.tasks_file,
+        recipe.recipe_file,
+        recipe.playbook_file,
+        recipe.tasks_file,
         *(workspace / name for name in names),
     ]
     return [str(path) for path in paths if not path.is_file()]
+
+
+def recipe_source_files(
+    workspace: Path,
+    recipe: ImageRecipe,
+) -> list[tuple[str, Path]]:
+    relative_directory = recipe.directory.relative_to(workspace)
+    result = subprocess.run(
+        [
+            "git",
+            "-c",
+            f"safe.directory={workspace.resolve()}",
+            "-C",
+            str(workspace),
+            "ls-files",
+            "-z",
+            "--cached",
+            "--others",
+            "--exclude-standard",
+            "--",
+            relative_directory.as_posix(),
+        ],
+        capture_output=True,
+        check=False,
+    )
+    if result.returncode != 0:
+        detail = result.stderr.decode(errors="replace").strip()
+        raise ImageError(f"cannot enumerate image recipe files: {detail}")
+    paths = [
+        Path(os.fsdecode(name))
+        for name in result.stdout.split(b"\0")
+        if name
+    ]
+    return [(path.as_posix(), workspace / path) for path in sorted(paths)]
+
+
+def stage_recipe(
+    workspace: Path,
+    recipe: ImageRecipe,
+    destination: Path,
+) -> ImageRecipe:
+    workspace = workspace.resolve()
+    recipe_root = recipe.directory.relative_to(workspace)
+    staged_directory = destination / recipe.identifier
+    shutil.rmtree(staged_directory, ignore_errors=True)
+    staged_directory.mkdir(parents=True)
+    for name, source in recipe_source_files(workspace, recipe):
+        relative = Path(name).relative_to(recipe_root)
+        target = staged_directory / relative
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source, target)
+
+    def staged_path(path: Path) -> Path:
+        resolved = path.resolve()
+        if resolved.is_relative_to(recipe.directory):
+            return staged_directory / resolved.relative_to(recipe.directory)
+        return path
+
+    return replace(
+        recipe,
+        directory=staged_directory.resolve(),
+        recipe_file=staged_path(recipe.recipe_file),
+        playbook_file=staged_path(recipe.playbook_file),
+        tasks_file=staged_path(recipe.tasks_file),
+        inputs={
+            name: staged_path(path)
+            for name, path in recipe.inputs.items()
+        },
+    )

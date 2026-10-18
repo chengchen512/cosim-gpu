@@ -14,7 +14,7 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 class ImageOverlayTests(unittest.TestCase):
-    def test_writes_to_overlay_without_changing_the_profile_disk(self):
+    def test_writes_to_overlay_without_changing_the_recipe_disk(self):
         qemu_img = shutil.which("qemu-img")
         qemu_io = shutil.which("qemu-io")
         self.assertIsNotNone(qemu_img)
@@ -23,7 +23,7 @@ class ImageOverlayTests(unittest.TestCase):
         scratch.mkdir(parents=True, exist_ok=True)
         with tempfile.TemporaryDirectory(prefix="case-", dir=scratch) as name:
             directory = Path(name)
-            backing = directory / "profile.qcow2"
+            backing = directory / "recipe.qcow2"
             overlay = directory / "session.qcow2"
             subprocess.run(
                 [qemu_img, "create", "-f", "qcow2", str(backing), "8M"],
@@ -76,7 +76,7 @@ class ImageOverlayTests(unittest.TestCase):
         scratch.mkdir(parents=True, exist_ok=True)
         with tempfile.TemporaryDirectory(prefix="case-", dir=scratch) as name:
             directory = Path(name)
-            backing = directory / "profile.raw"
+            backing = directory / "recipe.raw"
             overlay = directory / "session.qcow2"
             subprocess.run(
                 [qemu_img, "create", "-f", "raw", str(backing), "8M"],

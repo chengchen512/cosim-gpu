@@ -46,7 +46,7 @@ pub(crate) struct PayloadDocument {
 #[derive(Debug, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct PayloadImage {
-    pub(crate) profile: String,
+    pub(crate) recipe: String,
 }
 
 /// A reusable machine, host or device fragment.

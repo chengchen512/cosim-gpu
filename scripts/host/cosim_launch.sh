@@ -48,7 +48,7 @@ if [[ -z "${QEMU_BIN:-}" ]]; then
         QEMU_BIN="$(command -v qemu-system-x86_64 2>/dev/null || true)"
     fi
 fi
-IMAGE_DIR="${COSIM_DIR}/build/images/guest/ubuntu/24.04/x86_64/rocm7_0"
+IMAGE_DIR="${COSIM_DIR}/build/images/vhost/ubuntu/24.04/x86_64/rocm7_0"
 DISK_IMAGE="${IMAGE_DIR}/disk"
 KERNEL="${IMAGE_DIR}/kernel"
 
@@ -97,9 +97,9 @@ QEMU + gem5 MI300X Co-simulation Launcher
 Usage: $0 [options]
 
 Options:
-  --disk-image PATH       Disk image (default: build/images/<profile>/disk)
+  --disk-image PATH       Disk image (default: build/images/<recipe>/disk)
   --kernel PATH           vmlinux
-                          (default: build/images/<profile>/kernel)
+                          (default: build/images/<recipe>/kernel)
   --qemu-bin PATH         QEMU binary (default: build/qemu/qemu-system-x86_64,
                           else qemu-system-x86_64 from PATH)
   --gem5-bin PATH         gem5 binary

@@ -13,7 +13,7 @@ use serde_json::{Map, Value};
 use crate::adapter::{Adapter, CommandTemplate, Gem5Mi300x, QemuDevice, TemplateDevice};
 use crate::model::{
     Device, DeviceModel, DirectBoot, Disk, DiskBus, DiskFormat, DiskMode, GuestHints, Host,
-    Identifier, ImageProfile, Machine, MemoryRegion, Payload, Pci, Program, Role, SerialReady,
+    Identifier, ImageRecipe, Machine, MemoryRegion, Payload, Pci, Program, Role, SerialReady,
     Topology,
 };
 use crate::raw;
@@ -116,28 +116,28 @@ pub(crate) fn payload(raw: raw::PayloadDocument, source: PathBuf) -> Result<Payl
     ensure!(version == 1, "unsupported payload version {}", version);
     let image = image
         .map(|image| {
-            let profile = Path::new(&image.profile);
+            let recipe = Path::new(&image.recipe);
             ensure!(
-                !image.profile.is_empty()
-                    && !image.profile.contains('\\')
-                    && !profile.is_absolute()
-                    && profile
+                !image.recipe.is_empty()
+                    && !image.recipe.contains('\\')
+                    && !recipe.is_absolute()
+                    && recipe
                         .components()
                         .all(|component| matches!(component, Component::Normal(_))),
-                "image.profile must be a nonempty relative profile path"
+                "image.recipe must be a nonempty relative recipe path"
             );
-            Ok(ImageProfile {
-                profile: image.profile,
+            Ok(ImageRecipe {
+                recipe: image.recipe,
             })
         })
         .transpose()?;
     ensure!(
         image.is_none() || raw_boot.kernel.is_none(),
-        "image.profile supplies boot.kernel; omit payload.boot.kernel"
+        "image.recipe supplies boot.kernel; omit payload.boot.kernel"
     );
     ensure!(
         image.is_none() || !raw_disks.iter().any(|disk| disk.boot),
-        "image.profile supplies the boot disk; omit boot: true from payload.disks"
+        "image.recipe supplies the boot disk; omit boot: true from payload.disks"
     );
     Ok(Payload {
         source,
@@ -170,8 +170,8 @@ pub fn validate_payload(topology: &Topology, payload: Option<&Payload>) -> Resul
     Ok(())
 }
 
-/// Resolves a profile selection into the kernel and root disk supplied by its artifact bundle.
-pub fn materialize_image_profile(
+/// Resolves a recipe selection into the kernel and root disk supplied by its artifact bundle.
+pub fn materialize_image_recipe(
     payload: &mut Payload,
     kernel: Option<PathBuf>,
     disk: PathBuf,
@@ -182,33 +182,33 @@ pub fn materialize_image_profile(
 ) -> Result<()> {
     ensure!(
         payload.image.is_some(),
-        "payload does not select an image profile"
+        "payload does not select an image recipe"
     );
     ensure!(
         payload.boot.is_none(),
-        "image profile cannot replace an existing boot kernel"
+        "image recipe cannot replace an existing boot kernel"
     );
     ensure!(
         disk.is_absolute(),
-        "image profile disk path must be absolute"
+        "image recipe disk path must be absolute"
     );
     ensure!(
         kernel.is_some() || kernel_cmdline.is_none(),
-        "image profile kernel command line requires a kernel artifact"
+        "image recipe kernel command line requires a kernel artifact"
     );
     ensure!(
         !payload
             .disks
             .iter()
             .any(|disk| disk.id.as_str().eq_ignore_ascii_case(disk_id)),
-        "image profile disk id {disk_id} conflicts with a payload disk"
+        "image recipe disk id {disk_id} conflicts with a payload disk"
     );
     let id = Identifier::new(disk_id.to_owned())?;
     payload.boot = kernel
         .map(|kernel| {
             ensure!(
                 kernel.is_absolute(),
-                "image profile kernel path must be absolute"
+                "image recipe kernel path must be absolute"
             );
             Ok(DirectBoot {
                 kernel,

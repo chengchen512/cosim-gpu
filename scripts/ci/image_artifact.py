@@ -14,12 +14,12 @@ import zipfile
 
 from resources.images.bundle import mark_verified_bundle, verify_bundle
 from resources.images.fingerprint import digest_json
-from resources.images.profile import load_profile
+from resources.images.recipe import load_recipe
 from scripts.ci.ci_lifecycle import Lifecycle
 
 
 ROOT = Path(__file__).resolve().parents[2]
-ROCM_PROFILE = "guest/ubuntu/24.04/x86_64/rocm7_0"
+ROCM_RECIPE = "vhost/ubuntu/24.04/x86_64/rocm7_0"
 input_key = digest_json
 
 
@@ -99,8 +99,8 @@ def require_key(manifest: dict, key: str) -> None:
 def image_manifest_member(archive: zipfile.ZipFile) -> zipfile.ZipInfo | None:
     for name in (
         "manifest.json",
-        "build/images/guest/ubuntu/24.04/x86_64/rocm7_0/manifest.json",
-        "images/guest/ubuntu/24.04/x86_64/rocm7_0/manifest.json",
+        "build/images/vhost/ubuntu/24.04/x86_64/rocm7_0/manifest.json",
+        "images/vhost/ubuntu/24.04/x86_64/rocm7_0/manifest.json",
     ):
         try:
             return archive.getinfo(name)
@@ -188,8 +188,8 @@ def image_bundle_root(download: Path) -> Path:
 
 def verify_image(output: Path, key: str) -> tuple[Path, dict]:
     bundle = image_bundle_root(output)
-    profile = load_profile(ROOT, ROCM_PROFILE)
-    manifest = verify_bundle(ROOT, profile, bundle, key)
+    recipe = load_recipe(ROOT, ROCM_RECIPE)
+    manifest = verify_bundle(ROOT, recipe, bundle, key)
     require_key(manifest, key)
     return bundle, manifest
 
@@ -246,8 +246,8 @@ def main() -> None:
                 raise FileExistsError(args.output)
             args.output.parent.mkdir(parents=True, exist_ok=True)
             bundle.rename(args.output)
-            profile = load_profile(ROOT, ROCM_PROFILE)
-            mark_verified_bundle(ROOT, profile, args.output, manifest)
+            recipe = load_recipe(ROOT, ROCM_RECIPE)
+            mark_verified_bundle(ROOT, recipe, args.output, manifest)
         elif args.operation == "verify":
             verify_image(args.output, args.input_key)
         else:

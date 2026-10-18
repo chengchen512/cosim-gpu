@@ -17,14 +17,13 @@ import zipfile
 from .errors import ImageError
 from .fingerprint import sha256_file
 from .process import run_logged
-from .profile import ImageProfile
+from .recipe import ImageRecipe
 
 
 PACKER_VERSION = "1.16.1"
 ANSIBLE_CORE_VERSION = "2.18.6"
 IMAGE_TOOL_DIR = Path("build/tools/images")
 PACKER_ROOT = Path("resources/images/packer")
-ANSIBLE_ROOT = Path("resources/images/ansible")
 ANSIBLE_REQUIREMENTS = Path("resources/images/requirements.txt")
 
 
@@ -91,12 +90,12 @@ def create_temporary_ssh_keypair(
 
 def inspect_toolchain(
     workspace: Path,
-    profile: ImageProfile,
+    recipe: ImageRecipe,
     *,
     require_kernel_tools: bool = True,
 ) -> tuple[Toolchain | None, list[str]]:
     missing: list[str] = []
-    qemu = qemu_binary(workspace, profile.architecture)
+    qemu = qemu_binary(workspace, recipe.architecture)
     qemu_img = qemu_img_binary(workspace)
     if qemu is None:
         missing.append(
@@ -112,7 +111,7 @@ def inspect_toolchain(
         missing.append("ssh-keygen is missing; install openssh-client")
     if (
         require_kernel_tools
-        and profile.kernel_artifact
+        and recipe.kernel_artifact
         and shutil.which("readelf") is None
         and qemu_img is not None
     ):
@@ -131,7 +130,7 @@ def inspect_toolchain(
         return None, [f"cannot read QEMU tool versions: {error}"]
     return Toolchain(
         qemu,
-        profile.architecture,
+        recipe.architecture,
         qemu_img,
         qemu_version,
         sha256_file(qemu),
@@ -215,8 +214,7 @@ def qemu_img_binary(workspace: Path) -> Path | None:
 
 
 def packer_variables(
-    workspace: Path,
-    profile: ImageProfile,
+    recipe: ImageRecipe,
     stage: Path,
     tools: Toolchain,
     ansible: Path,
@@ -227,50 +225,50 @@ def packer_variables(
     ssh_public_key: str,
 ) -> dict:
     return {
-        "profile_id": profile.identifier,
-        "base_image": profile.base_url,
-        "base_checksum": profile.base_sha256,
+        "recipe_id": recipe.identifier,
+        "base_image": recipe.base_url,
+        "base_checksum": recipe.base_sha256,
         "qemu_binary": str(tools.qemu),
         "output_directory": str(stage / "packer-output"),
-        "image_name": profile.image_name,
-        "disk_size": profile.disk_size,
-        "disk_format": profile.disk_format,
-        "builder_cpus": profile.cpus,
-        "builder_memory": profile.memory_mb,
-        "ssh_username": profile.ssh_username,
+        "image_name": recipe.image_name,
+        "disk_size": recipe.disk_size,
+        "disk_format": recipe.disk_format,
+        "builder_cpus": recipe.cpus,
+        "builder_memory": recipe.memory_mb,
+        "ssh_username": recipe.ssh_username,
         "ssh_private_key_file": str(ssh_private_key_file),
         "ssh_public_key": ssh_public_key,
-        "accelerator": profile.accelerator,
-        "machine_type": profile.machine_type,
-        "cpu_model": profile.cpu_model,
-        "ansible_playbook": str(workspace / ANSIBLE_ROOT / "provision.yml"),
+        "accelerator": recipe.accelerator,
+        "machine_type": recipe.machine_type,
+        "cpu_model": recipe.cpu_model,
+        "ansible_playbook": str(recipe.playbook_file),
         "ansible_command": str(ansible),
         "ansible_tmp_dir": str(ansible_temp),
-        "ansible_variables": ansible_variables(profile, fetched),
+        "ansible_variables": ansible_variables(recipe, fetched),
     }
 
 
-def ansible_variables(profile: ImageProfile, fetched: Path) -> dict:
+def ansible_variables(recipe: ImageRecipe, fetched: Path) -> dict:
     return {
-        "cosim_profile_tasks": str(profile.tasks_file),
-        "cosim_profile_variables": profile.variables,
+        "cosim_recipe_tasks": str(recipe.tasks_file),
+        "cosim_recipe_variables": recipe.variables,
         "cosim_inputs": {
             name: str(path.resolve())
-            for name, path in profile.inputs.items()
+            for name, path in recipe.inputs.items()
         },
-        "cosim_outputs": [asdict(output) for output in profile.outputs],
+        "cosim_outputs": [asdict(output) for output in recipe.outputs],
         "cosim_output_directory": str(fetched),
     }
 
 
 def validate_ansible(
     workspace: Path,
-    profile: ImageProfile,
+    recipe: ImageRecipe,
     ansible: Path,
 ) -> None:
     output_directory = workspace / "build/images/.ansible-syntax"
     output_directory.mkdir(parents=True, exist_ok=True)
-    variables = json.dumps(ansible_variables(profile, output_directory))
+    variables = json.dumps(ansible_variables(recipe, output_directory))
     run_logged(
         [
             str(ansible),
@@ -281,7 +279,7 @@ def validate_ansible(
             "local",
             "--extra-vars",
             variables,
-            str(workspace / ANSIBLE_ROOT / "provision.yml"),
+            str(recipe.playbook_file),
         ],
         workspace,
         tool_environment(workspace),

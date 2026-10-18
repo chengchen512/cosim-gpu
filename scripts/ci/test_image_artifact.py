@@ -9,8 +9,8 @@ from pathlib import Path
 from image_artifact import image_bundle_root, image_manifest_member
 
 
-BUILD_IMAGE_ROOT = "build/images/guest/ubuntu/24.04/x86_64/rocm7_0"
-IMAGE_ROOT = "images/guest/ubuntu/24.04/x86_64/rocm7_0"
+BUILD_IMAGE_ROOT = "build/images/vhost/ubuntu/24.04/x86_64/rocm7_0"
+IMAGE_ROOT = "images/vhost/ubuntu/24.04/x86_64/rocm7_0"
 
 
 class ImageManifestMemberTests(unittest.TestCase):

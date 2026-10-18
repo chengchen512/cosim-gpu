@@ -1,8 +1,8 @@
 # SPDX-License-Identifier: Apache-2.0
 
 schema = 1
-id = "guest/ubuntu/24.04/x86_64/rocm7_0"
-role = "guest"
+id = "vhost/ubuntu/24.04/x86_64/rocm7_0"
+role = "vhost"
 distribution = "ubuntu"
 release = "24.04"
 architecture = "x86_64"
@@ -25,6 +25,7 @@ machine_type = "q35"
 cpu_model = "host"
 
 [provisioning]
+playbook = "provision.yml"
 tasks = "tasks.yml"
 
 [provisioning.variables]
@@ -71,16 +72,16 @@ kernel_cmdline = "console=ttyS0 root=/dev/vda1 rw nokaslr modprobe.blacklist=amd
 
 [inputs]
 m5 = "build/m5/x86/out/m5"
-run_gem5_app = "resources/images/profiles/guest/ubuntu/24.04/x86_64/rocm7_0/files/run_gem5_app.sh"
-load_amdgpu = "resources/images/profiles/guest/ubuntu/24.04/x86_64/rocm7_0/files/load_amdgpu.sh"
-serial_getty_override = "resources/images/profiles/guest/ubuntu/24.04/x86_64/rocm7_0/files/serial-getty-override.conf"
-gem5_wmi_source = "resources/images/profiles/guest/ubuntu/24.04/x86_64/rocm7_0/files/gem5_wmi/gem5_wmi.c"
-gem5_wmi_makefile = "resources/images/profiles/guest/ubuntu/24.04/x86_64/rocm7_0/files/gem5_wmi/Makefile"
-amd_bsd_license = "resources/images/profiles/guest/ubuntu/24.04/x86_64/rocm7_0/files/gem5_wmi/LICENSE"
-setup_service = "resources/images/profiles/guest/ubuntu/24.04/x86_64/rocm7_0/files/cosim-gpu-setup.service"
+run_gem5_app = "resources/images/recipes/vhost/ubuntu/24.04/x86_64/rocm7_0/files/run_gem5_app.sh"
+load_amdgpu = "resources/images/recipes/vhost/ubuntu/24.04/x86_64/rocm7_0/files/load_amdgpu.sh"
+serial_getty_override = "resources/images/recipes/vhost/ubuntu/24.04/x86_64/rocm7_0/files/serial-getty-override.conf"
+gem5_wmi_source = "resources/images/recipes/vhost/ubuntu/24.04/x86_64/rocm7_0/files/gem5_wmi/gem5_wmi.c"
+gem5_wmi_makefile = "resources/images/recipes/vhost/ubuntu/24.04/x86_64/rocm7_0/files/gem5_wmi/Makefile"
+amd_bsd_license = "resources/images/recipes/vhost/ubuntu/24.04/x86_64/rocm7_0/files/gem5_wmi/LICENSE"
+setup_service = "resources/images/recipes/vhost/ubuntu/24.04/x86_64/rocm7_0/files/cosim-gpu-setup.service"
 mi200_rom = "third_party/gem5-resources/src/x86-ubuntu-gpu-ml/files/mi200.rom"
 mi300_rom = "third_party/gem5-resources/src/x86-ubuntu-gpu-ml/files/mi300.rom"
 mi300_discovery = "third_party/gem5-resources/src/x86-ubuntu-gpu-ml/files/mi300_discovery"
 mi350_discovery = "third_party/gem5-resources/src/x86-ubuntu-gpu-ml/files/mi350_discovery"
-vhost_gpu_setup = "resources/images/profiles/guest/ubuntu/24.04/x86_64/rocm7_0/files/cosim_gpu_setup.sh"
-vhost_rocm_regression = "resources/images/profiles/guest/ubuntu/24.04/x86_64/rocm7_0/files/cosim_rocm_regression.sh"
+vhost_gpu_setup = "resources/images/recipes/vhost/ubuntu/24.04/x86_64/rocm7_0/files/cosim_gpu_setup.sh"
+vhost_rocm_regression = "resources/images/recipes/vhost/ubuntu/24.04/x86_64/rocm7_0/files/cosim_rocm_regression.sh"

@@ -1,17 +1,17 @@
 // SPDX-License-Identifier: Apache-2.0
 
-//! Resolves guest image profiles through the shared Packer/Ansible catalog.
+//! Resolves vHost image recipes through the shared Packer/Ansible builder.
 
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use anyhow::{Context, Result, ensure};
-use cosim_topology::{DiskBus, DiskFormat, ImageProfile, Payload};
+use cosim_topology::{DiskBus, DiskFormat, ImageRecipe, Payload};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct ImageState {
-    pub profile: ImageSummary,
+    pub recipe: RecipeSummary,
     pub status: String,
     pub input_key: Option<String>,
     pub inputs: Option<serde_json::Value>,
@@ -27,7 +27,7 @@ pub struct ImageState {
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct ImageSummary {
+pub struct RecipeSummary {
     pub id: String,
     pub role: String,
     pub distribution: String,
@@ -35,35 +35,35 @@ pub struct ImageSummary {
     pub architecture: String,
 }
 
-/// Inspects a selected image and adds its expected disk and kernel paths to the payload.
-pub fn prepare_image_profile(
+/// Inspects a selected recipe and adds its verified disk and kernel to the payload.
+pub fn prepare_image_recipe(
     payload: &mut Payload,
     workspace: &Path,
     build: bool,
 ) -> Result<Option<ImageState>> {
-    let Some(ImageProfile { profile, .. }) = payload.image.as_ref() else {
+    let Some(ImageRecipe { recipe, .. }) = payload.image.as_ref() else {
         return Ok(None);
     };
-    let mut state = inspect_profile_with_policy(workspace, profile, build)?;
+    let mut state = inspect_recipe_with_policy(workspace, recipe, build)?;
     if build && state.status != "ready" {
-        run_builder(workspace, "build", profile, false)?;
-        state = inspect_profile_with_policy(workspace, profile, build)?;
+        run_builder(workspace, "build", recipe, false)?;
+        state = inspect_recipe_with_policy(workspace, recipe, build)?;
     }
     if build {
         ensure!(
             state.status == "ready",
-            "image profile {} is not ready: {}",
-            profile,
+            "image recipe {} is not ready: {}",
+            recipe,
             state.reasons.join("; ")
         );
     }
     let disk_format =
         serde_json::from_value::<DiskFormat>(serde_json::Value::String(state.disk_format.clone()))
-            .context("decode image profile disk format")?;
+            .context("decode image recipe disk format")?;
     let disk_bus =
         serde_json::from_value::<DiskBus>(serde_json::Value::String(state.disk_bus.clone()))
-            .context("decode image profile disk bus")?;
-    cosim_topology::materialize_image_profile(
+            .context("decode image recipe disk bus")?;
+    cosim_topology::materialize_image_recipe(
         payload,
         state.kernel.clone(),
         state.disk.clone(),
@@ -75,24 +75,24 @@ pub fn prepare_image_profile(
     Ok(Some(state))
 }
 
-/// Reads profile and cache state without creating files or starting Packer.
-pub fn inspect_profile(workspace: &Path, profile: &str) -> Result<ImageState> {
-    inspect_profile_with_policy(workspace, profile, false)
+/// Reads recipe and cache state without creating files or starting Packer.
+pub fn inspect_recipe(workspace: &Path, recipe: &str) -> Result<ImageState> {
+    inspect_recipe_with_policy(workspace, recipe, false)
 }
 
-fn inspect_profile_with_policy(
+fn inspect_recipe_with_policy(
     workspace: &Path,
-    profile: &str,
+    recipe: &str,
     write_verification_cache: bool,
 ) -> Result<ImageState> {
-    let output = run_builder(workspace, "inspect", profile, write_verification_cache)?;
-    serde_json::from_slice(&output).context("decode image profile inspection")
+    let output = run_builder(workspace, "inspect", recipe, write_verification_cache)?;
+    serde_json::from_slice(&output).context("decode image recipe inspection")
 }
 
 fn run_builder(
     workspace: &Path,
     operation: &str,
-    profile: &str,
+    recipe: &str,
     write_verification_cache: bool,
 ) -> Result<Vec<u8>> {
     let mut command = Command::new("python3");
@@ -102,7 +102,7 @@ fn run_builder(
         .arg("--workspace")
         .arg(workspace)
         .arg(operation)
-        .arg(profile)
+        .arg(recipe)
         .current_dir(workspace)
         .env("PYTHONDONTWRITEBYTECODE", "1");
     if operation == "inspect" {
@@ -112,10 +112,10 @@ fn run_builder(
         }
         let output = command
             .output()
-            .context("start the guest image profile inspector")?;
+            .context("start the guest image recipe inspector")?;
         ensure!(
             output.status.success(),
-            "image profile inspection failed: {}",
+            "image recipe inspection failed: {}",
             String::from_utf8_lossy(&output.stderr).trim()
         );
         Ok(output.stdout)
@@ -123,7 +123,7 @@ fn run_builder(
         let status = command.status().context("start the guest image builder")?;
         ensure!(
             status.success(),
-            "guest image {operation} failed for {profile}"
+            "guest image {operation} failed for {recipe}"
         );
         Ok(Vec::new())
     }

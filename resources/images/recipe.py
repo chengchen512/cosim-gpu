@@ -33,6 +33,7 @@ class OutputData(TypedDict):
 
 
 class ProvisioningData(TypedDict):
+    playbook: str
     tasks: str
     variables: dict[str, str]
     outputs: list[OutputData]
@@ -46,7 +47,7 @@ class PayloadData(TypedDict):
     kernel_cmdline: str | None
 
 
-class ProfileData(TypedDict):
+class RecipeData(TypedDict):
     schema: int
     id: str
     role: str
@@ -61,7 +62,7 @@ class ProfileData(TypedDict):
     reuse_optional_inputs: list[str]
 
 
-class ProfileError(ValueError):
+class RecipeError(ValueError):
     pass
 
 
@@ -72,10 +73,10 @@ class ArtifactOutput:
 
 
 @dataclass(frozen=True)
-class ImageProfile:
+class ImageRecipe:
     identifier: str
     directory: Path
-    profile_file: Path
+    recipe_file: Path
     role: str
     distribution: str
     release: str
@@ -92,6 +93,7 @@ class ImageProfile:
     accelerator: str
     machine_type: str
     cpu_model: str
+    playbook_file: Path
     tasks_file: Path
     variables: dict[str, str]
     outputs: tuple[ArtifactOutput, ...]
@@ -102,65 +104,63 @@ class ImageProfile:
     inputs: dict[str, Path]
     reuse_optional_inputs: tuple[str, ...]
 
-    @property
-    def profile_tasks(self) -> Path:
-        return self.tasks_file
-
     def output_path(self, workspace: Path) -> Path:
         return workspace / "build" / "images" / self.identifier
 
 
-def list_profiles(workspace: Path) -> list[str]:
-    profiles = workspace / "resources/images/profiles"
-    if not profiles.is_dir():
+def list_recipes(workspace: Path) -> list[str]:
+    recipes = workspace / "resources/images/recipes"
+    if not recipes.is_dir():
         return []
     return sorted(
-        path.relative_to(profiles).parent.as_posix()
-        for path in profiles.rglob("profile.toml")
+        path.relative_to(recipes).parent.as_posix()
+        for path in recipes.rglob("recipe.toml")
         if path.is_file()
     )
 
 
-def load_profile(workspace: Path, identifier: str) -> ImageProfile:
-    safe_identifier = _relative_path(identifier, "profile id")
-    profile_file = workspace / "resources/images/profiles" / safe_identifier
-    profile_file = profile_file / "profile.toml"
-    if not profile_file.is_file():
-        raise ProfileError(f"image profile not found: {identifier}")
+def load_recipe(workspace: Path, identifier: str) -> ImageRecipe:
+    safe_identifier = _relative_path(identifier, "recipe id")
+    recipe_file = workspace / "resources/images/recipes" / safe_identifier
+    recipe_file = recipe_file / "recipe.toml"
+    if not recipe_file.is_file():
+        raise RecipeError(f"image recipe not found: {identifier}")
     try:
-        data = tomllib.loads(profile_file.read_text(encoding="utf-8"))
+        data = tomllib.loads(recipe_file.read_text(encoding="utf-8"))
     except (OSError, tomllib.TOMLDecodeError) as error:
-        raise ProfileError(
-            f"cannot read image profile {profile_file}: {error}"
+        raise RecipeError(
+            f"cannot read image recipe {recipe_file}: {error}"
         ) from error
     if not isinstance(data, dict):
-        raise ProfileError(
-            f"image profile must be a TOML table: {profile_file}"
+        raise RecipeError(
+            f"image recipe must be a TOML table: {recipe_file}"
         )
     _require(data, "schema", int)
     if data["schema"] != 1:
-        raise ProfileError(f"unsupported profile schema {data['schema']}")
+        raise RecipeError(f"unsupported recipe schema {data['schema']}")
     _require(data, "id", str)
     if data["id"] != identifier:
-        raise ProfileError(
-            f"profile id {data['id']!r} does not match {identifier!r}"
+        raise RecipeError(
+            f"recipe id {data['id']!r} does not match {identifier!r}"
         )
     for key in ("role", "distribution", "release", "architecture"):
         _require(data, key, str)
+    if data["role"] not in {"host", "vhost"}:
+        raise RecipeError("recipe.role must be host or vhost")
     if data["architecture"] not in {"x86_64", "aarch64", "riscv64"}:
-        raise ProfileError(
-            f"unsupported vHost architecture {data['architecture']!r}"
+        raise RecipeError(
+            f"unsupported recipe architecture {data['architecture']!r}"
         )
     base = _mapping(data, "base")
     _require(base, "url", str)
     _require(base, "sha256", str)
     _require(base, "format", str)
     if not base["url"].startswith("https://"):
-        raise ProfileError("base.url must use HTTPS")
+        raise RecipeError("base.url must use HTTPS")
     if not re.fullmatch(r"[0-9a-f]{64}", base["sha256"]):
-        raise ProfileError("base.sha256 must be a lowercase SHA-256 digest")
+        raise RecipeError("base.sha256 must be a lowercase SHA-256 digest")
     if base["format"] not in {"raw", "qcow2"}:
-        raise ProfileError("base.format must be raw or qcow2")
+        raise RecipeError("base.format must be raw or qcow2")
 
     builder = _mapping(data, "builder")
     for key in (
@@ -171,52 +171,62 @@ def load_profile(workspace: Path, identifier: str) -> ImageProfile:
     for key in ("cpus", "memory_mb"):
         _require(builder, key, int)
     if builder["disk_format"] not in {"raw", "qcow2"}:
-        raise ProfileError("builder.disk_format must be raw or qcow2")
+        raise RecipeError("builder.disk_format must be raw or qcow2")
     if builder["cpus"] < 1 or builder["memory_mb"] < 512:
-        raise ProfileError("builder CPU and memory values are out of range")
+        raise RecipeError("builder CPU and memory values are out of range")
     if builder["accelerator"] not in {"kvm", "tcg", "hvf"}:
-        raise ProfileError("builder.accelerator must be kvm, tcg or hvf")
+        raise RecipeError("builder.accelerator must be kvm, tcg or hvf")
 
     provisioning = _mapping(data, "provisioning")
+    _require(provisioning, "playbook", str)
     _require(provisioning, "tasks", str)
     variables = _mapping(provisioning, "variables")
     outputs_data = provisioning.get("outputs")
     if not isinstance(outputs_data, list) or not outputs_data:
-        raise ProfileError(
+        raise RecipeError(
             "provisioning.outputs must contain at least one artifact"
         )
     outputs: list[ArtifactOutput] = []
     for index, item in enumerate(outputs_data):
         if not isinstance(item, dict):
-            raise ProfileError(
+            raise RecipeError(
                 f"provisioning.outputs[{index}] must be an object"
             )
         _require(item, "name", str)
         _require(item, "guest_path", str)
         name = item["name"]
         if not re.fullmatch(r"[A-Za-z0-9_.-]+", name):
-            raise ProfileError(f"invalid artifact name {name!r}")
+            raise RecipeError(f"invalid artifact name {name!r}")
         if name in RESERVED_OUTPUT_NAMES:
-            raise ProfileError(
+            raise RecipeError(
                 f"provisioning.outputs[{index}].name is reserved: {name}"
             )
         guest_path = Path(item["guest_path"])
         if not guest_path.is_absolute() or ".." in guest_path.parts:
-            raise ProfileError(
+            raise RecipeError(
                 f"artifact guest_path must be absolute: {guest_path}"
             )
         outputs.append(ArtifactOutput(name, item["guest_path"]))
     if len({output.name for output in outputs}) != len(outputs):
-        raise ProfileError("provisioning.outputs names must be unique")
+        raise RecipeError("provisioning.outputs names must be unique")
 
-    profile_directory = profile_file.parent.resolve()
+    recipe_directory = recipe_file.parent.resolve()
+    playbook_file = _inside_directory(
+        recipe_directory,
+        provisioning["playbook"],
+        "provisioning.playbook",
+    )
     tasks_file = _inside_directory(
-        profile_directory,
+        recipe_directory,
         provisioning["tasks"],
         "provisioning.tasks",
     )
+    if not playbook_file.is_file():
+        raise RecipeError(
+            f"recipe Ansible playbook not found: {playbook_file}"
+        )
     if not tasks_file.is_file():
-        raise ProfileError(f"profile tasks file not found: {tasks_file}")
+        raise RecipeError(f"recipe tasks file not found: {tasks_file}")
 
     payload = _mapping(data, "payload")
     for key in ("disk_id", "disk_format", "disk_bus"):
@@ -224,57 +234,55 @@ def load_profile(workspace: Path, identifier: str) -> ImageProfile:
     kernel_artifact = payload.get("kernel_artifact")
     kernel_cmdline = payload.get("kernel_cmdline")
     if kernel_artifact is not None and not isinstance(kernel_artifact, str):
-        raise ProfileError("payload.kernel_artifact must be a string or null")
+        raise RecipeError("payload.kernel_artifact must be a string or null")
     if kernel_cmdline is not None and not isinstance(kernel_cmdline, str):
-        raise ProfileError("payload.kernel_cmdline must be a string or null")
+        raise RecipeError("payload.kernel_cmdline must be a string or null")
     if not re.fullmatch(r"[A-Za-z0-9_-]{1,48}", payload["disk_id"]):
-        raise ProfileError(f"invalid payload disk id {payload['disk_id']!r}")
+        raise RecipeError(f"invalid payload disk id {payload['disk_id']!r}")
     if payload["disk_format"] not in {"raw", "qcow2"}:
-        raise ProfileError("payload.disk_format must be raw or qcow2")
+        raise RecipeError("payload.disk_format must be raw or qcow2")
     if payload["disk_format"] != builder["disk_format"]:
-        raise ProfileError(
+        raise RecipeError(
             "payload.disk_format must match builder.disk_format"
         )
     if payload["disk_bus"] not in {"virtio", "nvme", "ide", "scsi"}:
-        raise ProfileError("payload.disk_bus is unsupported")
+        raise RecipeError("payload.disk_bus is unsupported")
     if (
         kernel_artifact is not None
         and kernel_artifact not in {output.name for output in outputs}
     ):
-        raise ProfileError(
+        raise RecipeError(
             "payload.kernel_artifact must name a declared output"
         )
     if kernel_artifact is None and kernel_cmdline is not None:
-        raise ProfileError(
+        raise RecipeError(
             "payload.kernel_cmdline requires payload.kernel_artifact"
         )
 
     inputs_data = _mapping(data, "inputs")
     if not inputs_data:
-        raise ProfileError(
-            "inputs must list the Host files used by the profile"
-        )
+        raise RecipeError("inputs must list Host files used by the recipe")
     inputs = {
         name: workspace / _relative_path(path, f"inputs.{name}")
         for name, path in inputs_data.items()
         if isinstance(name, str) and isinstance(path, str)
     }
     if len(inputs) != len(inputs_data):
-        raise ProfileError("inputs must map names to workspace-relative paths")
+        raise RecipeError("inputs must map names to workspace-relative paths")
     optional_inputs = data.get("reuse_optional_inputs", [])
     if not isinstance(optional_inputs, list) or not all(
         isinstance(name, str) for name in optional_inputs
     ):
-        raise ProfileError(
+        raise RecipeError(
             "reuse_optional_inputs must be an array of input names"
         )
     if not set(optional_inputs).issubset(inputs):
-        raise ProfileError("reuse_optional_inputs must name declared inputs")
+        raise RecipeError("reuse_optional_inputs must name declared inputs")
 
-    return ImageProfile(
+    return ImageRecipe(
         identifier=identifier,
-        directory=profile_directory,
-        profile_file=profile_file.resolve(),
+        directory=recipe_directory,
+        recipe_file=recipe_file.resolve(),
         role=data["role"],
         distribution=data["distribution"],
         release=data["release"],
@@ -291,6 +299,7 @@ def load_profile(workspace: Path, identifier: str) -> ImageProfile:
         accelerator=builder["accelerator"],
         machine_type=builder["machine_type"],
         cpu_model=builder["cpu_model"],
+        playbook_file=playbook_file,
         tasks_file=tasks_file,
         variables=dict(variables),
         outputs=tuple(outputs),
@@ -305,13 +314,13 @@ def load_profile(workspace: Path, identifier: str) -> ImageProfile:
 
 def _require(data: dict, key: str, expected: type) -> None:
     if key not in data or not isinstance(data[key], expected):
-        raise ProfileError(f"profile field {key!r} must be {expected.__name__}")
+        raise RecipeError(f"recipe field {key!r} must be {expected.__name__}")
 
 
 def _mapping(data: dict, key: str) -> dict:
     value = data.get(key)
     if not isinstance(value, dict):
-        raise ProfileError(f"profile field {key!r} must be an object")
+        raise RecipeError(f"recipe field {key!r} must be an object")
     return value
 
 
@@ -323,7 +332,7 @@ def _relative_path(value: str, what: str) -> Path:
         or not path.parts
         or any(part in {"", ".", ".."} for part in path.parts)
     ):
-        raise ProfileError(f"{what} must be a safe relative path: {value!r}")
+        raise RecipeError(f"{what} must be a safe relative path: {value!r}")
     return Path(*path.parts)
 
 
@@ -331,5 +340,5 @@ def _inside_directory(root: Path, value: str, what: str) -> Path:
     relative = _relative_path(value, what)
     candidate = (root / relative).resolve()
     if not candidate.is_relative_to(root):
-        raise ProfileError(f"{what} escapes its profile directory")
+        raise RecipeError(f"{what} escapes its recipe directory")
     return candidate

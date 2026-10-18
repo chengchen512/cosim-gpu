@@ -1,10 +1,10 @@
 # SPDX-License-Identifier: Apache-2.0
-- name: Validate the base distribution
+- name: Validate the recipe base distribution
   ansible.builtin.assert:
     that:
       - ansible_distribution == "Ubuntu"
       - ansible_distribution_version == "24.04"
-    fail_msg: "This profile requires Ubuntu 24.04."
+    fail_msg: "This recipe requires Ubuntu 24.04."
 
 - name: Create the cosim build user
   ansible.builtin.user:
@@ -28,9 +28,9 @@
     cache_valid_time: 1800
     state: present
     name:
-      - "linux-image-{{ cosim_profile_variables.kernel_release }}"
-      - "linux-headers-{{ cosim_profile_variables.kernel_release }}"
-      - "linux-modules-extra-{{ cosim_profile_variables.kernel_release }}"
+      - "linux-image-{{ cosim_recipe_variables.kernel_release }}"
+      - "linux-headers-{{ cosim_recipe_variables.kernel_release }}"
+      - "linux-modules-extra-{{ cosim_recipe_variables.kernel_release }}"
       - build-essential
       - cmake
       - gpg
@@ -72,8 +72,8 @@
   ansible.builtin.apt_repository:
     repo: >-
       deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg]
-      https://repo.radeon.com/amdgpu/{{ cosim_profile_variables.rocm_release }}/ubuntu
-      {{ cosim_profile_variables.rocm_distribution }} main
+      https://repo.radeon.com/amdgpu/{{ cosim_recipe_variables.rocm_release }}/ubuntu
+      {{ cosim_recipe_variables.rocm_distribution }} main
     filename: amdgpu
     state: present
 
@@ -81,8 +81,8 @@
   ansible.builtin.apt_repository:
     repo: >-
       deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg]
-      https://repo.radeon.com/rocm/apt/{{ cosim_profile_variables.rocm_release }}
-      {{ cosim_profile_variables.rocm_distribution }} main
+      https://repo.radeon.com/rocm/apt/{{ cosim_recipe_variables.rocm_release }}
+      {{ cosim_recipe_variables.rocm_distribution }} main
     filename: rocm
     state: present
 
@@ -97,23 +97,21 @@
       Pin: release o=repo.radeon.com
       Pin-Priority: 600
 
-- name: Install the AMDGPU and ROCm stack
-  ansible.builtin.apt:
-    update_cache: true
-    state: present
-    name:
-      - "amdgpu-dkms={{ cosim_profile_variables.amdgpu_dkms_version }}"
-      - rocm
-
-- name: Build the AMDGPU DKMS module for the selected kernel
+- name: Install and build the AMDGPU DKMS module
   block:
+    - name: Install the AMDGPU DKMS package
+      ansible.builtin.apt:
+        update_cache: true
+        state: present
+        name: "amdgpu-dkms={{ cosim_recipe_variables.amdgpu_dkms_version }}"
+
     - name: Run DKMS autoinstall for the selected kernel
       ansible.builtin.command:
         argv:
           - dkms
           - autoinstall
           - -k
-          - "{{ cosim_profile_variables.kernel_release }}"
+          - "{{ cosim_recipe_variables.kernel_release }}"
   rescue:
     - name: Find AMDGPU DKMS build logs
       ansible.builtin.find:
@@ -135,9 +133,14 @@
     - name: Report AMDGPU DKMS build failure
       ansible.builtin.fail:
         msg: >-
-          AMDGPU DKMS failed for kernel
-          {{ cosim_profile_variables.kernel_release }}; inspect the build log
-          output above.
+          AMDGPU DKMS provisioning failed during {{ ansible_failed_task.name }}
+          for kernel {{ cosim_recipe_variables.kernel_release }}; inspect the
+          build log output above.
+
+- name: Install the ROCm stack
+  ansible.builtin.apt:
+    state: present
+    name: rocm
 
 - name: Create the cosim GPU license directory
   ansible.builtin.file:
@@ -211,8 +214,8 @@
 - name: Extract the selected vHost kernel
   ansible.builtin.shell:
     cmd: >-
-      /usr/src/linux-headers-{{ cosim_profile_variables.kernel_release }}/scripts/extract-vmlinux
-      /boot/vmlinuz-{{ cosim_profile_variables.kernel_release }}
+      /usr/src/linux-headers-{{ cosim_recipe_variables.kernel_release }}/scripts/extract-vmlinux
+      /boot/vmlinuz-{{ cosim_recipe_variables.kernel_release }}
       > /home/gem5/vmlinux-gpu-ml
     creates: /home/gem5/vmlinux-gpu-ml
 
@@ -222,14 +225,14 @@
     owner: root
     group: root
     mode: "0644"
-    content: "{{ cosim_profile_variables.kernel_release }}\n"
+    content: "{{ cosim_recipe_variables.kernel_release }}\n"
 
 - name: Inspect the installed AMDGPU module
   ansible.builtin.command:
     argv:
       - modinfo
       - -k
-      - "{{ cosim_profile_variables.kernel_release }}"
+      - "{{ cosim_recipe_variables.kernel_release }}"
       - amdgpu
   register: amdgpu_module_info
   changed_when: false
@@ -246,7 +249,7 @@
   ansible.builtin.assert:
     that:
       - "'/updates/dkms/amdgpu.ko' in amdgpu_module_info.stdout"
-      - "cosim_profile_variables.kernel_release in amdgpu_module_info.stdout"
+      - "cosim_recipe_variables.kernel_release in amdgpu_module_info.stdout"
     fail_msg: >-
       The selected kernel does not have a matching AMDGPU DKMS module.
       modinfo={{ amdgpu_module_info.stdout }}
@@ -265,13 +268,13 @@
     argv:
       - make
       - -C
-      - "/lib/modules/{{ cosim_profile_variables.kernel_release }}/build"
+      - "/lib/modules/{{ cosim_recipe_variables.kernel_release }}/build"
       - M=/home/gem5
     creates: /home/gem5/gem5_wmi.ko
 
 - name: Create the additional kernel module directory
   ansible.builtin.file:
-    path: "/lib/modules/{{ cosim_profile_variables.kernel_release }}/extra"
+    path: "/lib/modules/{{ cosim_recipe_variables.kernel_release }}/extra"
     state: directory
     owner: root
     group: root
@@ -280,7 +283,7 @@
 - name: Install the WMI module
   ansible.builtin.copy:
     src: /home/gem5/gem5_wmi.ko
-    dest: /lib/modules/{{ cosim_profile_variables.kernel_release }}/extra/gem5_wmi.ko
+    dest: /lib/modules/{{ cosim_recipe_variables.kernel_release }}/extra/gem5_wmi.ko
     remote_src: true
     owner: root
     group: root
@@ -308,7 +311,7 @@
       - torchvision
       - torchaudio
       - --index-url
-      - "{{ cosim_profile_variables.pytorch_index_url }}"
+      - "{{ cosim_recipe_variables.pytorch_index_url }}"
   changed_when: true
 
 - name: Record installed packages

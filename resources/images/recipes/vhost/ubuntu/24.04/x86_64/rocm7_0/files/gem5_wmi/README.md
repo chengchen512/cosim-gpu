@@ -8,11 +8,11 @@ Starting around ROCm 6.0, the amdgpu ROCk driver's Kconfig enables the WMI ACPI 
 
 This module implements a WMI stub that allows the `acpi_video` module to load. This is suitable for simulating compute GPUs, which disable the display manager IP block.
 
-The module requires the Linux kernel source. The image profile installs the matching `linux-headers-$(uname -r)` package and builds the module for the selected kernel.
+The module requires the Linux kernel source. The image recipe installs the matching `linux-headers-$(uname -r)` package and builds the module for the selected kernel.
 
 ## Build the module
 
-The image profile builds this module. To build it manually, run:
+The image recipe builds this module. To build it manually, run:
 
 ```bash
 make -C "/lib/modules/$(uname -r)/build" M="$PWD"
