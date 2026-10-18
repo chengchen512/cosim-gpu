@@ -40,7 +40,7 @@ hierarchy and `cache-coherence-checkpoints.md`.
 ## 3. QEMU↔gem5 memory coherence gap
 
 **Discovery**: May 2026. Under repeated execution, the ROCm runtime allocates new virtual addresses, reuses page
-table pages, and updates PTEs. QEMU and gem5 share guest RAM via `/dev/shm/cosim-guest-ram`, but there is no
+table pages, and updates PTEs. QEMU and gem5 share vHost RAM via `/dev/shm/cosim-guest-ram`, but there is no
 explicit coherence protocol: gem5 may see stale or missing PTEs if it accesses a page before QEMU's PTE update
 propagates through the shared memory.
 

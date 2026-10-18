@@ -16,8 +16,8 @@ Prefer archived artifacts over chat memory and live output:
 1. Matrix files: `matrix.final.tsv`, `matrix.tsv`
 2. Per-row verdicts: `tests/*/verdict.json`
 3. Provenance: `patch/binary-provenance.txt`
-4. Logs: `logs/gem5.log`, `logs/qemu.log`, `logs/guest/**/*.log`
-5. Runner metadata and guest scripts
+4. Logs: `logs/gem5.log`, `logs/qemu.log`, and vHost logs stored under `logs/guest/**/*.log`
+5. Runner metadata and vHost scripts
 6. Prior conversation records, only when the task is explicitly about process
    history or skill behavior
 
@@ -34,7 +34,7 @@ them:
 
 - `logs/gem5.log`
 - `logs/qemu.log`
-- `logs/guest/**/*.log`
+- vHost logs stored under `logs/guest/**/*.log`
 - exact command, environment, verdict, matrix row, build hash, and source
   fingerprint
 
@@ -80,7 +80,7 @@ the same table contract manually.
 - `row_status.tsv`: artifact completeness and missing fields
 - `verdicts.tsv`: outcome and verdict source
 - `provenance.tsv`: gem5 source and binary identity
-- `log_availability.tsv`: gem5, QEMU, and guest log presence
+- `log_availability.tsv`: gem5, QEMU, and vHost log presence
 - `filter_coverage.tsv`: diagnostic filters, observed extrema, and uncovered counts
 - `signals.tsv`: known high-value lines with source and line number
 - `candidate_events.tsv`: low-confidence structural log candidates

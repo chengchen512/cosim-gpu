@@ -14,7 +14,7 @@ just build-gem5
 just build-qemu
 ```
 
-Use `just build-m5 x86` for the x86 guest profile. `GEM5_BUILD_DIR` changes the
+Use `just build-m5 x86` for the x86 vHost image profile. `GEM5_BUILD_DIR` changes the
 gem5 output directory under `build/`; `just build-gem5` always reads sources
 from `third_party/gem5/`.
 
@@ -41,7 +41,7 @@ The CI runtime artifact manifest records source identities, architecture,
 build key, image identity and payload checksums. The cache is reusable only
 when its build key and source revision match the current workflow inputs.
 The CI workflow validates a restored artifact with
-`just test-ci-artifact build/cache/gem5-runtime build/ci-build` before using
+`just test-runtime-artifact build/cache/gem5-runtime build/ci-build` before using
 its binary or development image.
 
 ## Isolated source trees

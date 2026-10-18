@@ -1,7 +1,7 @@
-# Program Identity And Guest Environment
+# Program Identity And vHost Environment
 
 Read this before launching a specified program, a ROCm example, a variant
-kernel, or any row using guest environment prefixes.
+kernel, or any row using vHost environment prefixes.
 
 ## Program Identity
 
@@ -41,7 +41,7 @@ If a local filter can match multiple kernels, resolve the exact
 
 For ROCm examples, separate build-entry failures from program failures. A
 directory with `CMakeLists.txt` but no `Makefile`, dependency skip, or missing
-guest binary is a runner or build adaptation issue until a real target binary
+vHost binary is a runner or build adaptation issue until a real target binary
 executes.
 
 ## Two-Phase Timeout
@@ -49,7 +49,7 @@ executes.
 Probe first unless a benchmark entry exists:
 
 ```bash
-bash scripts/run_cosim_tests.sh --test-timeout 30 vector_add
+bash scripts/host/run_cosim_tests.sh --test-timeout 30 vector_add
 ```
 
 If the program completes, record wall-clock time. If it times out, double the
@@ -80,23 +80,23 @@ python3 tests/estimate_rocm_timeout.py
 Skip them or mark them `CENSORED` with note
 `device-side printf unsupported`.
 
-## Guest Environment Prefix
+## vHost Environment Prefix
 
 For special environment rows:
 
 ```bash
-GUEST_TEST_PREFIX="HSA_ENABLE_INTERRUPT=0" bash scripts/run_cosim_tests.sh vector_add
+GUEST_TEST_PREFIX="HSA_ENABLE_INTERRUPT=0" bash scripts/host/run_cosim_tests.sh vector_add
 ```
 
-Guest workload defaults and prefix parsing are centralized in
-`scripts/cosim_guest_env.sh`. Do not add ad hoc ROCm exports inside generated
-guest commands; extend the shared helper instead.
+The Host runner parses environment prefixes in
+`scripts/host/run_cosim_tests.sh`. Do not add ad hoc ROCm exports inside
+generated vHost commands; extend the runner instead.
 
-The runner records effective `HSA_ENABLE_INTERRUPT` from guest output, not from
-the host shell. If the guest log shows an environment assignment being treated
+The runner records effective `HSA_ENABLE_INTERRUPT` from vHost output, not from
+the Host shell. If the vHost log shows an environment assignment being treated
 as an executable, treat that as a runner bug, fix the invocation path, and rerun
 the intended program.
 
-For environment policy questions, inspect `scripts/cosim_guest_env.sh`, then
-`scripts/run_cosim_tests.sh`. Use debug only after a test row fails or a live
+For environment policy questions, inspect `scripts/host/run_cosim_tests.sh`.
+Use debug only after a test row fails or a live
 hang environment exists.

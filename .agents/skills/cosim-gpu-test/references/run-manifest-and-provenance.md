@@ -21,8 +21,8 @@ Before automation, write or append
 - matrix path
 - provenance file
 - literal runner argument
-- guest bridge path policy, when the runner uses a host-created script or
-  temporary output directory that must be visible inside the guest
+- vHost bridge path policy, when the runner uses a Host-created script or
+  temporary output directory that must be visible inside the vHost
 
 Automation may execute only complete rows. Do not infer the target from nearby
 filenames, prior conversation, partial filters, or failed discovery commands.
@@ -30,26 +30,26 @@ filenames, prior conversation, partial filters, or failed discovery commands.
 plan names it as the scope.
 
 If a row has ambiguous program identity, conflicting timeout policy, unknown
-guest environment, missing artifact path, missing matrix path, missing
+vHost environment, missing artifact path, missing matrix path, missing
 binary/provenance data, or a mode mismatch, record a preflight failure and do
 not launch it.
 
-Artifact paths and guest bridge paths are different concerns. The artifact
-directory is the durable evidence destination and may follow local host storage
-policy. The guest bridge path is a transient path used by scripts executing
-under `/mnt`; it must resolve inside the mounted share without relying on host
+Artifact paths and vHost bridge paths are separate fields. The artifact
+directory is the durable evidence destination and may follow local Host storage
+policy. The vHost bridge path is a transient path used by scripts executing
+under `/mnt`; it must resolve inside the mounted share without relying on Host
 absolute paths or symlinks that leave the share. Prefer a configurable
-repository-relative bridge path, archive the bridge script and guest output into
+repository-relative bridge path, archive the bridge script and vHost output into
 the artifact directory, and remove transient bridge contents during cleanup.
 
 ## Artifact Resolution
 
-The run id and program name determine the guest-test failure directory.
+The run id and program name determine the vHost-test failure directory.
 Launcher failures use the standalone directory. Set a console log path under
 the task artifact directory before launch. Resolve the failure artifact from:
 
 1. `metadata.txt` run id and program name
-2. `artifacts/<program>/<run-id>` for guest-test failures
+2. `artifacts/<program>/<run-id>` for vHost-test failures
 3. `artifacts/standalone/<run-id>` for launcher failures
 
 Zero or multiple matches is a checkpoint failure. Do not accept the row until a
@@ -62,7 +62,7 @@ from the manifest alone. Verify:
 
 - the runner exit status and exact program identity
 - the console log and, on failure, runner metadata and simulator logs
-- the effective guest settings recorded for the run
+- the effective vHost settings recorded for the run
 - the gem5 source revision, selected binary path and binary checksum
 
 If source snapshot fails, classify the row as evidence-incomplete. Binary

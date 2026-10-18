@@ -7,9 +7,32 @@
 
 justfile 使用 `dev-`、`build-`、`run-`、`test-`、`check-`、`ci-` 和 `maint-` 前缀区分命令用途。运行 `just` 可以查看可用命令。
 
+## 脚本目录
+
+| 路径 | 运行环境 | 职责 |
+|---|---|---|
+| `scripts/host/` | Host 操作系统或开发容器 | 由 just 调用的 Host 工具，包括构建、启动、镜像配方入口和仓库检查 |
+| `resources/vhost/scripts/` | vHost 操作系统 | 多个 vHost 镜像配方共同使用的脚本 |
+| `resources/images/profiles/<role>/<distribution>/<release>/<architecture>/<profile>/files/` | 对应的 vHost 镜像 | 由 Ansible 安装的镜像专用脚本和服务；Ubuntu ROCm 配方把 GPU 初始化和回归脚本放在这里 |
+| `tests/run_tests.sh` | 通过 9p 共享目录运行于 vHost | 运行 HIP 测试程序；由 `scripts/host/run_cosim_tests.sh` 启动 |
+| `tests/test_modprobe_params.sh` | Host 和 CI runner | 通过 `just check-modprobe-params` 检查 vHost GPU 初始化脚本 |
+| `scripts/ci/` | Host，包括 GitHub Actions runner | 工作流和产物辅助程序、测试运行工具；部分检查由 just 提供本地复现入口 |
+
+安装到 vHost 镜像的脚本都登记为配方输入，其内容会参与镜像身份和缓存键计算。
+
+`scripts/host/` 包含 `dev.sh`、`build.sh`、`cosim-image`、QEMU 启动和预检工具、
+Host 侧 GPU 测试运行器、checkpatch 和维护者工具。`scripts/` 下两个 `__init__.py` 只用于
+声明 Python 包。`scripts/ci/run_rocm.py` 是 Host 侧回归运行器，由 `just test-rocm-regression`
+和 `Integration` workflow 共用。其他 `scripts/ci/` 工具负责产物处理、维护者分配和 CI 测试。
+`set_assignees.py` 和 `check_maintainer_changes.py` 只由 GitHub Actions 调用；
+`prepare_image_host.sh` 是 Build workflow 通过 `ci-*` recipe 调用的 Host 准备步骤。
+`ci.yml` 直接运行工作流语法检查和 Python 测试发现。Ubuntu ROCm 镜像会安装 `cosim_gpu_setup.sh` 和
+`cosim_rocm_regression.sh`；后者是由 `scripts/ci/run_rocm.py` 调用、在 vHost 内执行的
+CI 专用负载。`tests/run_tests.sh` 通过 9p 共享到 vHost，用于运行 HIP 测试程序。
+
 ## 补丁检查要求
 
-提交到 cosim-gpu 的每个非合并提交都必须通过 `scripts/checkpatch.pl` 检查，且不能出现错误。该脚本来自 QEMU 的 `scripts/checkpatch.pl`，cosim-gpu 采用它所检查的 QEMU 补丁风格：
+提交到 cosim-gpu 的每个非合并提交都必须通过 `scripts/host/checkpatch.pl` 检查，且不能出现错误。该脚本来自 QEMU 的 `scripts/checkpatch.pl`，cosim-gpu 采用它所检查的 QEMU 补丁风格：
 
 - 每个提交都带有 `Signed-off-by:` 行，格式必须为 `Signed-off-by: Name <email>`，姓名和电子邮件地址取自 `git config user.name` 和 `git config user.email`。
 - 提交信息中不能出现标注 AI 的附加字段，例如标注 AI 工具的 `Co-authored-by:` 行、`Assisted-by:`、`Generated-by:` 或 `🤖` 标记。
@@ -38,25 +61,25 @@ just check-patch
 just check-patch <base-commit>
 ```
 
-`just check-patch` 运行 `scripts/check_patch.sh`。该脚本只输出存在问题的提交，每条报告以提交哈希和补丁行号开头；任一提交出现错误时，脚本以非零状态退出。
+`just check-patch` 运行 `scripts/host/check_patch.sh`。该脚本只输出存在问题的提交，每条报告以提交哈希和补丁行号开头；任一提交出现错误时，脚本以非零状态退出。
 
 `just check` 会同时运行 `just check-patch`、ShellCheck 和下文介绍的 `MAINTAINERS.yml` 检查。
 
-其他输入可以直接使用 `scripts/checkpatch.pl` 检查：
+其他输入可以直接使用 `scripts/host/checkpatch.pl` 检查：
 
 ```bash
 # 单个提交或提交范围
-./scripts/checkpatch.pl HEAD
-./scripts/checkpatch.pl origin/main..HEAD
+./scripts/host/checkpatch.pl HEAD
+./scripts/host/checkpatch.pl origin/main..HEAD
 
 # git format-patch 生成的补丁文件
-./scripts/checkpatch.pl 0001-example.patch
+./scripts/host/checkpatch.pl 0001-example.patch
 
 # 检查整个文件（不检查 Signed-off-by）
-./scripts/checkpatch.pl -f scripts/cosim_launch.sh
+./scripts/host/checkpatch.pl -f scripts/host/cosim_launch.sh
 ```
 
-`scripts/checkpatch.pl` 需要 Perl 5，并且必须在 cosim-gpu 源码树中运行。
+`scripts/host/checkpatch.pl` 需要 Perl 5，并且必须在 cosim-gpu 源码树中运行。
 
 ## 持续集成
 
@@ -76,7 +99,7 @@ just check-patch <base-commit>
 gem5 任务只编译一次 `VEGA_X86`，上传压缩后的二进制文件、模型测试需要的
 `libvfio-user.a`、开发容器镜像和 SHA-256 清单。
 依赖它的 `Integration` 工作流下载同一次运行的产物，核对主仓库
-与 gem5 的版本、host 架构、运行标识及文件摘要，然后加载构建时使用的容器镜像，
+与 gem5 的版本、Host 架构、运行标识及文件摘要，然后加载构建时使用的容器镜像，
 运行恢复后的 MI300X 模型测试，并在该环境中编译 QEMU 和 Rust launcher。
 单独重跑失败的回归任务时，使用构建任务返回的固定 artifact ID，复用成功的构建。
 不同运行之间，输入标识匹配时可以一起恢复 gem5、静态库和原构建容器镜像。
@@ -95,35 +118,36 @@ QEMU、Packer、Ansible 和磁盘格式。复用时校验输入标识和产物�
 artifact ID 下载两份构建产物，检查镜像结构，并在独立的 Ubuntu 24.04 x86_64/KVM runner
 中执行测试。本地入口和构建输入见 [ROCm 镜像配方](rocm-image.md)。
 
-`just test-rocm-regression <output> <assets>` 使用 Rust launcher 和示例 host、device
+`just test-rocm-regression <output> <assets>` 使用 Rust launcher 和示例 QEMU、Device Model
 模板。`vector_add`、`gemm`、`reduction`、`transpose`、`prefix_scan` 和
-`histogram` 分别使用新启动的虚拟机和独立的磁盘 overlay。默认使用 4 GiB Linux
-内存、4 GiB VRAM 和两个虚拟 CPU。8 GiB 共享内存池能够放入托管 runner 的共享
+`histogram` 分别使用新启动的 vHost 和独立的磁盘 overlay。默认使用 4 GiB vHost
+内存、4 GiB VRAM 和两个 vHost CPU。8 GiB 共享内存池能够放入托管 runner 的共享
 内存容量，并为模拟器保留内存。通过命令的 `--memory`、`--vram`、`--cpus` 参数
-可以修改这些设置。每个虚拟机检查初始化
+可以修改这些设置。每个 vHost 检查初始化
 服务、amdgpu、KFD、render 设备以及 `rocminfo` 报告的 gfx942 agent，然后在
 `HSA_ENABLE_INTERRUPT=0` 环境下编译并执行指定的 HIP 程序。通过条件包括数值
 校验输出 PASS、程序以零状态退出、launcher 成功清理资源。程序打印 PASS 后发生
 超时仍然判定失败。遇到首个失败时停止执行，全部指定程序通过后，整体结果才为 PASS。
 
-`ROCm regression gate` 要求 gem5 构建、镜像构建和虚拟机测试都成功；在分支保护中将它设置为必需
+`ROCm regression gate` 要求 gem5 构建、镜像构建和 vHost 测试都成功；在分支保护中将它设置为必需
 检查。`rocm-regression-*` 产物保留完整串口和模型日志、拓扑与命令清单、源码版本、
 二进制文件摘要、各程序结果以及 `matrix.tsv`。`gem5-runtime-*` 和 `rocm-guest-*`
 构建产物保留两天，
 执行证据保留十四天。手动触发 `Build` 可以再次运行完整流程。
 
-`just test-ci` 使用真实 shell 进程检查命令完成和错误处理。
-`just test-legacy-build-image` 使用主机实际运行的 Docker，检查所选构建镜像，
-确认镜像检查在创建构建产物之前完成。
+`regression-runner` 任务直接运行
+`python3 -m unittest discover -s scripts/ci -p 'test_*.py' -v`，使用真实进程检查命令完成
+和错误处理。`workflow-lint` 任务直接运行 actionlint 检查
+`.github/workflows/*.yml`。`just test-legacy-build-image` 使用 Host 上的 Docker，检查
+所选构建镜像，确认镜像检查在创建构建产物之前完成。
 `just test-cosim-memory` 使用独立的 96 MiB 容器 tmpfs 和真实 QEMU 会话，检查容量
 预留、拒绝竞争会话以及容量释放。该命令使用已有的开发镜像。
-`just test-ci-integration` 使用 Rust launcher 和 QEMU 检查信号取消、容器输入
-关闭、进程清理及日志保留。
-`just check-ci` 使用 actionlint 检查工作流的依赖关系。
+`just test-session-lifecycle` 使用 Rust launcher 和 QEMU 检查信号取消、容器输入关闭、
+进程清理及日志保留。
 
 ## 与 QEMU checkpatch.pl 的差异
 
-`scripts/checkpatch.pl` 复制自 QEMU 提交 `615ece3c406b262996e569f29ea6eed0d81c4d8d`，并包含以下 cosim-gpu 修改：
+`scripts/host/checkpatch.pl` 复制自 QEMU 提交 `615ece3c406b262996e569f29ea6eed0d81c4d8d`，并包含以下 cosim-gpu 修改：
 
 | 方面 | cosim-gpu 行为 |
 |------|----------------|
@@ -141,11 +165,11 @@ artifact ID 下载两份构建产物，检查镜像结构，并在独立的 Ubun
 
 ## 维护者与审查分配
 
-`MAINTAINERS.yml` 把仓库划分为多个领域，例如 QEMU 前端、各个加速器后端、Guest 镜像和构建系统。每个领域列出所属文件以及维护者和协作者的 GitHub ID。文件格式沿用 Zephyr 的 `MAINTAINERS.yml`，格式说明位于文件开头的注释中。
+`MAINTAINERS.yml` 把仓库划分为多个领域，例如 QEMU 前端、各个加速器后端、vHost 镜像和构建系统。每个领域列出所属文件以及维护者和协作者的 GitHub ID。文件格式沿用 Zephyr 的 `MAINTAINERS.yml`，格式说明位于文件开头的注释中。
 
 ### 查询维护者
 
-`scripts/get_maintainer.py`（来自 Zephyr）读取 `MAINTAINERS.yml`。先安装一次 Python 依赖：
+`scripts/host/get_maintainer.py`（来自 Zephyr）读取 `MAINTAINERS.yml`。先安装一次 Python 依赖：
 
 ```bash
 pip install -r scripts/ci/requirements.txt
@@ -154,12 +178,12 @@ pip install -r scripts/ci/requirements.txt
 然后通过 just 查询：
 
 ```bash
-just maint-paths scripts/cosim_launch.sh tests/   # 查询路径所属领域
+just maint-paths scripts/host/cosim_launch.sh tests/   # 查询路径所属领域
 just maint-commits origin/main..                  # 查询提交涉及的领域
 just maint-areas                                  # 列出全部领域和维护者
 ```
 
-`python3 scripts/get_maintainer.py --help` 列出其他子命令，例如 `orphaned` 和 `count`。
+`python3 scripts/host/get_maintainer.py --help` 列出其他子命令，例如 `orphaned` 和 `count`。
 
 ### 检查
 
@@ -191,4 +215,4 @@ just maint-areas                                  # 列出全部领域和维护�
 
 ## 误报
 
-`scripts/checkpatch.pl` 对正确代码报告错误时，在 cosim-gpu 仓库提交问题，附上对应提交和完整报告。
+`scripts/host/checkpatch.pl` 对正确代码报告错误时，在 cosim-gpu 仓库提交问题，附上对应提交和完整报告。

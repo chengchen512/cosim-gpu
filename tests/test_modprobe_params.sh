@@ -67,7 +67,7 @@ check_file() {
 }
 
 COSIM_SCRIPTS=(
-    "$REPO_ROOT/scripts/cosim_guest_setup.sh"
+    "$REPO_ROOT/resources/images/profiles/guest/ubuntu/24.04/x86_64/rocm7_0/files/cosim_gpu_setup.sh"
 )
 
 for script in "${COSIM_SCRIPTS[@]}"; do

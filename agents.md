@@ -15,8 +15,8 @@ the same canonical rules.
 Load the matching skill before running these workflows:
 
 - Debugging co-simulation failures: `.agents/skills/cosim-gpu-debug/SKILL.md`
-- Guest serial interaction and GPU test runs: `.agents/skills/cosim-gpu-guest/SKILL.md`
-- Guest disk-image edits with `guestmount`: `.agents/skills/cosim-gpu-disk-image-edit/SKILL.md`
+- vHost serial interaction and GPU test runs: `.agents/skills/cosim-gpu-guest/SKILL.md`
+- vHost disk-image edits with `guestmount`: `.agents/skills/cosim-gpu-disk-image-edit/SKILL.md`
 
 Do not add new project-specific command implementations under `.claude/commands`.
 Add reusable workflows under `.agents/skills/` instead, then update this mapping.
@@ -25,7 +25,7 @@ Add reusable workflows under `.agents/skills/` instead, then update this mapping
 
 All build, launch, test and check tasks are recipes in the top-level `justfile`
 (`just --list`). Use the recipes instead of calling the scripts directly.
-The QEMU, gem5, m5, Rust and topology recipes run on the Linux host, or in a
+The QEMU, gem5, m5, Rust and topology recipes run on the Host OS, or in a
 temporary development container when `COSIM_ENV=container` (the default
 outside Linux); `just dev-image` builds its image.
 
@@ -43,7 +43,7 @@ just build-m5
 just build-disk
 ```
 
-Use `just build-gem5 1` for gem5 linking if the host is OOM-killed.
+Use `just build-gem5 1` for gem5 linking if the Host is OOM-killed.
 
 ## Launch
 
@@ -54,7 +54,7 @@ just run-launch --gem5-debug MI300XCosim
 just test-gpu --all
 ```
 
-After guest boot, `cosim-gpu-setup.service` copies the ROM and loads `amdgpu`.
+After vHost boot, `cosim-gpu-setup.service` copies the ROM and loads `amdgpu`.
 Manual recovery:
 
 ```bash
@@ -64,12 +64,14 @@ modprobe amdgpu ip_block_mask=0x67 ppfeaturemask=0 dpm=0 audio=0 ras_enable=0 di
 
 ## Architecture
 
-QEMU (Q35+KVM) communicates with gem5's MI300X model through the standard
-vfio-user protocol over a Unix socket. The `third_party/qemu` submodule tracks the
+Host-side QEMU (Q35+KVM or TCG) creates the vHost. A separate gem5 or QEMU
+Device Model process represents each vGPU/vGPGPU target and communicates with
+Host-side QEMU through vfio-user; the gem5 server uses libvfio-user. The
+`third_party/qemu` submodule tracks the
 `gevico/cosim-gpu` branch of gevico/qemu (QEMU v11.1.2, no co-simulation
 patches);
 `just build-qemu` builds it, and the launcher falls back to the system QEMU.
-Guest RAM and VRAM are shared through `/dev/shm/cosim-guest-ram` and
+vHost RAM and VRAM are shared through `/dev/shm/cosim-guest-ram` and
 `/dev/shm/mi300x-vram`. BAR layout: 0+1=VRAM, 2+3=Doorbell, 4=MSI-X, 5=MMIO.
 
 Driver parameters for this cosim path:

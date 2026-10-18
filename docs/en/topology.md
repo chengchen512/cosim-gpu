@@ -6,10 +6,10 @@ SPDX-License-Identifier: Apache-2.0
 
 # Topology and runtime
 
-A YAML topology describes machines. Each machine has one QEMU host, the device
-processes connected to it through vfio-user, and one shared memory pool. The
-`cosim` launcher turns the description into a plan for the local system and
-supervises the processes.
+A YAML topology describes machines. Each machine has one Host-side QEMU
+process that creates a vHost OS, Device Model processes connected to that QEMU
+through vfio-user, and one shared memory pool. The `cosim` launcher turns the
+description into a plan for the local system and supervises the processes.
 
 ```mermaid
 flowchart LR
@@ -22,7 +22,7 @@ flowchart LR
 
 - `cosim-topology` reads only the YAML documents. Its result does not depend
   on the system that will run it.
-- `cosim-runtime` adds host facts (page size, `PATH`, disk lock directory)
+- `cosim-runtime` adds Host environment facts (page size, `PATH`, disk lock directory)
   and session paths, then creates resources and processes.
 - `cosim-cli` provides the commands, signal handling and terminal output.
 
@@ -46,7 +46,7 @@ machines:
 ```
 
 Unknown fields are errors. `cosim schema` prints the JSON Schema of the format.
-Guest boot and storage inputs live in a separate payload document. Select it
+vHost OS boot and storage inputs live in a separate payload document. Select it
 with `--payload samples/payloads/ubuntu-rocm7_0.yaml` for `validate` or `run`;
 the same payload applies to every machine in the topology. `cosim run --dry-run`
 checks the payload and selected image profile, displays the resolved launch
@@ -83,7 +83,7 @@ device `config` and `pci.rom`, payload `boot.kernel` and `boot.initrd`, disk
 `path` and `backing`, and the profile identifier under `image.profile`.
 Relative paths cannot contain `..`; absolute paths are accepted. Bare
 executable names are searched in `PATH` during planning.
-`scripts/dev.sh` sets `COSIM_WORKSPACE` to the repository root. Direct `cosim`
+`scripts/host/dev.sh` sets `COSIM_WORKSPACE` to the repository root. Direct `cosim`
 invocations use the current directory by default; set `COSIM_WORKSPACE` to
 select another workspace root. YAML resource values contain paths such as
 `build/qemu/qemu-system-x86_64` without a workspace variable prefix.
@@ -101,9 +101,9 @@ select another workspace root. YAML resource values contain paths such as
 - `placement.agent` names a remote agent for distributed execution; `cosim run`
   rejects remote placement, and switch nodes are not part of the format yet.
 
-### Hosts
+### QEMU and vHost configuration (`host`)
 
-A host declares its adapter `kind`, `runtime.binary` and `runtime.env`,
+The `host` block declares the QEMU adapter `kind`, `runtime.binary` and `runtime.env`,
 `memory`, `cpus`, `accel` and `machine`. Optional fields are `cpu`, `display`,
 `monitor`, `no_reboot`, `memory_align`, `memory_map`, `serial` and `args`.
 
@@ -112,15 +112,15 @@ A host declares its adapter `kind`, `runtime.binary` and `runtime.env`,
   every device its own PCIe root port at slots `0x10`-`0x17`, then attaches
   disks, which QEMU places in the remaining slots.
   The kind declares `max_devices: 64`; a machine may not exceed the
-  `max_devices` of its host kind.
+  `max_devices` of its QEMU kind.
 - `host-x86` describes the x86_64 PCI hole in `memory_map`; `host-arm`
   places RAM at `0x40000000`. `memory_map` is a MiniJinja template that
   receives `host` and `ram.size` and renders ordered, non-overlapping
   `{start, size}` ranges that cover `memory` exactly.
-- Current QEMU host profiles cover x86_64 and ARM64. The build recipes do not
-  yet support a RISC-V host profile.
+- Current QEMU profiles cover x86_64 and ARM64 vHosts. The build recipes do not
+  yet support a RISC-V vHost profile.
 - `serial.wait_for` adds a serial readiness marker; `serial.timeout` gives
-  it a deadline in seconds, measured from host start.
+  it a deadline in seconds, measured from Host-side QEMU start.
 
 ### Payload and disks
 
@@ -128,14 +128,14 @@ The separate payload YAML contains optional `boot` (`kernel`, `initrd`, and
 `cmdline`), `disks`, and `snapshot` fields. A payload is shared by all machines
 in a topology. Hardware-only topologies can omit it. A topology with a device
 `guest_hints.cmdline` requires a payload with `boot.kernel`. `boot.kernel`
-enables direct kernel boot; host profiles describe hardware and QEMU settings.
+enables direct kernel boot; QEMU profiles describe vHost hardware and QEMU settings.
 
 ### Devices
 
 `kind` selects the launch contract and the model:
 
 - `gem5-mi300x` runs `mi300_cosim.py` with one GPU per process. It needs
-  `config`, exactly one `vram` region whose size is a power of two, and a host
+  `config`, exactly one `vram` region whose size is a power of two, and a `host`
   `memory_map`. `args` accepts `num_compute_units` (1 to 1024, default 40),
   `gem5_debug_flags` and `extra`. PCI metadata, when given, must match MI300X
   (`0x1002:0x74a0`, 256 MSI-X vectors). The binary defaults to `gem5.opt`.
@@ -148,35 +148,35 @@ enables direct kernel boot; host profiles describe hardware and QEMU settings.
   device. Such commands need `ready_log`, a message the device prints after it
   listens.
 
-An optional `pci.rom` supplies the host-side PCI option ROM. The QEMU host
+An optional `pci.rom` supplies the Host-side PCI option ROM. The QEMU profile
 template passes it as the vfio-user client's `romfile`; its bytes are exposed
 through that device's ROM BAR. The launcher checks that the file exists before
 allocating session resources. The MI300X template selects its matching resource
 file, and each device can override that path.
 
 Device templates receive `id`, `machine`, `socket`, `pool`, `ram`, `regions`,
-`guest_ranges`, `args`, `config`, `model`, `run_dir` and `node_dir`. Host
+`guest_ranges`, `args`, `config`, `model`, `run_dir` and `node_dir`. QEMU
 templates receive `host`, `machine`, `pool`, `ram`, `guest_ranges`, `boot`, `disks`,
 `devices`, `qmp`, `serial`, `serial_log`, `cmdline`, `run_dir` and
 `node_dir`. Regions expose `offset`, `size` and `align`. Undefined template
 values are errors.
 
-Every host and device program must stay in the foreground, keep its resource
+Every Host-side QEMU and Device Model process must stay in the foreground, keep its resource
 users in its process group and keep inherited file descriptors open. QEMU
 `-daemonize` is rejected.
 
 ### Memory layout
 
-Each machine has one pool file. Guest RAM comes first and device regions
+Each machine has one pool file. vHost RAM comes first and device regions
 follow in declaration order. Sizes accept integers or binary units such as
 `32G`. Each region size must be a multiple of the execution page size, and
 alignments are powers of two of at least one page; the default alignment is
-2 MiB. For a 32 GiB host with eight 8 GiB VRAM regions the pool is 96 GiB,
+2 MiB. For a vHost with 32 GiB of RAM and eight 8 GiB VRAM regions the pool is 96 GiB,
 with `mi300x-0.vram` at 32 GiB and `mi300x-7.vram` at 88 GiB.
 
-QEMU maps guest RAM through `memory-backend-file` with `share=on`. gem5
+QEMU maps vHost RAM through `memory-backend-file` with `share=on`. gem5
 receives `--shared-pool`, `--pool-vram-offset` and `--host-memory-ranges`
-and maps the same file. QEMU device servers receive guest RAM through
+and maps the same file. QEMU Device Models receive vHost RAM through
 vfio-user DMA mappings.
 
 ### Disks
@@ -213,8 +213,8 @@ layouts, disk targets and image cache action. It performs no build or launch.
   directory; other systems use `<run-dir>/memory`. The existing part of each
   directory path is resolved through symbolic links before the layout checks
   how the run and pool directories nest.
-- Processes are ordered so that each device precedes its host, and the host
-  depends on its devices.
+- Processes are ordered so that each Device Model precedes Host-side QEMU, and
+  QEMU depends on its Device Models.
 
 ## Running a session
 
@@ -222,14 +222,14 @@ layouts, disk targets and image cache action. It performs no build or launch.
 sequenceDiagram
     participant S as Session
     participant D as Device process
-    participant H as Host QEMU
+    participant H as Host-side QEMU
     S->>D: start
     D->>D: readiness probes
     D->>H: lease
     S->>H: start when all leases are held
     H->>H: QMP and serial probes
     Note over S,H: running
-    S-->>H: cancellation, run-for deadline or host exit
+    S-->>H: cancellation, run-for deadline or QEMU exit
     H->>H: shutdown
     H-->>D: release lease
     D->>D: shutdown after the last lease is released
@@ -244,14 +244,14 @@ sequenceDiagram
   temporary name with its ownership marker and renamed into place without
   replacing an existing directory, so it never appears without the marker.
 - A process starts when every dependency is ready. Probes run in order:
-  output-log markers, socket existence and QMP negotiation; the host also
+  output-log markers, socket existence and QMP negotiation; Host-side QEMU also
   waits for `serial.wait_for`. Each probe must succeed within
   `--ready-timeout` of the process start, or within `serial.timeout` for the
   serial marker when it is set.
-- A ready device hands a lease to each dependent and stops after the last
-  lease is released, so hosts always stop before their devices. Machines do
+- A ready Device Model hands a lease to each dependent and stops after the last
+  lease is released, so Host-side QEMU always stops before its Device Models. Machines do
   not wait for each other.
-- A host that exits with status 0 ends its machine. Any other exit, a failed
+- Host-side QEMU exiting with status 0 ends its machine. Any other exit, a failed
   probe or a failed disk preparation cancels the session. Cancellation during
   disk preparation stops `qemu-img` and ends the session without a failure.
 - The first SIGINT or SIGTERM starts graceful shutdown; a further signal skips
@@ -269,7 +269,7 @@ sequenceDiagram
   `verdict.json`. The final `[COSIM_VERDICT]` line repeats the verdict.
 - Lock descriptors are close-on-exec, and each session passes its own locks
   to the processes it starts: every process and `qemu-img` helper receives
-  `session.lock`, each host also receives the image leases of its machine,
+  `session.lock`, Host-side QEMU also receives the image leases of its machine,
   and an overlay helper receives the lease of its backing image.
 - `cosim clean <run-dir>` removes the resources listed in `manifest.json`
   after the launcher was killed or exited abnormally. It proceeds only after
@@ -279,19 +279,19 @@ sequenceDiagram
   that another session published under the same name.
 - Image leases in the shared lock directory are keyed by device and inode, so
   a direct writer excludes other sessions even through links. A lease lasts
-  while the launcher or a host or helper that may use the image is alive.
+  while the launcher, Host-side QEMU or a helper that may use the image is alive.
 
 ## Development container
 
 The recipes that build QEMU, gem5, m5 and `cosim`, run topologies and run the
-Rust checks use `scripts/dev.sh`. They run natively on Linux when the
+Rust checks use `scripts/host/dev.sh`. They run natively on Linux when the
 dependencies are installed. Other systems, or Linux with `COSIM_ENV=container`,
 use a temporary container:
 
-- `just dev-image` builds `cosim-dev:local` from `scripts/Dockerfile.dev`
+- `just dev-image` builds `cosim-dev:local` from `scripts/host/Dockerfile.dev`
   with the gem5 and QEMU build dependencies, Rust, QEMU and `qemu-img`.
-- `scripts/dev.sh` runs the command of such a recipe in
-  `docker run --rm --init`. The source tree is mounted at its host path, so
+- `scripts/host/dev.sh` runs the command of such a recipe in
+  `docker run --rm --init`. The source tree is mounted at its Host path, so
   paths in YAML, plans and logs are identical inside and outside. Files
   outside the source tree are not visible, except the disk lock directory and
   directories passed with `--mount`.
@@ -326,5 +326,5 @@ just build-qemu && just test-cosim-vfio-user
 ```
 
 `samples/machines/gem5-aarch64.yaml` runs the native ARM64 gem5 build with a
-paused ARM64 host. The supplied Ubuntu/ROCm guest image targets x86_64.
+paused ARM64 vHost. The supplied Ubuntu/ROCm vHost image targets x86_64.
 `configs/sst/` holds separate SST network experiments.

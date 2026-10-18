@@ -1,11 +1,11 @@
 ---
 name: cosim-gpu-disk-image-edit
-description: Use when the guest disk image needs modification without a full rebuild. Mount with guestmount, add files, systemd services, kernel module config.
+description: Use when the vHost disk image needs modification without a full rebuild. Mount with guestmount, add files, systemd services, kernel module config.
 ---
 
 # Cosim Disk Image Edit
 
-Modify the cosim guest disk image without rebuilding.
+Modify the cosim vHost disk image without rebuilding.
 
 ## Prerequisites
 
@@ -39,7 +39,7 @@ guestmount -a "$DISK" -i --rw "$MOUNTPOINT"
 
 Supported edit classes:
 
-- Add or replace files under the guest filesystem.
+- Add or replace files under the vHost filesystem.
 - Add or update systemd units and matching enablement symlinks.
 - Add or update kernel module configuration under `/etc/modprobe.d/`.
 - Install ROCm runtime debug components through repository scripts when the task is runtime debugging.

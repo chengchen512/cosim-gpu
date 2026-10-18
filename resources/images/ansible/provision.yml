@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-- name: Provision the selected guest image profile
+- name: Provision the selected vHost image profile
   hosts: default
   become: true
   gather_facts: true
@@ -7,7 +7,7 @@
     - name: Apply profile-specific operating system tasks
       ansible.builtin.include_tasks: "{{ cosim_profile_tasks }}"
 
-    - name: Fetch declared build artifacts from the guest
+    - name: Fetch declared build artifacts from the vHost
       ansible.builtin.fetch:
         src: "{{ item.guest_path }}"
         dest: "{{ cosim_output_directory }}/{{ item.name }}"

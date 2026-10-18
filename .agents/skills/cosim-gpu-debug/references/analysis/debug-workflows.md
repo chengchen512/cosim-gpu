@@ -7,9 +7,9 @@ timeout, wait state, performance objective, or source-edit candidate.
 
 Separate timeout evidence into three classes:
 
-- No guest business output: verify build, executable path, runtime loader, and
-  guest command before model debugging.
-- Guest output advances to a named workload phase: add bounded dispatch and
+- No vHost workload output: verify build, executable path, runtime loader, and
+  vHost command before model debugging.
+- vHost output advances to a named workload phase: add bounded dispatch and
   completion progress diagnostics.
 - Dispatch/completion counters advance until timeout: treat it as scale or
   model-throughput evidence unless a later snapshot shows a fixed wait state.
@@ -41,8 +41,8 @@ functional correctness. Keep the parent goal and candidate stage separate: a
 candidate can be evaluated and rejected while the broader search remains active.
 
 Before proposing a performance patch, build four evidence views when available:
-host CPU profile, gem5 event or callback breakdown, Ruby/GPU path counters, and
-guest workload timing. Separate guest boot and runner framework time from the
+Host CPU profile, gem5 event or callback breakdown, Ruby/GPU path counters, and
+vHost workload timing. Separate vHost boot and runner framework time from the
 target workload window.
 
 For each candidate, use one isolated worktree, one explicit gem5 binary, one
@@ -62,7 +62,7 @@ both PASS and end-to-end improvement.
 ## Script Discipline
 
 - Use `just build-gem5`, `just test-gpu`, `just run-launch`, and
-  `just run-preflight` for simulator builds, guest tests, manual launches, and
+  `just run-preflight` for simulator builds, vHost tests, manual launches, and
   read-only resource checks.
 - Prefer fixed manifest rows over ad hoc loops.
 - Add parameters only when the evidence needs them and record each value in the

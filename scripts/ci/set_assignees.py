@@ -15,7 +15,7 @@ import yaml
 from github import Auth, Github, GithubException
 from github.GithubException import UnknownObjectException
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "host"))
 from get_maintainer import Maintainers  # noqa: E402
 
 _DESCRIPTION = """\

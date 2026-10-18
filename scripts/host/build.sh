@@ -3,11 +3,11 @@
 #
 # Build simulator components in the current environment.
 #
-# Usage: scripts/build.sh qemu ARCH JOBS
-#        scripts/build.sh gem5 BUILD_DIR JOBS [SCONS_ARG...]
-#        scripts/build.sh m5 ABI
+# Usage: scripts/host/build.sh qemu ARCH JOBS
+#        scripts/host/build.sh gem5 BUILD_DIR JOBS [SCONS_ARG...]
+#        scripts/host/build.sh m5 ABI
 #
-# Run it through scripts/dev.sh to select the host or the development
+# Run it through scripts/host/dev.sh to select the Host or development
 # container.
 
 set -euo pipefail
@@ -16,7 +16,7 @@ usage() {
     sed -n '4,11s/^# \{0,1\}//p' "${BASH_SOURCE[0]}"
 }
 
-root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
 build_qemu() {
     local arch="$1" jobs="$2"

@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 # Development environment for building and running cosim-gpu.
-# scripts/dev.sh starts a temporary container from this image with the
+# scripts/host/dev.sh starts a temporary container from this image with the
 # source tree mounted at its host path.
 
 FROM rust:1.95-slim-bookworm AS rust

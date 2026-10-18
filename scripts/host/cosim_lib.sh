@@ -356,13 +356,15 @@ check_readiness() {
     fi
 
     if [[ ! -f "$guest_ram_shmem" ]]; then
-        echo "readiness check failed: guest RAM shmem $guest_ram_shmem does not exist"
+        echo "readiness check failed: vHost RAM shmem does not exist"
+        echo "  path: $guest_ram_shmem"
         return 1
     fi
     local ram_size
     ram_size="$(stat -c%s "$guest_ram_shmem" 2>/dev/null || echo 0)"
     if [[ "$ram_size" -ne "$expected_ram_bytes" ]]; then
-        echo "readiness check failed: guest RAM shmem size $ram_size != expected $expected_ram_bytes"
+        echo "readiness check failed: vHost RAM shmem size mismatch"
+        echo "  actual: $ram_size; expected: $expected_ram_bytes"
         return 1
     fi
 

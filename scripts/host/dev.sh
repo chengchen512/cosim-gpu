@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: Apache-2.0
 #
-# Run a command on the host or in a temporary development container.
+# Run a command on the Host or in a temporary development container.
 #
-# Usage: scripts/dev.sh [--tty] [--mount DIR]... COMMAND [ARG...]
+# Usage: scripts/host/dev.sh [--tty] [--mount DIR]... COMMAND [ARG...]
 #
 # COSIM_ENV selects "host" or "container". Linux defaults to host and other
 # systems default to container. The container mounts the source tree, and
-# each --mount DIR, at its host path and is removed when COMMAND exits.
+# each --mount DIR, at its Host path and is removed when COMMAND exits.
 
 set -euo pipefail
 
@@ -38,7 +38,7 @@ if [ "$#" -eq 0 ]; then
     exit 2
 fi
 
-root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 export COSIM_WORKSPACE="${COSIM_WORKSPACE:-$root}"
 
 if [ "$(uname -s)" = Linux ]; then

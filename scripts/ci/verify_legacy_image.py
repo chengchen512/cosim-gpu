@@ -18,7 +18,7 @@ def check(output: Path) -> None:
     build_dir = Path("build") / f"image-preflight-{token}" / "VEGA_X86"
     directory = output / f"legacy-image-{token}"
     directory.mkdir(parents=True)
-    script = ROOT / "scripts/run_mi300x_fs.sh"
+    script = ROOT / "scripts/host/run_mi300x_fs.sh"
     environment = {
         **os.environ, "COSIM_ENV": "host", "GEM5_RUN_IMAGE": image,
         "GEM5_BUILD_DIR": str(build_dir),

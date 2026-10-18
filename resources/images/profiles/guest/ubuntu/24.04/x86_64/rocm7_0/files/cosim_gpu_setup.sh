@@ -1,8 +1,8 @@
 #!/bin/bash
 # ==========================================================================
-# Guest-side setup script for MI300X co-simulation
+# vHost-side setup script for MI300X co-simulation
 #
-# Run this INSIDE the QEMU guest after booting to:
+# Run this INSIDE the vHost OS after booting to:
 #   1. Load the AMD GPU VGA ROM (for each GPU)
 #   2. Load the amdgpu kernel module
 #   3. Verify GPU(s) are recognized by ROCm
@@ -10,13 +10,13 @@
 # Supports multi-GPU: automatically detects all AMD GPU PCI devices
 # and loads ROM for each one.
 #
-# Usage (inside QEMU guest):
-#   sudo bash /path/to/cosim_guest_setup.sh
+# Usage (inside vHost OS):
+#   sudo bash /path/to/cosim_gpu_setup.sh
 # ==========================================================================
 
 set -e
 
-echo "=== MI300X Co-simulation Guest Setup ==="
+echo "=== MI300X Co-simulation vHost Setup ==="
 
 # ---- Environment ----
 export LD_LIBRARY_PATH=/opt/rocm/lib:${LD_LIBRARY_PATH:-}

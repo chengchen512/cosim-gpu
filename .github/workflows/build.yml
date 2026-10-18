@@ -80,7 +80,7 @@ jobs:
         run: just ci-reuse-gem5 build/cache/gem5-runtime build/ci-build
 
       - name: Verify runtime cache integrity and provenance
-        run: just test-ci-artifact build/cache/gem5-runtime build/ci-build
+        run: just test-runtime-artifact build/cache/gem5-runtime build/ci-build
 
       - uses: actions/upload-artifact@v4
         id: runtime

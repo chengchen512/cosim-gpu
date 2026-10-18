@@ -6,7 +6,7 @@
 <p align="center">
   <img alt="Linux x86_64 and ARM64" src="https://img.shields.io/badge/Linux-x86%5F64%20%7C%20ARM64-FCC624?logo=linux&amp;logoColor=black">
   <img alt="Rust 1.95+" src="https://img.shields.io/badge/Rust-1.95%2B-orange?logo=rust&amp;logoColor=white">
-  <img alt="QEMU device models" src="https://img.shields.io/badge/QEMU-vfio--user-FF6600">
+  <img alt="QEMU Device Models" src="https://img.shields.io/badge/QEMU-vfio--user-FF6600">
   <img alt="gem5 MI300X" src="https://img.shields.io/badge/gem5-MI300X-6f42c1">
   <img alt="ROCm HIP" src="https://img.shields.io/badge/ROCm-HIP-ED1C24">
   <img alt="Apache 2.0 license" src="https://img.shields.io/badge/license-Apache--2.0-34a853">
@@ -23,9 +23,11 @@
   <a href="docs/en/architecture.md">Architecture</a>
 </p>
 
-Define Linux hosts and simulated devices in YAML, then launch a session with
-the Rust <code>cosim</code> CLI. Host QEMU connects to gem5 MI300X and QEMU
-device processes over **vfio-user**; ROCm/HIP workloads run in the Linux guest.
+Define QEMU and Device Model settings in YAML, then launch a session with the
+Rust <code>cosim</code> CLI. The Host runs Host-side QEMU and separate gem5 or
+QEMU Device Model processes. QEMU uses KVM or TCG to run the vHost OS and
+presents each vGPU/vGPGPU through the **vfio-user** interface backed by
+libvfio-user.
 
 ## Architecture
 
@@ -33,30 +35,30 @@ device processes over **vfio-user**; ROCm/HIP workloads run in the Linux guest.
 flowchart LR
     YAML[Topology YAML] --> CLI[Rust cosim launcher]
 
-    subgraph Linux host
-        CLI --> H[Host QEMU]
-        CLI --> G[gem5 MI300X process]
-        CLI --> Q[QEMU device process]
-        H <-->|vfio-user| G
+    subgraph Host OS
+        CLI --> H[Host-side QEMU]
+        CLI --> G[gem5 MI300X Device Model]
+        CLI --> Q[QEMU Device Model]
+        H <-->|vfio-user / libvfio-user| G
         H <-->|vfio-user| Q
         H --- P[Machine memory pool]
         G --- P
         Q --- P
-        H --> Guest[Linux guest · ROCm/HIP]
     end
+    H -->|KVM or TCG| V[vHost OS · Linux · ROCm/HIP]
 ~~~
 
-The launcher prepares memory and disk resources, starts devices before the
-host, and cleans up the session. Device models implement device behavior and
-timing.
+The launcher prepares shared memory and disk overlays, starts Device Models
+before Host-side QEMU, and cleans up the session. Device Models implement the
+simulated vGPU/vGPGPU behavior and timing.
 
 ## Quick start
 
 ~~~bash
 just dev-submodules
-just dev-image        # Non-Linux hosts, or set COSIM_ENV=container
+just dev-image        # Non-Linux Hosts, or set COSIM_ENV=container
 
-# Build the toolchain and x86_64 guest image on Linux with KVM
+# Build the toolchain and x86_64 vHost image on the Host with KVM
 just build-all
 just run-topology samples/machines/single-gpu.yaml --payload samples/payloads/ubuntu-rocm7_0.yaml
 ~~~
@@ -71,10 +73,10 @@ just run-topology samples/machines/single-gpu.yaml --payload samples/payloads/ub
 
 ### Sample topologies
 
-- <code>samples/machines/single-gpu.yaml</code> — start a single-GPU guest.
-- <code>samples/machines/mixed-models.yaml</code> — combine gem5 and QEMU device models.
+- <code>samples/machines/single-gpu.yaml</code> — start a single-GPU vHost.
+- <code>samples/machines/mixed-models.yaml</code> — combine gem5 and QEMU Device Models.
 - <code>samples/machines/gpu-8.yaml</code> — inspect an eight-GPU machine with a 96 GiB memory pool.
-- <code>samples/machines/host-only-aarch64.yaml</code> — check a host-only setup on ARM64.
+- <code>samples/machines/host-only-aarch64.yaml</code> — check an ARM64 vHost without a Device Model.
 
 <details>
 <summary>Example: one machine with gem5 and QEMU devices</summary>
@@ -94,9 +96,9 @@ machines:
 ~~~
 
 Pass `--payload samples/payloads/ubuntu-rocm7_0.yaml` to `just run-topology` to attach the
-guest kernel and disk inputs. Build outputs are stored under `build/`.
+vHost OS kernel and disk inputs. Build outputs are stored under `build/`.
 
-The QEMU device example serves the real <code>edu</code> PCI model through
+The QEMU Device Model example serves the real <code>edu</code> PCI model through
 <code>x-vfio-user-server</code> from the QEMU built by <code>just build-qemu</code>.
 
 </details>
@@ -106,30 +108,30 @@ The QEMU device example serves the real <code>edu</code> PCI model through
 ### Launcher and configuration tools
 
 Use Rust 1.95+, Cargo and just for the launcher. Build recipes for QEMU, gem5,
-m5, topology runs and Rust checks use <code>scripts/dev.sh</code>. On non-Linux
-hosts or with <code>COSIM_ENV=container</code>, they use a temporary container
-from <code>scripts/Dockerfile.dev</code>. Guest-image and HIP builds, plus
+m5, topology runs and Rust checks use <code>scripts/host/dev.sh</code>. On
+non-Linux Hosts or with <code>COSIM_ENV=container</code>, they use a temporary
+container from <code>scripts/host/Dockerfile.dev</code>. vHost image and HIP builds, plus
 <code>just run-launch</code> and <code>just test-gpu</code>, use their own Docker workflows.
 
-### Linux host sessions
+### Linux Host sessions
 
 - glibc and <code>setpriv</code> from util-linux.
-- QEMU for the host architecture and <code>qemu-img</code>.
-- x86_64 hosts use <code>qemu-system-x86_64</code>; ARM64 hosts use
+- QEMU for the Host architecture and <code>qemu-img</code>.
+- x86_64 Hosts use <code>qemu-system-x86_64</code>; ARM64 Hosts use
   <code>qemu-system-aarch64</code>.
 - <code>COSIM_HOST_ARCH</code> selects the build architecture and defaults to
-  the current host. gem5 builds into
+  the current Host. gem5 builds into
   <code>build/gem5/x86_64/VEGA_X86</code> on x86_64 and
   <code>build/gem5/aarch64/VEGA_X86</code> on ARM64.
 
-### MI300X and QEMU device models
+### MI300X and QEMU Device Models
 
 - MI300X co-simulation needs gem5 VEGA_X86, QEMU with vfio-user support,
-  guest-image inputs, and KVM for the Ubuntu guest.
+  vHost image inputs, and KVM for the Ubuntu vHost.
 - QEMU device servers need a build with
   <code>--enable-vfio-user-server</code>.
-- The supplied Ubuntu/ROCm guest-image builder targets x86_64.
-- Guest-image builds and simulator artifacts need sufficient disk space. The
+- The supplied Ubuntu/ROCm vHost image builder targets x86_64.
+- vHost image builds and simulator artifacts need sufficient disk space. The
   memory-pool filesystem must accommodate the complete machine layout.
 
 ## Repository map
@@ -141,8 +143,13 @@ from <code>scripts/Dockerfile.dev</code>. Guest-image and HIP builds, plus
   <code>configs/sst/</code>.
 - **Project tools:** <code>samples/</code>, <code>scripts/</code>,
   <code>justfile</code> and <code>.agents/</code>.
-- **Guest image profiles:** <code>resources/images/</code> with Packer/QEMU and
-  Ansible recipes for OS base images.
+- **vHost image profiles:** <code>resources/images/</code> with Packer/QEMU and
+  Ansible recipes for OS base images; image-specific scripts live in each
+  profile's <code>files/</code> directory.
+- **Shared vHost scripts:** <code>resources/vhost/scripts/</code> for scripts
+  used by multiple image profiles.
+- **Host and CI scripts:** <code>scripts/host/</code> for Host tools called by
+  just, and <code>scripts/ci/</code> for workflow-only helpers and tests.
 
 ## More documentation
 

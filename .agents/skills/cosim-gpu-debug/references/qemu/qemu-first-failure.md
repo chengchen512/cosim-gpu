@@ -11,7 +11,7 @@ Before calling a failure QEMU-first, compare:
 
 - last gem5 log line and container status
 - QEMU stderr and backtrace
-- guest console progress marker
+- vHost console progress marker
 - socket close timing
 - vfio-user trace events
 

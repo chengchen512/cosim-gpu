@@ -5,7 +5,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-COSIM_DIR="$(dirname "$SCRIPT_DIR")"
+COSIM_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 TESTS_DIR="${COSIM_DIR}/tests"
 KERNELS_DIR="${TESTS_DIR}/kernels"
 LAUNCH_SCRIPT="${SCRIPT_DIR}/cosim_launch.sh"
@@ -52,8 +52,8 @@ Options:
   --keep-alive           Leave QEMU + gem5 running after a successful test
   --session-name NAME    detached session name (default: qemu-cosim-tests)
   --screen-log PATH      console log path (default: /tmp/qemu-cosim-tests.log)
-  --boot-timeout SECS    guest boot timeout (default: 240)
-  --test-timeout SECS    per-test timeout inside guest (default: 60)
+  --boot-timeout SECS    vHost boot timeout (default: 240)
+  --test-timeout SECS    per-test timeout inside the vHost OS (default: 60)
   -h, --help             Show this help
 
 Unknown options are passed through to cosim_launch.sh.
@@ -350,11 +350,11 @@ setsid stdbuf -oL -eL "$LAUNCH_SCRIPT" --share-dir "$TESTS_DIR" "${PASSTHROUGH_A
 LAUNCH_PID=$!
 echo "$LAUNCH_PID" >"${SESSION_DIR}/launcher.pid"
 
-step "[${TEST_NAME}] Waiting for guest login prompt..."
+step "[${TEST_NAME}] Waiting for vHost login prompt..."
 start_ts=$(date +%s)
 while true; do
     if [[ -f "$SCREEN_LOG" ]] && grep -a -q 'root@gem5:~#' "$SCREEN_LOG"; then
-        info "[${TEST_NAME}] Guest shell is ready"
+        info "[${TEST_NAME}] vHost OS shell is ready"
         break
     fi
     if ! session_alive; then
@@ -365,7 +365,9 @@ while true; do
     now_ts=$(date +%s)
     if (( now_ts - start_ts >= BOOT_TIMEOUT_SECS )); then
         record_category "$COSIM_CAT_BOOT_TIMEOUT" "true"
-        error "[${TEST_NAME}] guest did not reach login prompt within ${BOOT_TIMEOUT_SECS}s"
+        timeout_message="[${TEST_NAME}] vHost OS login prompt timed out"
+        timeout_message+=" after ${BOOT_TIMEOUT_SECS}s"
+        error "$timeout_message"
     fi
     sleep 2
 done
@@ -392,7 +394,7 @@ exit "\${rc}"
 EOF
 chmod +x "$GUEST_SCRIPT_HOST"
 
-step "[${TEST_NAME}] Running test inside guest..."
+step "[${TEST_NAME}] Running test inside the vHost OS..."
 send_guest "if ! mountpoint -q /mnt; then mount -t 9p -o trans=virtio,version=9p2000.L cosim_share /mnt; fi; bash /mnt/${GUEST_SCRIPT}"
 
 last_printed=$((start_line - 1))

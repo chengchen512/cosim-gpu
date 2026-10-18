@@ -41,9 +41,9 @@ Classify each manifest row before acting:
 
 ## Long Timeout Rows
 
-For rows intended to test larger time budgets, verify the guest-side archived
+For rows intended to test larger time budgets, verify the vHost-side archived
 script or metadata shows the requested timeout. If the runner command used a
-longer host timeout but the guest script still contains the old timeout, mark
+longer Host timeout but the vHost script still contains the old timeout, mark
 the row as an invocation defect rather than model evidence.
 
 When a row times out with valid long-timeout evidence, classify from archived
@@ -57,6 +57,6 @@ Record the following in the task evidence:
 - manifest row identifier and exact output directory
 - live process decision, if the row was interrupted
 - final verdict source file
-- effective guest environment
+- effective vHost environment
 - gem5 source commit, commit subject, binary path, and binary hash
-- whether the timeout value was proven inside the guest-side artifact
+- whether the timeout value was proven inside the vHost-side artifact

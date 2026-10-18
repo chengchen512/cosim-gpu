@@ -20,7 +20,7 @@ See ## Fix below for details.
 
 ## Discovery
 
-June 2026, cosim launch crash investigation. Guest amdgpu driver loaded
+June 2026, cosim launch crash investigation. vHost amdgpu driver loaded
 successfully but gem5 crashed during PM4 MAP_QUEUES packet processing
 with `assert(queue_vmid)` at `pm4_packet_processor.cc:532`.
 
