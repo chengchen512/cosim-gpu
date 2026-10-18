@@ -46,9 +46,14 @@ machines:
 ```
 
 Unknown fields are errors. `cosim schema` prints the JSON Schema of the format.
-vHost OS boot and storage inputs live in a separate payload document. Select it
-with `--payload samples/payloads/ubuntu-rocm7_0.yaml` for `validate` or `run`;
-the same payload applies to every machine in the topology. `cosim run --dry-run`
+vHost boot and storage inputs live in runtime payload documents. Keep payload
+examples in `samples/payloads/`; the current vHost example is
+`samples/payloads/ubuntu-rocm7_0.yaml`. A payload selects an image profile and
+can specify runtime boot and storage inputs for a run. The profile under
+`resources/images/profiles/` describes image construction and default artifact
+mapping, while the topology describes hardware. Select the example with
+`--payload samples/payloads/ubuntu-rocm7_0.yaml` for `validate` or `run`; the
+same payload applies to every machine in the topology. `cosim run --dry-run`
 checks the payload and selected image profile, displays the resolved launch
 plan and cache status, and performs no build or launch.
 

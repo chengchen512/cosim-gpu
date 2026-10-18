@@ -8,8 +8,10 @@ SPDX-License-Identifier: Apache-2.0
 
 vHost OS image recipes live in `resources/images/profiles/`, organized by role,
 distribution, release and architecture. The first profile is
-`guest/ubuntu/24.04/x86_64/rocm7_0`. Its payload selects the profile while the
-machine topology continues to describe hardware only.
+`guest/ubuntu/24.04/x86_64/rocm7_0`. The runtime payload example that selects it
+is `samples/payloads/ubuntu-rocm7_0.yaml`; runtime payload examples belong in
+`samples/payloads/`. The profile describes image construction and default
+artifact mapping, and the machine topology describes hardware.
 
 ```mermaid
 flowchart LR

@@ -42,11 +42,13 @@ machines:
       - {use: qemu-edu, count: 2}
 ```
 
-未知字段会报错。`cosim schema` 输出该格式的 JSON Schema。vHost 操作系统启动和存储输入单独
-保存在 payload 文档中。运行 `validate` 或 `run` 时，通过
-`--payload samples/payloads/ubuntu-rocm7_0.yaml` 选择；一个 payload 会应用于拓扑中的
-每台机器。`cosim run --dry-run` 会检查 payload 和所选镜像配方，显示解析后的启动计划和
-缓存状态，不会构建或启动模拟器。
+未知字段会报错。`cosim schema` 输出该格式的 JSON Schema。vHost 启动和存储输入保存在运行时
+payload 文档中。payload 示例放在 `samples/payloads/`，当前 vHost 示例为
+`samples/payloads/ubuntu-rocm7_0.yaml`。payload 为一次运行选择镜像配方，并可指定启动和存储输入。
+`resources/images/profiles/` 下的配方描述镜像构建方式和默认产物映射，拓扑文档描述硬件。
+运行 `validate` 或 `run` 时，通过 `--payload samples/payloads/ubuntu-rocm7_0.yaml` 选择；
+一个 payload 会应用于拓扑中的每台机器。`cosim run --dry-run` 会检查 payload 和所选镜像配方，
+显示解析后的启动计划和缓存状态，不会构建或启动模拟器。
 
 payload 可以通过 `image.profile` 选择 `resources/images/profiles/` 下的配方。配方提供
 启动内核和根磁盘。普通 `cosim run` 会在缓存未命中时构建配方，校验 manifest，然后检查

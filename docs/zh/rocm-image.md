@@ -7,8 +7,9 @@ SPDX-License-Identifier: Apache-2.0
 # vHost 镜像配方
 
 vHost 操作系统镜像配方放在 `resources/images/profiles/`，按角色、发行版、版本和架构组织。
-当前首个配方是 `guest/ubuntu/24.04/x86_64/rocm7_0`。payload 负责选择配方，机器
-拓扑继续描述硬件。
+当前首个配方是 `guest/ubuntu/24.04/x86_64/rocm7_0`。选择该配方的运行时 payload 示例是
+`samples/payloads/ubuntu-rocm7_0.yaml`；运行时 payload 示例放在 `samples/payloads/`。
+镜像配方描述镜像构建方式和默认产物映射，机器拓扑描述硬件。
 
 ```mermaid
 flowchart LR
