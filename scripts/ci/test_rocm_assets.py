@@ -73,6 +73,28 @@ class ImageRecipeTests(unittest.TestCase):
         with self.assertRaises(RecipeError):
             load_recipe(WORKSPACE, "../../outside")
 
+    def test_recipe_rejects_non_vhost_role(self):
+        recipe = load_recipe(WORKSPACE, RECIPE)
+        with tempfile.TemporaryDirectory() as name:
+            workspace = Path(name)
+            recipe_directory = (
+                workspace / "resources/images/recipes" / RECIPE
+            )
+            recipe_directory.parent.mkdir(parents=True)
+            shutil.copytree(recipe.directory, recipe_directory)
+            recipe_file = recipe_directory / "recipe.toml"
+            content = recipe_file.read_text(encoding="utf-8")
+            self.assertIn('role = "vhost"', content)
+            recipe_file.write_text(
+                content.replace('role = "vhost"', 'role = "host"', 1),
+                encoding="utf-8",
+            )
+
+            with self.assertRaisesRegex(
+                RecipeError, "recipe.role must be vhost"
+            ):
+                load_recipe(workspace, RECIPE)
+
     def test_payload_disk_format_must_match_the_builder_output_format(self):
         recipe = load_recipe(WORKSPACE, RECIPE)
         with tempfile.TemporaryDirectory() as name:

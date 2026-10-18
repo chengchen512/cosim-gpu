@@ -145,8 +145,8 @@ def load_recipe(workspace: Path, identifier: str) -> ImageRecipe:
         )
     for key in ("role", "distribution", "release", "architecture"):
         _require(data, key, str)
-    if data["role"] not in {"host", "vhost"}:
-        raise RecipeError("recipe.role must be host or vhost")
+    if data["role"] != "vhost":
+        raise RecipeError("recipe.role must be vhost")
     if data["architecture"] not in {"x86_64", "aarch64", "riscv64"}:
         raise RecipeError(
             f"unsupported recipe architecture {data['architecture']!r}"
