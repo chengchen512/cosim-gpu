@@ -63,9 +63,10 @@ just build-all
 just run-topology samples/machines/single-gpu.yaml --payload samples/payloads/ubuntu-rocm7_0.yaml
 ~~~
 
-The first image build uses the selected profile under `resources/images/` and
-stores its verified disk and kernel under `build/images/`. Inspect the
-resolved profile and launch commands without building or starting processes:
+The first image build uses the selected vHost recipe under
+`resources/images/recipes/` and stores its verified disk and kernel under
+`build/images/`. Inspect the resolved recipe and launch commands without
+building or starting processes:
 
 ~~~bash
 just run-topology samples/machines/single-gpu.yaml --payload samples/payloads/ubuntu-rocm7_0.yaml --dry-run
@@ -143,11 +144,10 @@ container from <code>scripts/host/Dockerfile.dev</code>. vHost image and HIP bui
 - **GPU workloads and vHost firmware inputs:** <code>third_party/gem5-resources/</code>.
 - **Project tools:** <code>samples/</code>, <code>scripts/</code>,
   <code>justfile</code> and <code>.agents/</code>.
-- **vHost image profiles:** <code>resources/images/</code> with Packer/QEMU and
-  Ansible recipes for OS base images; image-specific scripts live in each
-  profile's <code>files/</code> directory.
+- **vHost image recipes:** <code>resources/images/recipes/</code> with
+  Packer/QEMU metadata, Ansible playbooks and OS-specific files.
 - **Shared vHost scripts:** <code>resources/vhost/scripts/</code> for scripts
-  used by multiple image profiles.
+  used by multiple vHost recipes.
 - **Host and CI scripts:** <code>scripts/host/</code> for Host tools called by
   just, and <code>scripts/ci/</code> for workflow-only helpers and tests.
 

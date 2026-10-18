@@ -11,9 +11,9 @@ independent gem5 or QEMU process that represents a vGPU/vGPGPU target and
 connects to the Host-side QEMU vfio-user endpoint through libvfio-user.
 
 The YAML `host` key and Rust `Host` type configure Host-side QEMU and the
-virtual hardware presented to the vHost. Existing profile and layout
-identifiers such as `guest`, `guest_ranges` and `guest_ram` remain literal
-interface names; prose calls the environment vHost.
+virtual hardware presented to the vHost. Existing layout identifiers such as
+`guest`, `guest_ranges` and `guest_ram` remain literal interface names; prose
+calls the environment vHost.
 
 ## Machines and Device Models
 
@@ -27,7 +27,7 @@ socket. Each machine owns one memory pool.
 ```mermaid
 flowchart TD
     Y[YAML imports and templates] --> T[cosim-topology]
-    T --> I[Resolve optional image profile]
+    T --> I[Resolve optional image recipe]
     I --> P[Plan for the local system]
     P --> R[cosim-runtime session]
     subgraph M[Machine]
@@ -73,7 +73,7 @@ The workspace has three crates. `cosim-cli` depends on `cosim-topology` and
 
 - `cosim-cli/src/main.rs`: Clap commands `validate`, `graph`, `schema`, `run`
   and `clean`; `run --dry-run` inspects image cache state and prints the plan;
-  the normal run path builds or reuses the profile before launching.
+  the normal run path builds or reuses the recipe before launching.
 - `cosim-topology/src/raw.rs`, `model.rs`, `size.rs`: decoded input types,
   validated types (`Topology`, `Machine`, `Host`, `Device`, `Disk`) and
   `ByteSize`.
@@ -91,10 +91,10 @@ The workspace has three crates. `cosim-cli` depends on `cosim-topology` and
   file and lock owners, image creation, leases and overlays.
 - `cosim-runtime/src/manifest.rs`, `assets.rs`: `cosim clean` after launcher
   death or an abnormal exit, and local input checks.
-- `cosim-runtime/src/images.rs`: invokes the shared profile manager and turns
+- `cosim-runtime/src/images.rs`: invokes the shared recipe manager and turns
   its verified disk and optional kernel artifacts into payload inputs.
-- `resources/images/`: shared Packer/QEMU template, Ansible entry point and
-  OS-specific profile data. `scripts/host/cosim-image` exposes the same manager to
+- `resources/images/`: shared Packer/QEMU template, image builder and
+  OS-specific recipe data. `scripts/host/cosim-image` exposes the same manager to
   Bash callers without starting the simulator.
 
 The topology API exposes `load`, `graph` and `schema`, and the validated types
@@ -111,7 +111,7 @@ process-group signals, page size and filesystem statistics. Project Rust crates
 inherit `unsafe_code = "forbid"` from the workspace.
 
 The Host architecture selects the runnable QEMU binary. The YAML `host` block
-and profiles such as `host-x86` and `host-arm` configure Host-side QEMU and the
+and Host templates such as `host-x86` and `host-arm` configure Host-side QEMU and the
 virtual hardware presented to the vHost. Planning derives shared-file offsets
 and connection paths from those values. gem5 and QEMU exchange vfio-user
 traffic directly. Rust negotiates QMP for readiness and manages process
@@ -197,7 +197,7 @@ QEMU templates define `memory_map` as physical RAM ranges. Rust validates
 their ordering, alignment and total size, assigns packed file offsets, and passes
 the resolved JSON to gem5 through `--host-memory-ranges`.
 
-| QEMU profile and vHost address range | Pool file offset |
+| QEMU Host configuration and vHost address range | Pool file offset |
 |---|---|
 | Q35: `[0, below_4g)` | Starts at zero |
 | Q35: `[4 GiB, 4 GiB + above_4g)` | Starts at `below_4g` |

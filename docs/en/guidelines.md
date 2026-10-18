@@ -68,7 +68,7 @@ display, monitoring and additional QEMU arguments come from YAML or imported
 templates. Keep sample defaults in `samples/hosts/`.
 Select `qemu-system-aarch64` for ARM64 Hosts and `qemu-system-x86_64` for
 x86_64 Hosts. Keep CPU, machine, boot images and vHost physical memory ranges
-consistent with that QEMU profile. Keep gem5 object files from different Host
+consistent with that QEMU Host configuration. Keep gem5 object files from different Host
 architectures in separate build directories.
 Rust derives session paths, memory offsets, prepared disk paths and Device
 Model endpoints. The QEMU adapter, represented by the Rust `Host` type, defines
@@ -80,7 +80,7 @@ renders a JSON string array. Each element becomes one process argument;
 execution uses no shell interpretation.
 The QEMU adapter must bind the generated memory pool and expose the declared
 QMP and serial endpoints.
-`cosim run --dry-run` validates the payload and selected image profile, then
+`cosim run --dry-run` validates the payload and selected image recipe, then
 prints the executable, arguments, environment, resources and cache action that
 `cosim run` would consume. It does not build the image or launch processes.
 Every Device Model process runs natively on the Host, which can be Linux or

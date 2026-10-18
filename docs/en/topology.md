@@ -14,7 +14,7 @@ description into a plan for the local system and supervises the processes.
 ```mermaid
 flowchart LR
     Y[YAML documents] --> T[cosim-topology: load and validate]
-    T --> I[cosim-runtime: resolve image profile]
+    T --> I[cosim-runtime: resolve image recipe]
     I --> P[cosim-runtime: plan with ExecEnv and SessionLayout]
     P --> R[cosim-runtime: run the session]
     R --> V[verdict.json]
@@ -48,18 +48,20 @@ machines:
 Unknown fields are errors. `cosim schema` prints the JSON Schema of the format.
 vHost boot and storage inputs live in runtime payload documents. Keep payload
 examples in `samples/payloads/`; the current vHost example is
-`samples/payloads/ubuntu-rocm7_0.yaml`. A payload selects an image profile and
-can specify runtime boot and storage inputs for a run. The profile under
-`resources/images/profiles/` describes image construction and default artifact
+`samples/payloads/ubuntu-rocm7_0.yaml`. A payload may select a vHost image
+recipe or define direct boot settings, and it can attach data disks. When a
+recipe is selected, the recipe supplies the kernel and root disk; direct boot
+fields must be supplied by the payload instead. The recipe under
+`resources/images/recipes/` describes image construction and default artifact
 mapping, while the topology describes hardware. Select the example with
 `--payload samples/payloads/ubuntu-rocm7_0.yaml` for `validate` or `run`; the
 same payload applies to every machine in the topology. `cosim run --dry-run`
-checks the payload and selected image profile, displays the resolved launch
+checks the payload and selected image recipe, displays the resolved launch
 plan and cache status, and performs no build or launch.
 
-A payload may set `image.profile` to a profile under
-`resources/images/profiles/`. The profile supplies its boot kernel and root
-disk. A normal `cosim run` builds the profile on a cache miss, verifies its
+A payload may set `image.recipe` to a recipe under
+`resources/images/recipes/`. The recipe supplies its boot kernel and root
+disk. A normal `cosim run` builds the recipe on a cache miss, verifies its
 manifest, then checks assets and launches the topology.
 
 ### Imports and templates
@@ -85,7 +87,7 @@ flowchart LR
 
 Resource paths are relative to the workspace root: executables containing `/`,
 device `config` and `pci.rom`, payload `boot.kernel` and `boot.initrd`, disk
-`path` and `backing`, and the profile identifier under `image.profile`.
+`path` and `backing`, and the recipe identifier under `image.recipe`.
 Relative paths cannot contain `..`; absolute paths are accepted. Bare
 executable names are searched in `PATH` during planning.
 `scripts/host/dev.sh` sets `COSIM_WORKSPACE` to the repository root. Direct `cosim`
@@ -122,8 +124,8 @@ The `host` block declares the QEMU adapter `kind`, `runtime.binary` and `runtime
   places RAM at `0x40000000`. `memory_map` is a MiniJinja template that
   receives `host` and `ram.size` and renders ordered, non-overlapping
   `{start, size}` ranges that cover `memory` exactly.
-- Current QEMU profiles cover x86_64 and ARM64 vHosts. The build recipes do not
-  yet support a RISC-V vHost profile.
+- Current QEMU Host configurations cover x86_64 and ARM64 vHosts. Image recipes
+  do not yet include a RISC-V vHost.
 - `serial.wait_for` adds a serial readiness marker; `serial.timeout` gives
   it a deadline in seconds, measured from Host-side QEMU start.
 
@@ -133,7 +135,8 @@ The separate payload YAML contains optional `boot` (`kernel`, `initrd`, and
 `cmdline`), `disks`, and `snapshot` fields. A payload is shared by all machines
 in a topology. Hardware-only topologies can omit it. A topology with a device
 `guest_hints.cmdline` requires a payload with `boot.kernel`. `boot.kernel`
-enables direct kernel boot; QEMU profiles describe vHost hardware and QEMU settings.
+enables direct kernel boot; QEMU Host configurations describe vHost hardware
+and QEMU settings.
 
 ### Devices
 
@@ -153,7 +156,7 @@ enables direct kernel boot; QEMU profiles describe vHost hardware and QEMU setti
   device. Such commands need `ready_log`, a message the device prints after it
   listens.
 
-An optional `pci.rom` supplies the Host-side PCI option ROM. The QEMU profile
+An optional `pci.rom` supplies the Host-side PCI option ROM. The QEMU Host
 template passes it as the vfio-user client's `romfile`; its bytes are exposed
 through that device's ROM BAR. The launcher checks that the file exists before
 allocating session resources. The MI300X template selects its matching resource

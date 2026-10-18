@@ -47,9 +47,9 @@ flowchart LR
 
 ### 选择构建环境
 
-在 Linux 上，QEMU、gem5 和 m5 的构建 recipe 默认在主机上运行，此时主机需要安装
+在 Linux 上，QEMU、gem5 和 m5 的构建任务默认在主机上运行，此时主机需要安装
 `scripts/host/Dockerfile.dev` 中列出的 gem5 和 QEMU 编译依赖，包括 `scons`。设置
-`COSIM_ENV=container` 后，这些 recipe 改为在临时开发容器中运行；其他系统默认使用
+`COSIM_ENV=container` 后，这些任务改为在临时开发容器中运行；其他系统默认使用
 开发容器。先构建一次镜像：
 
 ```bash
@@ -103,8 +103,8 @@ just build-disk
 just test-rocm-assets
 ```
 
-镜像配方、guest 脚本和 WMI 源码放在
-`resources/images/profiles/guest/ubuntu/24.04/x86_64/rocm7_0/`。
+镜像配方、Ansible playbook、vHost 脚本和 WMI 源码放在
+`resources/images/recipes/vhost/ubuntu/24.04/x86_64/rocm7_0/`。
 固定版本的 `third_party/gem5-resources/` 子模块提供 GPU 应用源码，以及镜像配方使用的 ROM
 和 discovery 固件输入。
 
@@ -112,19 +112,19 @@ just test-rocm-assets
 
 ```bash
 scripts/host/cosim-image list
-scripts/host/cosim-image validate guest/ubuntu/24.04/x86_64/rocm7_0
+scripts/host/cosim-image validate vhost/ubuntu/24.04/x86_64/rocm7_0
 ```
 
-添加新的 profile 目录即可选择其他操作系统镜像或软件包组合。
+添加新的镜像配方目录即可选择其他 vHost 操作系统镜像或软件包组合。
 
 ### 产出
 
 | 产物 | 路径 | 大小 |
 |---|---|---|
-| vHost 磁盘镜像 | `build/images/guest/ubuntu/24.04/x86_64/rocm7_0/disk` | 虚拟容量 56 GB |
-| vHost 内核 | `build/images/guest/ubuntu/24.04/x86_64/rocm7_0/kernel` | 配方产物 |
+| vHost 磁盘镜像 | `build/images/vhost/ubuntu/24.04/x86_64/rocm7_0/disk` | 虚拟容量 56 GB |
+| vHost 内核 | `build/images/vhost/ubuntu/24.04/x86_64/rocm7_0/kernel` | 镜像配方产物 |
 
-使用 `cosim run --dry-run` 可以检查 payload、镜像缓存状态和解析后的启动命令，
+使用 `cosim run --dry-run` 可以检查 payload、镜像配方缓存状态和解析后的启动命令，
 整个过程不会构建镜像，也不会启动模拟器。
 
 ## 启动联合仿真
@@ -211,9 +211,9 @@ qemu-system-x86_64 \
     -m 8G -smp 4 \
     -object memory-backend-file,id=mem0,size=8G,mem-path=/dev/shm/cosim-guest-ram,share=on \
     -numa node,memdev=mem0 \
-    -kernel "$PWD/build/images/guest/ubuntu/24.04/x86_64/rocm7_0/kernel" \
+    -kernel "$PWD/build/images/vhost/ubuntu/24.04/x86_64/rocm7_0/kernel" \
     -append "console=ttyS0,115200 root=/dev/vda1 modprobe.blacklist=amdgpu" \
-    -drive "file=$PWD/build/images/guest/ubuntu/24.04/x86_64/rocm7_0/disk,format=qcow2,if=virtio" \
+    -drive "file=$PWD/build/images/vhost/ubuntu/24.04/x86_64/rocm7_0/disk,format=qcow2,if=virtio" \
     -device 'vfio-user-pci,socket={"type":"unix","path":"/tmp/gem5-mi300x.sock"}' \
     -nographic -no-reboot
 ```
