@@ -121,14 +121,20 @@
       register: amdgpu_dkms_logs
       failed_when: false
 
-    - name: Print AMDGPU DKMS build logs
+    - name: Read AMDGPU DKMS build logs
       ansible.builtin.command:
         argv:
           - cat
           - "{{ item.path }}"
       loop: "{{ amdgpu_dkms_logs.files | default([]) }}"
+      register: amdgpu_dkms_log_output
       changed_when: true
       failed_when: false
+
+    - name: Display AMDGPU DKMS build logs
+      ansible.builtin.debug:
+        msg: "{{ item.stdout }}"
+      loop: "{{ amdgpu_dkms_log_output.results | default([]) }}"
 
     - name: Report AMDGPU DKMS build failure
       ansible.builtin.fail:

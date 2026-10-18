@@ -166,12 +166,22 @@ class GuestBuildTargetTests(unittest.TestCase):
         )
         log_task = next(
             task for task in rescue_tasks
-            if task["name"] == "Print AMDGPU DKMS build logs"
+            if task["name"] == "Read AMDGPU DKMS build logs"
+        )
+        display_task = next(
+            task for task in rescue_tasks
+            if task["name"] == "Display AMDGPU DKMS build logs"
         )
         failure_task = rescue_tasks[-1]
 
         self.assertLess(
             rescue_tasks.index(discovery_task), rescue_tasks.index(log_task)
+        )
+        self.assertLess(
+            rescue_tasks.index(log_task), rescue_tasks.index(display_task)
+        )
+        self.assertLess(
+            rescue_tasks.index(display_task), rescue_tasks.index(failure_task)
         )
         self.assertEqual(
             discovery_task["ansible.builtin.find"],
@@ -190,7 +200,15 @@ class GuestBuildTargetTests(unittest.TestCase):
         self.assertEqual(
             log_task["loop"], "{{ amdgpu_dkms_logs.files | default([]) }}"
         )
+        self.assertEqual(log_task["register"], "amdgpu_dkms_log_output")
         self.assertIs(log_task["changed_when"], True)
+        self.assertEqual(
+            display_task["ansible.builtin.debug"]["msg"], "{{ item.stdout }}"
+        )
+        self.assertEqual(
+            display_task["loop"],
+            "{{ amdgpu_dkms_log_output.results | default([]) }}",
+        )
         self.assertEqual(
             failure_task["name"], "Report AMDGPU DKMS build failure"
         )
