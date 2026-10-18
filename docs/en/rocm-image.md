@@ -37,10 +37,9 @@ installs the
 selected kernel packages, the pinned AMDGPU DKMS package
 `1:6.14.14.30100000-2204008.24.04`, ROCm, PyTorch and cosim services, builds
 the gem5 WMI module, and exports the matching kernel and package inventory.
-When DKMS fails, the image build prints its `make.log` files. The shared
-Packer template and Ansible entry point are in `resources/images/packer/` and
-`resources/images/packer/`; the recipe contains its OS and package data, its
-Ansible playbook and the files installed into the vHost.
+When DKMS fails, the image build prints its `make.log` files. The shared Packer
+QEMU builder is in `resources/images/packer/`. The recipe contains its OS and
+package data, its Ansible playbook and the files installed into the vHost.
 
 The ROCm recipe keeps its guest scripts and WMI source in its recipe directory.
 Its ROM and discovery firmware inputs come from the pinned
