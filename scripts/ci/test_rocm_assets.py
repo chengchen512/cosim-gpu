@@ -31,6 +31,42 @@ class ImageProfileTests(unittest.TestCase):
         for path in profile.inputs.values():
             self.assertTrue(path.is_relative_to(WORKSPACE))
 
+    def test_profile_image_inputs_are_present_at_declared_paths(self):
+        profile = load_profile(WORKSPACE, PROFILE)
+        external_firmware_inputs = {
+            "mi200_rom": "mi200.rom",
+            "mi300_rom": "mi300.rom",
+            "mi300_discovery": "mi300_discovery",
+            "mi350_discovery": "mi350_discovery",
+        }
+        self.assertLessEqual(
+            external_firmware_inputs.keys(), profile.inputs.keys()
+        )
+        for name, path in profile.inputs.items():
+            if name in profile.reuse_optional_inputs:
+                continue
+            with self.subTest(input_name=name):
+                if name in external_firmware_inputs:
+                    expected = (
+                        WORKSPACE
+                        / "third_party/gem5-resources/src/x86-ubuntu-gpu-ml"
+                        / "files"
+                        / external_firmware_inputs[name]
+                    )
+                    self.assertEqual(path, expected)
+                    submodule_metadata = (
+                        WORKSPACE / "third_party/gem5-resources/.git"
+                    )
+                    if not path.is_file() and not submodule_metadata.exists():
+                        # The fast CI job checks out no submodules.
+                        continue
+                else:
+                    self.assertTrue(
+                        path.resolve().is_relative_to(profile.directory),
+                        f"image input is outside its profile: {path}",
+                    )
+                self.assertTrue(path.is_file(), f"missing image input: {path}")
+
     def test_profile_identifier_rejects_parent_traversal(self):
         with self.assertRaises(ProfileError):
             load_profile(WORKSPACE, "../../outside")

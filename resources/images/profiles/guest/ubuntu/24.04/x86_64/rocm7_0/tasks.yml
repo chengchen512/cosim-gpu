@@ -102,16 +102,58 @@
     update_cache: true
     state: present
     name:
-      - amdgpu-dkms
+      - "amdgpu-dkms={{ cosim_profile_variables.amdgpu_dkms_version }}"
       - rocm
 
 - name: Build the AMDGPU DKMS module for the selected kernel
-  ansible.builtin.command:
-    argv:
-      - dkms
-      - autoinstall
-      - -k
-      - "{{ cosim_profile_variables.kernel_release }}"
+  block:
+    - name: Run DKMS autoinstall for the selected kernel
+      ansible.builtin.command:
+        argv:
+          - dkms
+          - autoinstall
+          - -k
+          - "{{ cosim_profile_variables.kernel_release }}"
+  rescue:
+    - name: Find AMDGPU DKMS build logs
+      ansible.builtin.find:
+        paths: /var/lib/dkms/amdgpu
+        patterns: make.log
+        recurse: true
+      register: amdgpu_dkms_logs
+      failed_when: false
+
+    - name: Print AMDGPU DKMS build logs
+      ansible.builtin.command:
+        argv:
+          - cat
+          - "{{ item.path }}"
+      loop: "{{ amdgpu_dkms_logs.files | default([]) }}"
+      changed_when: true
+      failed_when: false
+
+    - name: Report AMDGPU DKMS build failure
+      ansible.builtin.fail:
+        msg: >-
+          AMDGPU DKMS failed for kernel
+          {{ cosim_profile_variables.kernel_release }}; inspect the build log
+          output above.
+
+- name: Create the cosim GPU license directory
+  ansible.builtin.file:
+    path: /usr/share/doc/cosim-gpu-image
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Create the serial getty override directory
+  ansible.builtin.file:
+    path: /etc/systemd/system/serial-getty@ttyS0.service.d
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
 
 - name: Install image inputs
   ansible.builtin.copy:
@@ -124,9 +166,12 @@
     - {source: "{{ cosim_inputs.m5 }}", destination: /sbin/m5, mode: "0755"}
     - {source: "{{ cosim_inputs.run_gem5_app }}", destination: /home/gem5/run_gem5_app.sh, mode: "0755"}
     - {source: "{{ cosim_inputs.load_amdgpu }}", destination: /home/gem5/load_amdgpu.sh, mode: "0755"}
-    - {source: "{{ cosim_inputs.serial_getty }}", destination: /lib/systemd/system/serial-getty@.service, mode: "0644"}
+    - source: "{{ cosim_inputs.serial_getty_override }}"
+      destination: /etc/systemd/system/serial-getty@ttyS0.service.d/override.conf
+      mode: "0644"
     - {source: "{{ cosim_inputs.gem5_wmi_source }}", destination: /home/gem5/gem5_wmi.c, mode: "0644"}
     - {source: "{{ cosim_inputs.gem5_wmi_makefile }}", destination: /home/gem5/Makefile, mode: "0644"}
+    - {source: "{{ cosim_inputs.amd_bsd_license }}", destination: /usr/share/doc/cosim-gpu-image/LICENSE.BSD-3-Clause, mode: "0644"}
     - {source: "{{ cosim_inputs.setup_service }}", destination: /lib/systemd/system/cosim-gpu-setup.service, mode: "0644"}
     - {source: "{{ cosim_inputs.vhost_gpu_setup }}", destination: /usr/local/bin/cosim-gpu-setup.sh, mode: "0755"}
     - {source: "{{ cosim_inputs.vhost_rocm_regression }}", destination: /usr/local/bin/cosim-rocm-regression.sh, mode: "0755"}

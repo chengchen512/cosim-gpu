@@ -57,3 +57,89 @@ class GuestBuildTargetTests(unittest.TestCase):
                 self.assertEqual(script.parent, profile.directory / "files")
                 source = f"{{{{ cosim_inputs.{input_name} }}}}"
                 self.assertEqual(destinations[source], destination)
+
+    def test_serial_console_override_is_installed_for_ttyS0(self):
+        profile = load_profile(
+            ROOT, "guest/ubuntu/24.04/x86_64/rocm7_0"
+        )
+        tasks = yaml.safe_load(
+            profile.tasks_file.read_text(encoding="utf-8")
+        )
+        install_task = next(
+            task for task in tasks if task["name"] == "Install image inputs"
+        )
+        override_input = "{{ cosim_inputs.serial_getty_override }}"
+        override = next(
+            item for item in install_task["loop"]
+            if item["source"] == override_input
+        )
+
+        self.assertEqual(
+            override["destination"],
+            "/etc/systemd/system/serial-getty@ttyS0.service.d/override.conf",
+        )
+        content = profile.inputs["serial_getty_override"].read_text()
+        self.assertIn("ExecStart=\n", content)
+        self.assertIn("--autologin root", content)
+
+    def test_amd_bsd_license_is_installed_in_the_guest(self):
+        profile = load_profile(
+            ROOT, "guest/ubuntu/24.04/x86_64/rocm7_0"
+        )
+        tasks = yaml.safe_load(
+            profile.tasks_file.read_text(encoding="utf-8")
+        )
+        install_task = next(
+            task for task in tasks if task["name"] == "Install image inputs"
+        )
+        license_input = "{{ cosim_inputs.amd_bsd_license }}"
+        destinations = {
+            item["source"]: item["destination"]
+            for item in install_task["loop"]
+        }
+
+        self.assertEqual(
+            destinations[license_input],
+            "/usr/share/doc/cosim-gpu-image/LICENSE.BSD-3-Clause",
+        )
+        self.assertTrue(profile.inputs["amd_bsd_license"].is_file())
+
+    def test_amdgpu_dkms_is_pinned_to_the_verified_package(self):
+        profile = load_profile(
+            ROOT, "guest/ubuntu/24.04/x86_64/rocm7_0"
+        )
+        tasks = yaml.safe_load(
+            profile.tasks_file.read_text(encoding="utf-8")
+        )
+        install_task = next(
+            task for task in tasks
+            if task["name"] == "Install the AMDGPU and ROCm stack"
+        )
+
+        self.assertEqual(
+            profile.variables["amdgpu_dkms_version"],
+            "1:6.14.14.30100000-2204008.24.04",
+        )
+        self.assertIn(
+            "amdgpu-dkms={{ cosim_profile_variables.amdgpu_dkms_version }}",
+            install_task["ansible.builtin.apt"]["name"],
+        )
+
+    def test_dkms_failure_path_prints_build_logs(self):
+        profile = load_profile(
+            ROOT, "guest/ubuntu/24.04/x86_64/rocm7_0"
+        )
+        tasks = yaml.safe_load(
+            profile.tasks_file.read_text(encoding="utf-8")
+        )
+        dkms_task = next(
+            task for task in tasks
+            if task["name"]
+            == "Build the AMDGPU DKMS module for the selected kernel"
+        )
+
+        log_task = next(
+            task for task in dkms_task["rescue"]
+            if task["name"] == "Print AMDGPU DKMS build logs"
+        )
+        self.assertIs(log_task["changed_when"], True)
