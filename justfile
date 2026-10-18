@@ -61,24 +61,28 @@ build-gem5 jobs=build_jobs *scons_args:
 
 # Build the m5 utility under the top-level build directory
 [group('build')]
-build-m5 abi=m5_abi: dev-rocm-sources
+build-m5 abi=m5_abi: dev-gem5-source
     {{ dev }} scripts/host/build.sh m5 "$1"
 
-# Initialize missing image sources while preserving existing worktrees
+# Initialize gem5 sources while preserving the existing worktree
 [group('dev')]
-dev-rocm-sources:
+dev-gem5-source:
     if [ ! -e third_party/gem5/.git ]; then git submodule update --init third_party/gem5; fi
+
+# Initialize gem5-resources for GPU applications and image firmware inputs
+[group('dev')]
+dev-rocm-sources: dev-gem5-source
     if [ ! -e third_party/gem5-resources/.git ]; then git submodule update --init third_party/gem5-resources; fi
 
 # Build the x86 vHost OS disk image and kernel (needs Linux KVM, QEMU, ~60 GB disk)
 [group('build')]
-build-disk:
+build-disk: dev-rocm-sources
     just build-m5 x86
     scripts/host/cosim-image build {{ rocm_profile }}
 
 # Build a reusable kernel/disk bundle from the vHost image recipe library
 [group('build')]
-build-rocm-assets:
+build-rocm-assets: dev-rocm-sources
     just build-m5 x86
     scripts/host/cosim-image build {{ rocm_profile }}
 
