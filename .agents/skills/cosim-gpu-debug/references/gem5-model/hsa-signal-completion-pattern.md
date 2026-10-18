@@ -7,7 +7,7 @@ chain. Converged through 4 rounds of independent Codex adversarial review on
 ## Problem
 
 A vendor packet (`submitVendorPkt`) initiates a completion signal DMA chain that
-writes the HSA signal value to guest memory. The packet must not be released
+writes the HSA signal value to vHost memory. The packet must not be released
 (`finishPkt`) until the DMA chain completes — otherwise use-after-free.
 
 The original fix threaded a bare `Event *done_event` pointer through 6 layers of
@@ -89,5 +89,5 @@ produced a rating that drove refinement:
 ## Cross-references
 
 - `overview.md`: HSA layer and signal flow overview
-- `../../../cosim-gpu-rocm-stack/SKILL.md`: HSA signals from guest/driver side
+- `../../../cosim-gpu-rocm-stack/SKILL.md`: HSA signals from the vHost driver side
 - `discovery-log.md` entry 6: interrupt VMID routing discovery that preceded this design work

@@ -13,11 +13,11 @@ Write these fields in the case notes:
 - launch command and artifact directory
 - verdict, exit code, timeout status, or crash text
 - interrupt mode and other test variables
-- guest-visible object when known: signal address, queue, packet, buffer,
+- vHost-visible object when known: signal address, queue, packet, buffer,
   VMID, PASID, interrupt cookie, or wait channel
 - log paths and line ranges that prove the behavior
 
-If the guest-visible object is unknown, add read-only markers or collect guest
+If the vHost-visible object is unknown, add read-only markers or collect vHost
 state again before editing source.
 
 ## Compare with a passing run

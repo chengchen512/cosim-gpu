@@ -7,7 +7,7 @@ maintenance.
 ## Architecture
 
 ```
-Guest ROCm driver
+vHost ROCm driver
   <-> QEMU MI300X cosim device or vfio-user-pci
   <-> gem5 MI300X GPU model
       AMDGPUDevice
@@ -36,7 +36,7 @@ Guest ROCm driver
 ## PM4 command flow
 
 ```
-Guest doorbell write
+vHost doorbell write
   -> PM4PacketProcessor::processPkt()
   -> MAP_PROCESS allocates VMID and binds PASID
   -> RUN_LIST submits command buffers
@@ -53,7 +53,7 @@ Guest doorbell write
 | TRAP | exception or page fault | not VMID-sensitive in current model |
 
 `interrupt_handler.cc::prepareInterruptCookie()` sets PASID and VMID from the
-current context. Guest amdgpu uses the cookie to route interrupts to the owning
+current context. vHost amdgpu uses the cookie to route interrupts to the owning
 process.
 
 ## VMID and PASID

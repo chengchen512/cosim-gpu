@@ -28,7 +28,7 @@ to that worktree's top-level `build/` directory.
 ## Output and source boundaries
 
 - gem5 source: `third_party/gem5/`
-- default gem5 output: `build/gem5/<host-architecture>/VEGA_X86/`
+- default gem5 output: `build/gem5/<Host-architecture>/VEGA_X86/`
 - QEMU source: `third_party/qemu/`
 - default QEMU output: `build/qemu/`
 - m5 source: `third_party/gem5/util/m5/`

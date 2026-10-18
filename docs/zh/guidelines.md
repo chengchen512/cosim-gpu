@@ -17,7 +17,7 @@ SPDX-License-Identifier: Apache-2.0
 - `cosim-topology` 负责解析 YAML、展开导入和模板、校验声明，并根据调用方提供的
   上下文渲染启动参数。它只读取拓扑文档，不读取环境变量、其他文件系统状态，也不调用
   操作系统接口。
-- `cosim-runtime` 负责所有依赖执行系统的内容：主机事实（`ExecEnv`）、会话路径
+- `cosim-runtime` 负责所有依赖执行系统的内容：Host 环境信息（`ExecEnv`）、会话路径
   （`SessionLayout`）、执行计划、进程、文件、锁和清理。
 - `cosim-cli` 负责命令行解析、信号、标准输入生命线和终端输出。
 - 每个模块组织一个完整概念，公开调用方实际需要的操作。
@@ -54,23 +54,23 @@ JSON 参数数组和持久化记录使用 Serde JSON。
 [类型约束规范](https://asterinas.github.io/book/to-contribute/coding-guidelines/for-maintainability/rust-specific/types-and-traits.html)
 和[输入校验规范](https://asterinas.github.io/book/to-contribute/coding-guidelines/for-security/security-properties.html#validate-at-boundaries)。
 
-## host 外部参数
+## Host-side QEMU 与 vHost 配置
 
-host 的程序路径、机型、加速方式、CPU、内存、启动、存储、显示、监控和附加 QEMU
-参数来自 YAML 或导入的模板。
-示例默认值保存在 `samples/hosts/`。
-ARM64 host 使用 `qemu-system-aarch64`，x86_64 host 使用 `qemu-system-x86_64`。
-CPU、机型、启动镜像和客户机物理内存范围必须符合所选配置。
-不同执行架构的 gem5 目标文件分别保存在独立的构建目录中。
-Rust 计算会话路径、内存偏移、准备后的磁盘路径和设备端点。
-host 适配器定义这些值如何组成命令行参数，并声明其 PCIe 布局可以挂载的设备数量。
+Host-side QEMU 程序、机型、加速方式、CPU、内存、启动、存储、显示、监控和附加 QEMU
+参数来自 YAML 或导入的模板。示例默认值保存在 `samples/hosts/`。
+ARM64 Host 使用 `qemu-system-aarch64`，x86_64 Host 使用 `qemu-system-x86_64`。
+CPU、机型、启动镜像和 vHost 物理内存范围必须符合所选 QEMU 配置。
+不同 Host 执行架构的 gem5 目标文件分别保存在独立的构建目录中。
+Rust 计算会话路径、内存偏移、准备后的磁盘路径和 Device Model 端点。
+QEMU 适配器由 Rust `Host` 类型表示，负责把这些值组成命令行参数，并声明 PCIe 布局
+可以挂载的 Device Model 数量。
 
 适配器提供参数列表，或者提供渲染为 JSON 字符串数组的 MiniJinja 命令模板。
 每个数组元素对应一个进程参数，执行过程不经过 shell 解释。
-host 适配器必须绑定生成的内存池，并提供声明的 QMP 和串口端点。
+QEMU 适配器必须绑定生成的内存池，并提供声明的 QMP 和串口端点。
 `cosim run --dry-run` 会校验 payload 和所选镜像配方，并显示 `cosim run` 将使用的
 程序、参数、环境、资源和缓存操作。该命令不会构建镜像或启动进程。
-每个设备进程都在执行环境中以原生进程运行，执行环境是 Linux 主机或开发容器。
+每个 Device Model 进程都在 Host 环境中以原生进程运行，Host 环境可以是 Linux 或开发容器。
 适配器启动的每个进程都在前台运行，把全部资源使用者保留在自己的进程组中，并保持继承
 的文件描述符打开，使会话锁和镜像租约传递到其子进程。
 
@@ -100,7 +100,7 @@ host 适配器必须绑定生成的内存池，并提供声明的 QMP 和串口�
   处理器，也不向终端输出。
 - 子进程由 launcher 线程通过 `setpriv --pdeathsig KILL` 启动，launcher 退出时由内核
   终止子进程。锁的文件描述符设置 close-on-exec；会话把会话锁交给自己启动的每个进程，
-  把镜像租约交给使用该镜像的 host 或辅助进程。只要还有使用这些资源的进程存活，锁就一直
+  把镜像租约交给 Host-side QEMU 或使用该镜像的辅助进程。只要还有使用这些资源的进程存活，锁就一直
   有效，并且不会传到其他会话的进程。
 - 共享文件和 overlay 只能在使用者停止后删除。无法确认进程已经终止时，保留资源并在
   verdict 中记录。
@@ -140,10 +140,10 @@ host 适配器必须绑定生成的内存池，并提供声明的 QMP 和串口�
 
 ## 验证与文档
 
-构建、测试和检查使用顶层 `justfile`；recipe 根据 `COSIM_ENV` 在主机或开发容器中运行。
+构建、测试和检查使用顶层 `justfile`；recipe 根据 `COSIM_ENV` 在 Host 或开发容器中运行。
 `just check-cosim` 以检查模式运行 rustfmt，并运行 Clippy 和回归测试。
 `just test-cosim-integration` 使用真实 QEMU 进程、磁盘镜像和信号运行会话。
-`just test-cosim-vfio-user` 在 `just build-qemu` 之后运行带有 QEMU vfio-user 设备的 host。
+`just test-cosim-vfio-user` 在 `just build-qemu` 之后运行带有 QEMU Device Model 的 vHost。
 gem5 修改使用 `just check-gem5-style` 和相应的模拟器构建进行检查。
 文件归属使用 `just check-maintainers` 检查，补丁草稿使用 `just check-patch-file <patch>` 检查。
 

@@ -7,7 +7,7 @@ converted a socket disconnect into a SIGABRT instead of a clean error report.
 ## When you'll hit this again
 
 - QEMU crashes with `error_setv: Assertion '*errp == NULL' failed`
-- gem5 container exits unexpectedly during guest driver init
+- gem5 container exits unexpectedly during vHost driver init
 - The first failing component is on the gem5 side; QEMU is a secondary reporter
 
 ## First failing mechanism

@@ -19,7 +19,7 @@ with the configuration and lifecycle contracts below defined for cosim-gpu.
   It reads only topology documents: no environment variables, no other
   filesystem state and no operating-system interfaces.
 - `cosim-runtime` owns everything that depends on the executing system:
-  host facts (`ExecEnv`), session paths (`SessionLayout`), plans, processes,
+  Host environment facts (`ExecEnv`), session paths (`SessionLayout`), plans, processes,
   files, locks and cleanup.
 - `cosim-cli` owns argument parsing, signals, the standard-input lifeline
   and terminal output.
@@ -61,29 +61,30 @@ These boundaries follow the Asterinas
 [type-invariant guidance](https://asterinas.github.io/book/to-contribute/coding-guidelines/for-maintainability/rust-specific/types-and-traits.html)
 and [input-validation guidance](https://asterinas.github.io/book/to-contribute/coding-guidelines/for-security/security-properties.html#validate-at-boundaries).
 
-## External host parameters
+## Host-side QEMU and vHost configuration
 
-Host executable, machine, accelerator, CPU, memory, boot, storage, display,
-monitoring and additional QEMU arguments come from YAML or imported templates.
-Keep sample defaults in `samples/hosts/`.
-Select `qemu-system-aarch64` for ARM64 hosts and `qemu-system-x86_64` for x86_64 hosts.
-Keep CPU, machine, boot images and guest physical memory ranges consistent with
-that profile. Keep gem5 object files from different host architectures in
-separate build directories.
-Rust derives session paths, memory offsets, prepared disk paths and device endpoints.
-The host adapter defines how these values become arguments and declares how
-many devices its PCIe layout can attach.
+Host-side QEMU executable, machine, accelerator, CPU, memory, boot, storage,
+display, monitoring and additional QEMU arguments come from YAML or imported
+templates. Keep sample defaults in `samples/hosts/`.
+Select `qemu-system-aarch64` for ARM64 Hosts and `qemu-system-x86_64` for
+x86_64 Hosts. Keep CPU, machine, boot images and vHost physical memory ranges
+consistent with that QEMU profile. Keep gem5 object files from different Host
+architectures in separate build directories.
+Rust derives session paths, memory offsets, prepared disk paths and Device
+Model endpoints. The QEMU adapter, represented by the Rust `Host` type, defines
+how these values become arguments and declares how many Device Models its PCIe
+layout can attach.
 
 An adapter provides an argument list or a MiniJinja command template that
 renders a JSON string array. Each element becomes one process argument;
 execution uses no shell interpretation.
-The host adapter must bind the generated memory pool and expose the declared
+The QEMU adapter must bind the generated memory pool and expose the declared
 QMP and serial endpoints.
 `cosim run --dry-run` validates the payload and selected image profile, then
 prints the executable, arguments, environment, resources and cache action that
 `cosim run` would consume. It does not build the image or launch processes.
-Every device process runs natively in the execution environment, which is the
-Linux host or the development container.
+Every Device Model process runs natively on the Host, which can be Linux or
+the development container.
 Every process an adapter starts runs in the foreground, keeps all resource
 users in its process group and keeps inherited file descriptors open, so the
 session lock and image leases reach its descendants.
@@ -119,7 +120,7 @@ next fallible operation.
 - Children start through `setpriv --pdeathsig KILL` from the launcher thread,
   so the kernel stops them when the launcher dies. Lock descriptors are
   close-on-exec; a session passes its session lock to every process it starts
-  and an image lease to each host or helper that uses the image, so those
+  and an image lease to Host-side QEMU or any helper that uses the image, so those
   locks last while any process that uses the resources is alive and never
   reach another session.
 - Remove shared files and overlays only after their users have stopped. When
@@ -167,11 +168,11 @@ restrictions retain their original scope.
 ## Verification and documentation
 
 Use the top-level `justfile` for builds, tests and checks; recipes run on the
-host or in the development container according to `COSIM_ENV`.
+Host or in the development container according to `COSIM_ENV`.
 `just check-cosim` runs rustfmt in check mode, Clippy and regression tests.
 `just test-cosim-integration` runs sessions with real QEMU processes, disk
-images and signals. `just test-cosim-vfio-user` runs a host with a QEMU
-vfio-user device after `just build-qemu`.
+images and signals. `just test-cosim-vfio-user` runs a vHost with a QEMU
+Device Model after `just build-qemu`.
 Check gem5 edits with `just check-gem5-style` and the relevant simulator build.
 Use `just check-maintainers` for file ownership and `just check-patch-file <patch>`
 for a draft patch.

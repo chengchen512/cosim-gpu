@@ -2,14 +2,27 @@
 
 # Co-simulation architecture
 
-## Machines and device models
+## Terms
+
+**Host** is the operating-system environment that runs the Rust launcher,
+Host-side QEMU and Device Model processes. **vHost** is the virtual host
+environment created by QEMU with KVM or TCG. A **Device Model** is an
+independent gem5 or QEMU process that represents a vGPU/vGPGPU target and
+connects to the Host-side QEMU vfio-user endpoint through libvfio-user.
+
+The YAML `host` key and Rust `Host` type configure Host-side QEMU and the
+virtual hardware presented to the vHost. Existing profile and layout
+identifiers such as `guest`, `guest_ranges` and `guest_ram` remain literal
+interface names; prose calls the environment vHost.
+
+## Machines and Device Models
 
 The Rust `cosim` executable reads a YAML topology and manages each machine's
-host QEMU, device processes, shared memory and disk overlays. A device uses
-either gem5 or QEMU and runs as a native process in the execution environment,
-which is the Linux host or the development container. Every device connects to
-its machine's host through a separate vfio-user Unix socket. Each machine owns
-one memory pool.
+Host-side QEMU process, Device Model processes, shared memory and disk
+overlays. A Device Model uses gem5 or QEMU and runs as a native process on the
+Host, which can be Linux or the development container. Every Device Model
+connects to its machine's Host-side QEMU through a separate vfio-user Unix
+socket. Each machine owns one memory pool.
 
 ```mermaid
 flowchart TD
@@ -18,11 +31,11 @@ flowchart TD
     I --> P[Plan for the local system]
     P --> R[cosim-runtime session]
     subgraph M[Machine]
-        H[QEMU host]
-        G[gem5 MI300X device]
-        Q[QEMU PCI device]
+        H[Host-side QEMU]
+        G[gem5 MI300X Device Model]
+        Q[QEMU Device Model]
         F[Shared memory pool]
-        H <-->|vfio-user| G
+        H <-->|vfio-user / libvfio-user| G
         H <-->|vfio-user| Q
         H --- F
         G --- F
@@ -31,6 +44,7 @@ flowchart TD
     R --> H
     R --> G
     R --> Q
+    H -->|KVM or TCG| V[vHost OS]
 ```
 
 `cosim-topology` owns document parsing, validation, template expansion, memory
@@ -39,17 +53,18 @@ layout and argument rendering; it reads nothing but the YAML documents.
 `cosim-cli` exposes those operations as commands. The
 [topology reference](topology.md) defines fields and lifecycle behavior.
 
-Host QEMU runs guest Linux, the amdgpu driver and ROCm applications. gem5 runs
-the MI300X command processors, Shader/CU arrays, SDMA engines and Ruby memory
+Host-side QEMU runs the vHost Linux OS, the amdgpu driver and ROCm applications.
+gem5 runs the MI300X command processors, Shader/CU arrays, SDMA engines and Ruby memory
 hierarchy. Its cosimulation configuration uses `StubWorkload` with device-only
-execution. A QEMU device process uses `x-remote` and `x-vfio-user-server` to
-export its PCI device. The host and device QEMU processes have independent
-command lines and lifetimes.
+execution. A QEMU Device Model process uses `x-remote` and
+`x-vfio-user-server` to export its PCI device. Host-side QEMU and the Device
+Model QEMU process have independent command lines and lifetimes.
 
 Each process runs in its own process group and starts through
-`setpriv --pdeathsig KILL`. A device must pass its readiness probes before its
-host starts; the host then negotiates QMP capabilities and optionally waits for
-a configured guest serial message. The host stops before its devices.
+`setpriv --pdeathsig KILL`. A Device Model must pass its readiness probes before
+Host-side QEMU starts; QEMU then negotiates QMP capabilities and optionally
+waits for a configured vHost serial message. Host-side QEMU stops before its
+Device Models.
 
 ## Rust modules and interfaces
 
@@ -65,8 +80,8 @@ The workspace has three crates. `cosim-cli` depends on `cosim-topology` and
 - `cosim-topology/src/loader.rs`, `resolve.rs`: imports, merge keys, template
   inheritance, workspace-relative resource paths, count expansion and validation.
 - `cosim-topology/src/adapter/`: the `Adapter` enum with the `gem5-mi300x`,
-  `qemu-device` and template adapters, host rendering and `Probe`.
-- `cosim-topology/src/layout.rs`: memory pools and guest physical ranges for a
+  `qemu-device` and template adapters, vHost QEMU rendering and `Probe`.
+- `cosim-topology/src/layout.rs`: memory pools and vHost physical ranges for a
   given `PageSize`.
 - `cosim-runtime/src/env.rs`, `layout.rs`, `plan.rs`: `ExecEnv`,
   `SessionLayout` and the serializable `Plan`.
@@ -79,7 +94,7 @@ The workspace has three crates. `cosim-cli` depends on `cosim-topology` and
 - `cosim-runtime/src/images.rs`: invokes the shared profile manager and turns
   its verified disk and optional kernel artifacts into payload inputs.
 - `resources/images/`: shared Packer/QEMU template, Ansible entry point and
-  OS-specific profile data. `scripts/cosim-image` exposes the same manager to
+  OS-specific profile data. `scripts/host/cosim-image` exposes the same manager to
   Bash callers without starting the simulator.
 
 The topology API exposes `load`, `graph` and `schema`, and the validated types
@@ -95,35 +110,37 @@ MiniJinja renders argument templates, Schemars produces JSON Schema, and
 process-group signals, page size and filesystem statistics. Project Rust crates
 inherit `unsafe_code = "forbid"` from the workspace.
 
-Host architecture profiles such as `host-x86` and `host-arm`, CPU, memory,
-boot images and QEMU policy are supplied by YAML. Planning derives shared-file
-offsets and connection paths for those profiles. gem5 and QEMU exchange vfio-user traffic directly. Rust
-negotiates QMP for readiness and manages process resources. Switch nodes are a
-reserved part of the design; remote placement is described by configuration
-and rejected by the local executor before allocation.
+The Host architecture selects the runnable QEMU binary. The YAML `host` block
+and profiles such as `host-x86` and `host-arm` configure Host-side QEMU and the
+virtual hardware presented to the vHost. Planning derives shared-file offsets
+and connection paths from those values. gem5 and QEMU exchange vfio-user
+traffic directly. Rust negotiates QMP for readiness and manages process
+resources. Switch nodes are a reserved part of the design; remote placement is
+described by configuration and rejected by the local executor before allocation.
 
 ## vfio-user interface
 
-QEMU's `vfio-user-pci` is the host client. gem5's `MI300XVfioUser` uses
-libvfio-user to expose configuration space, BARs, DMA mappings and interrupts.
-QEMU device models export the same protocol through `x-vfio-user-server`.
+Host-side QEMU's `vfio-user-pci` is the vfio-user client. gem5's
+`MI300XVfioUser` uses libvfio-user to expose configuration space, BARs, DMA
+mappings and interrupts. QEMU Device Models export the same protocol through
+`x-vfio-user-server`.
 
 | Operation | Interface |
 |---|---|
 | PCI configuration and MMIO | vfio-user messages |
 | Doorbell access | Device BAR callbacks |
-| Guest RAM sharing | DMA_MAP with a file descriptor and file offset |
+| vHost RAM sharing | DMA_MAP with a file descriptor and file offset |
 | Mappable BAR regions | Region file descriptor and mmap offset |
 | MSI-X delivery | IRQ eventfd registration and notification |
 
-Unix sockets and shared-file mappings require colocated host and device
-processes. Device-model implementations determine PCIe peer access,
+Unix sockets and shared-file mappings require colocated Host-side QEMU and
+Device Model processes. Device Model implementations determine PCIe peer access,
 inter-device communication and simulated timing. The runtime manages process
 connections and resources.
 
 ## MI300X PCI interface
 
-MI300X identifies as vendor `0x1002`, device `0x74a0`. The device model owns
+MI300X identifies as vendor `0x1002`, device `0x74a0`. The Device Model owns
 the PCI configuration space and advertises its BAR layout to QEMU.
 
 | BAR | Contents | Size and representation |
@@ -135,18 +152,18 @@ the PCI configuration space and advertises its BAR layout to QEMU.
 
 The driver expects VRAM at BAR0, doorbells at BAR2 and MMIO at BAR5. The upper
 halves of 64-bit BARs participate in size probing. Capabilities are registered
-before the vfio-user context is realized. The guest's ROM and driver setup are
+before the vfio-user context is realized. The vHost's ROM and driver setup are
 provided by `cosim-gpu-setup.service`.
 
 ## Shared memory
 
-The launcher computes each machine's pool before starting processes. Guest RAM
+The launcher computes each machine's pool before starting processes. vHost RAM
 occupies the first region; device regions follow with explicit alignment.
 Every region has a name, offset and size recorded in `layout.json`.
 
 ```mermaid
 flowchart LR
-    H[Host QEMU] --- R[guest_ram region]
+    H[Host-side QEMU] --- R[vHost RAM region · guest_ram]
     G0[gem5 device 0] --- R
     G1[gem5 device 1] --- R
     G0 --- V0[device 0 VRAM region]
@@ -156,8 +173,8 @@ flowchart LR
 ```
 
 These regions are slices of one file. QEMU's `memory-backend-file` maps the
-guest RAM region with `share=on`. gem5 receives the pool path and VRAM offset.
-Its `PhysicalMemory` maps guest RAM and device memory at the assigned offsets,
+vHost RAM region with `share=on`. gem5 receives the pool path and VRAM offset.
+Its `PhysicalMemory` maps vHost RAM and device memory at the assigned offsets,
 checks the assigned size and leaves the external file's length unchanged.
 `MI300XVfioUser` registers the same VRAM file offset with `vfu_setup_region`,
 so QEMU and gem5 access identical bytes through the BAR mapping.
@@ -169,25 +186,25 @@ The launcher creates and removes pool files. Device processes unmap their
 views and close descriptors. The POSIX shared-memory parameters used by the
 shell launch interface remain available for that interface.
 
-Guest RAM includes command rings, fences, interrupt records, queue descriptors
+vHost RAM includes command rings, fences, interrupt records, queue descriptors
 and DMA buffers. VRAM includes device allocations, discovery data and GPU
 page tables. A common backing file gives both simulators access to the data;
-device ordering, caches and guest software still determine synchronization.
+device ordering, caches and vHost software still determine synchronization.
 
-### Guest physical address layout
+### vHost physical address layout
 
-External host templates define `memory_map` as physical RAM ranges. Rust validates
+QEMU templates define `memory_map` as physical RAM ranges. Rust validates
 their ordering, alignment and total size, assigns packed file offsets, and passes
 the resolved JSON to gem5 through `--host-memory-ranges`.
 
-| Host profile and guest address range | Pool file offset |
+| QEMU profile and vHost address range | Pool file offset |
 |---|---|
 | Q35: `[0, below_4g)` | Starts at zero |
 | Q35: `[4 GiB, 4 GiB + above_4g)` | Starts at `below_4g` |
 | AArch64 virt: `[1 GiB, 1 GiB + ram_size)` | Starts at zero |
 
-The guest PCI hole consumes no bytes in the pool. VRAM regions begin after
-the complete guest RAM region. Guest physical addresses and file offsets are
+The vHost PCI hole consumes no bytes in the pool. VRAM regions begin after
+the complete vHost RAM region. vHost physical addresses and file offsets are
 separate fields. ARM64 hardware uses `qemu-system-aarch64`; x86_64 hardware uses
 `qemu-system-x86_64`. The gem5 `VEGA_X86` model configuration can be compiled for
 either native Linux execution architecture.
@@ -216,7 +233,7 @@ derived from the page index relative to the aperture. PM4 and SDMA use
 address. Physical page bits and the original page offset determine the
 translated physical address.
 
-The guest can update page tables through QEMU's mapped VRAM BAR. gem5's
+The vHost OS can update page tables through QEMU's mapped VRAM BAR. gem5's
 cosimulation translation path reads the shared VRAM mapping, including
 normalization of framebuffer-relative page-table bases. User-context walks
 use `VegaISA::Walker` and the model's TLB invalidation handling. The runtime
@@ -227,23 +244,23 @@ remain in the GPU model.
 
 ```mermaid
 sequenceDiagram
-    participant Guest as Guest driver
-    participant Host as QEMU host
-    participant GPU as gem5 device
-    participant RAM as Shared guest RAM
-    Guest->>RAM: Write command ring and descriptors
-    Guest->>Host: Write doorbell BAR
-    Host->>GPU: vfio-user BAR write
-    GPU->>RAM: Read command and data
-    GPU->>GPU: Execute PM4 / SDMA / shader work
-    GPU->>RAM: Write completion and IH records
-    GPU->>Host: Notify IRQ eventfd
-    Host->>Guest: Deliver interrupt
-    Guest->>RAM: Read completion
+    participant V as vHost driver
+    participant H as Host-side QEMU
+    participant D as gem5 Device Model
+    participant RAM as Shared vHost RAM
+    V->>RAM: Write command ring and descriptors
+    V->>H: Write doorbell BAR
+    H->>D: vfio-user BAR write
+    D->>RAM: Read command and data
+    D->>D: Execute PM4 / SDMA / shader work
+    D->>RAM: Write completion and IH records
+    D->>H: Notify IRQ eventfd
+    H->>V: Deliver interrupt
+    V->>RAM: Read completion
 ```
 
 PM4 and SDMA select their device-memory or system-memory paths according to
-the address and VM context. System-memory operations use the shared guest
+the address and VM context. System-memory operations use the shared vHost
 RAM backing. Device-memory operations use the GPU memory manager and the
 assigned VRAM backing. The shared file provides storage for the memory model;
 Ruby and the GPU components retain their own request and cache behavior.
@@ -251,10 +268,10 @@ Ruby and the GPU components retain their own request and cache behavior.
 The interrupt handler writes an IH record, updates its write pointer and
 then requests an interrupt. `AMDGPUDevice::intrPost()` reaches
 `MI300XVfioUser`, which triggers the configured IRQ eventfd. With KVM, the
-registered eventfd supports interrupt injection into the guest. IH records
-and completion values remain accessible through shared guest RAM.
+registered eventfd supports interrupt injection into the vHost. IH records
+and completion values remain accessible through shared vHost RAM.
 
-## Device-model interconnects
+## Device Model interconnects
 
 gem5's `XGMIBridge` and related configuration implement simulator-specific
 interconnect behavior. The Python configuration also supports a separate

@@ -18,7 +18,7 @@ COSIM_RUN_ID="wait-state-001" just test-gpu \
   <program>
 ```
 
-The runner launches the target in the guest. Derive the console pipe and log
+The runner launches the target in the vHost. Derive the console pipe and log
 from the selected run id and session name, then use `cosim-gpu-guest` to inspect
 the running process and collect samples while it is blocked:
 
@@ -32,18 +32,18 @@ CONSOLE_LOG="/tmp/${SESSION_NAME}-${RUN_ID}.log"
 - local kernel: `cd /mnt/tests && ./build/<program>`
 - ROCm example: `cd /mnt/external/rocm-examples/<case-dir> && ./<built-binary>`
 
-## Guest Session
+## vHost Session
 
-Before starting the target, verify that `tmux` exists in the guest as root:
+Before starting the target, verify that `tmux` exists in the vHost OS as root:
 
 ```bash
 printf '%s\n' "${COSIM_GUEST_SUDO_PASSWORD:?set COSIM_GUEST_SUDO_PASSWORD}" | sudo -S bash -lc 'command -v tmux'
 ```
 
-If this fails, mark the disk image or guest setup invalid for live wait-state
+If this fails, mark the vHost image or setup invalid for live wait-state
 debugging.
 
-Use a root-owned guest `tmux` session:
+Use a root-owned vHost `tmux` session:
 
 ```bash
 printf '%s\n' "${COSIM_GUEST_SUDO_PASSWORD:?set COSIM_GUEST_SUDO_PASSWORD}" | sudo -S bash -lc \
@@ -85,7 +85,7 @@ channels, and compatible user-space backtraces.
 
 ## Shutdown
 
-After evidence is saved, shut down the guest through the console pipe with root
+After evidence is saved, shut down the vHost through the console pipe with root
 privileges:
 
 ```bash

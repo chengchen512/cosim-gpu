@@ -1,6 +1,6 @@
 ---
 name: cosim-gpu-debug
-description: "Use as the main entry for cosim debugging: gem5 crashes, assertions, hangs, timeouts, address translation faults, non-PASS test results, guest-side waits, and QEMU exits that may be secondary to gem5. Collect logs, preserve live state when needed, route to gem5 model references, and decide the first failing component."
+description: "Use as the main entry for cosim debugging: gem5 crashes, assertions, hangs, timeouts, address translation faults, non-PASS test results, vHost-side waits, and QEMU exits that may be secondary to gem5. Collect logs, preserve live state when needed, route to gem5 model references, and decide the first failing component."
 ---
 
 # Cosim Debug
@@ -70,7 +70,7 @@ should guide the next minimal debug flag rather than trigger broad log reads.
 Collect these facts before proposing a source edit:
 
 - Program path, run id, interrupt mode, timeout value, and exact runner command.
-- Full gem5 log, QEMU log, guest log, verdict, matrix row, and binary
+- Full gem5 log, QEMU log, vHost log, verdict, matrix row, and binary
   provenance.
 - First durable failure line and the last 50-100 relevant lines before it.
 - Nearest passing comparison or a note explaining why none exists.
@@ -82,7 +82,7 @@ Use focused searches first:
 
 ```bash
 rg -n 'fatal|panic|assert|PM4|SDMA|VMID|PASID|doorbell|interrupt|signal|GART|PTE|translation|fault|timeout|Broken pipe|error_setv' \
-  <artifact>/logs/gem5.log <artifact>/logs/qemu.log <artifact>/logs/guest
+  <artifact>/logs/gem5.log <artifact>/logs/qemu.log <artifact>/logs/guest (vHost log directory)
 ```
 
 ## Component Decision
@@ -94,7 +94,7 @@ Choose the next action from the first durable evidence:
 | gem5 log ends with `fatal`, `panic`, assertion, or container exit | Inspect gem5 logs and load `references/gem5-model/overview.md`. |
 | QEMU shows `error_setv`, vfio-user abort, socket close, or `Aborted` while gem5 may have exited | Treat QEMU as secondary until `references/qemu/error-setv-pattern.md` and gem5 logs say otherwise. |
 | gem5 log shows `User translation fault`, `GART`, unmapped page, VMID/PASID, PTE, or doorbell evidence | Load `references/gem5-model/address-translation-fault.md`. |
-| Workload is alive but output and progress counters stop changing | Keep the guest alive and load `references/analysis/live-wait-state.md`. |
+| Workload is alive but output and progress counters stop changing | Keep the vHost alive and load `references/analysis/live-wait-state.md`. |
 | Workload times out while dispatch and completion keep changing | Classify as throughput, scale, or timeout-budget evidence before editing model code. |
 | Non-PASS result has no crash | Use `references/analysis/debug-analysis.md` and `references/analysis/observable-dimensions.md`. |
 | cache, signal, PM4, VMID, PASID, SDMA, TLB, or PWC appears in logs | Load the matching gem5 model reference. |
@@ -146,9 +146,9 @@ when gem5 logs contain an earlier translation fatal for the same run id.
 Read `references/analysis/debug-workflows.md` before adding debug scripts or
 source instrumentation.
 
-## Guest Inspection
+## vHost Inspection
 
-Use `cosim-gpu-guest` for console transport and guest command injection. Gather:
+Use `cosim-gpu-guest` for console transport and vHost command injection. Gather:
 
 - PCI device state for the emulated GPU
 - loaded amdgpu module state
@@ -169,7 +169,7 @@ Trace the standard vfio-user transport when QEMU-side protocol evidence is
 needed:
 
 ```bash
-./scripts/cosim_launch.sh --qemu-trace 'vfio_user_*'
+./scripts/host/cosim_launch.sh --qemu-trace 'vfio_user_*'
 ```
 
 Record the exact launch command and trace log with the run artifacts.
@@ -178,7 +178,7 @@ Record the exact launch command and trace log with the run artifacts.
 
 - `references/analysis/debug-analysis.md` - fact recording and comparison guide
 - `references/analysis/observable-dimensions.md` - observable dimensions checklist
-- `references/analysis/live-wait-state.md` - live guest wait-state sampling
+- `references/analysis/live-wait-state.md` - live vHost wait-state sampling
 - `references/analysis/debug-workflows.md` - timeout, performance, script, and patch-readiness workflows
 - `references/gem5-model/overview.md` - gem5 MI300X model map
 - `references/gem5-model/discovery-log.md` - prior model discoveries

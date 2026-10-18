@@ -6,7 +6,7 @@ description: Use when running GPU programs against cosim and classifying outcome
 # Cosim Test
 
 Execute GPU programs against cosim in fresh sessions. The test runner owns
-launching, guest execution, exit status, failure categories, diagnostic logs,
+launching, vHost execution, exit status, failure categories, diagnostic logs,
 and session cleanup. Record build provenance through `cosim-gpu-build`.
 
 Use `cosim-gpu-launch` only for manual boot or interactive inspection. Use this
@@ -25,17 +25,17 @@ just test-gpu --keep-alive vector_add
 
 `just test-gpu` runs one program in a fresh cosim session. `--all` and
 `--repeat N` start a fresh session for every program or repetition. Use
-`--keep-alive` when a successful run must leave the guest available for manual
-inspection; use `just run-launch` for a manual guest session.
+`--keep-alive` when a successful run must leave the vHost available for manual
+inspection; use `just run-launch` for a manual vHost session.
 
 Set `COSIM_RUN_ID` to make a run addressable. On failure, the runner records
-the run id, category, program and exit code with the captured guest and
+the run id, category, program and exit code with the captured vHost and
 simulator logs.
 
 ## Required Gates
 
 Before launching a named program, prove exact program identity. Read
-`references/program-identity-and-guest-env.md` for local kernels, ROCm
+`references/program-identity-and-vhost-env.md` for local kernels, ROCm
 examples, variants, timeout estimation, device-side `printf`, or
 `GUEST_TEST_PREFIX`.
 
@@ -64,9 +64,9 @@ target is not already known to hang.
 
 ## Result Classification
 
-The runner exit status reports the guest program result. On failure, use the
+The runner exit status reports the vHost program result. On failure, use the
 recorded category and logs from the corresponding artifact directory. Treat
-launcher or guest boot failures as infrastructure evidence rather than a
+launcher or vHost boot failures as infrastructure evidence rather than a
 program result.
 
 | Exit status | Meaning | Action |
@@ -74,7 +74,7 @@ program result.
 | `0` | Program completed successfully | Record the exact program and run id |
 | nonzero | Program or launcher failed | Route by the recorded category and logs |
 
-If QEMU or gem5 exits before the guest test starts, treat it as launcher or
+If QEMU or gem5 exits before the vHost test starts, treat it as launcher or
 backend evidence rather than a program result.
 
 ## Integration

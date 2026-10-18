@@ -1,6 +1,6 @@
 # ROCm Runtime Reference
 
-Read this when debugging guest-side HSA, HIP, KFD, PASID, VMID, or driver
+Read this when debugging vHost-side HSA, HIP, KFD, PASID, VMID, or driver
 parameter behavior.
 
 ## Driver Parameters
@@ -46,9 +46,10 @@ Common cosim issues:
 - `vector_add` remains a real signal-path baseline because it exercises memcpy,
   kernel completion, synchronization, and `hipFree`.
 
-Guest workload environment is centralized in `scripts/cosim_guest_env.sh`.
-`HSA_ENABLE_INTERRUPT=0` uses polling; `HSA_ENABLE_INTERRUPT=1` tests interrupt
-routing.
+The Host test runner sets the vHost workload environment in
+`scripts/host/run_cosim_tests.sh`; the ROCm regression executable is stored with
+its image profile. `HSA_ENABLE_INTERRUPT=0` uses polling;
+`HSA_ENABLE_INTERRUPT=1` tests interrupt routing.
 
 ## HIP API To HSA
 
@@ -80,7 +81,7 @@ completion while smaller kernels may appear to work.
 | Symptom | Meaning | Route |
 |---|---|---|
 | KIQ disable timeout | Expected firmware-model gap unless paired with failure |
-| DRM client EPERM | Render permissions or stale guest image |
+| DRM client EPERM | Render permissions or stale vHost image |
 | Device-side printf hangs | Test policy input for `cosim-gpu-test` |
 | AtomBIOS null dereference | ROM visibility issue |
 | gem5 container exited | Use `cosim-gpu-debug` |

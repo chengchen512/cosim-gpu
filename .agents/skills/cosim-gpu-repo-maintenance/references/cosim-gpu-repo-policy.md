@@ -12,7 +12,7 @@ The top-level repository records all source submodules under `third_party/`:
 |---|---|
 | `.agents` | reusable cosim GPU skills vendored in-tree |
 | `third_party/gem5` | gem5 simulator source submodule |
-| `third_party/gem5-resources` | gem5 resources and guest image inputs |
+| `third_party/gem5-resources` | gem5 resources and vHost image inputs |
 | `third_party/qemu` | QEMU source submodule |
 
 The superproject records each submodule commit as a gitlink in `.gitmodules`.
@@ -56,7 +56,7 @@ Default exclude list for commits:
 - `m5out/`
 - `local-cosim-runs/`
 - `*.log`
-- test `.out`, `.strace`, `.gdb`, `.proc`, and guest-run files
+- test `.out`, `.strace`, `.gdb`, `.proc`, and vHost-run files
 - local scratch scripts or one-off command transcripts unless explicitly
   promoted to repository scripts or docs
 

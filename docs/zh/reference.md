@@ -14,10 +14,10 @@ QEMU + gem5 MI300X 协同仿真系统的综合查阅参考。概念性说明请�
 |------|--------|------|
 | `--socket-path` | `/tmp/gem5-mi300x.sock` | QEMU <-> gem5 通信套接字（vfio-user 协议） |
 | `--shmem-path` | `/mi300x-vram` | GPU VRAM 共享内存名称（/dev/shm 下） |
-| `--shmem-host-path` | `/cosim-guest-ram` | Guest RAM 共享内存名称（/dev/shm 下） |
+| `--shmem-host-path` | `/cosim-guest-ram` | Host 侧 vHost 内存 POSIX 共享内存路径 |
 | `--dgpu-mem-size` | `16GiB` | GPU VRAM 大小 |
 | `--num-compute-units` | `40` | GPU 计算单元数量 |
-| `--mem-size` | `8GiB` | Guest 物理内存大小 |
+| `--mem-size` | `8GiB` | vHost 物理内存大小 |
 | `--gem5-debug` | （无） | gem5 调试标志，例如 `MI300XCosim`、`AMDGPUDevice,PM4PacketProcessor` |
 | `--vram-size` | `32GiB` | 自定义 VRAM 大小（`--dgpu-mem-size` 的别名） |
 | `--num-cus` | `80` | 自定义 CU 数量（`--num-compute-units` 的别名） |
@@ -83,8 +83,8 @@ console=ttyS0,115200 root=/dev/vda1 modprobe.blacklist=amdgpu
 
 | 组件 | 版本 |
 |------|------|
-| Guest 操作系统 | Ubuntu 24.04.2 LTS |
-| Guest 内核 | 6.8.0-79-generic |
+| vHost 操作系统 | Ubuntu 24.04.2 LTS |
+| vHost 内核 | 6.8.0-79-generic |
 | ROCm | 7.0.0 |
 | amdgpu DKMS | 匹配 ROCm 7.0 |
 | gem5 构建目标 | VEGA_X86 |
@@ -97,19 +97,19 @@ console=ttyS0,115200 root=/dev/vda1 modprobe.blacklist=amdgpu
 | 镜像 | 用途 |
 |------|------|
 | `ghcr.io/gem5/gpu-fs:latest` | gem5 运行时容器的基础镜像（amd64） |
-| `cosim-dev:local` | 由 `just dev-image` 根据 `scripts/Dockerfile.dev` 构建的开发镜像（gem5 与 QEMU 编译依赖、Rust、QEMU、`qemu-img`） |
+| `cosim-dev:local` | 由 `just dev-image` 根据 `scripts/host/Dockerfile.dev` 构建的开发镜像（gem5 与 QEMU 编译依赖、Rust、QEMU、`qemu-img`） |
 | `ghcr.io/gem5/ubuntu-24.04_all-dependencies:v24-0` | gem5 编译用（仅 arm64） |
 
-> 在 amd64 宿主机上，请使用 `ghcr.io/gem5/gpu-fs` 作为编译镜像或原生编译。
+> 在 amd64 Host 上，请使用 `ghcr.io/gem5/gpu-fs` 作为编译镜像或原生编译。
 
 ### 构建产物
 
 | 产物 | 路径 | 大小 |
 |------|------|------|
 | gem5 二进制 | `build/gem5/<native>/VEGA_X86/gem5.opt` | 由构建配置决定 |
-| 磁盘镜像 | `build/images/guest/ubuntu/24.04/x86_64/rocm7_0/disk` | 虚拟容量 56 GB |
-| 内核 | `build/images/guest/ubuntu/24.04/x86_64/rocm7_0/kernel` | 配方产物 |
-| QEMU 二进制 | 宿主机 `PATH` 中的 `qemu-system-x86_64` | -- |
+| vHost 磁盘镜像 | `build/images/guest/ubuntu/24.04/x86_64/rocm7_0/disk` | 虚拟容量 56 GB |
+| vHost 内核 | `build/images/guest/ubuntu/24.04/x86_64/rocm7_0/kernel` | 配方产物 |
+| QEMU 二进制 | Host 的 `PATH` 中的 `qemu-system-x86_64` | -- |
 
 ---
 
@@ -254,7 +254,7 @@ MI300X 检测顺序（ROCm 7.0 DKMS，来自 dmesg）：
 
 | | |
 |---|---|
-| **症状** | 同时使用 `-serial unix:/tmp/serial.sock -nographic` 时 guest 无串口输出 |
+| **症状** | 同时使用 `-serial unix:/tmp/serial.sock -nographic` 时 vHost 无串口输出 |
 | **根因** | `-nographic` 隐含了 `-serial mon:stdio`，创建映射到 stdio 的 serial0。显式的 `-serial unix:...` 变成 serial1（ttyS1），但内核使用的是 `console=ttyS0` |
 | **修复** | 单独使用 `-nographic`。如需程序化访问，在 `screen` 中运行 QEMU |
 
@@ -272,7 +272,7 @@ MI300X 检测顺序（ROCm 7.0 DKMS，来自 dmesg）：
 |---|---|
 | **症状** | `Failed to init DRM client: -13` 后内核 panic。`ttm_resource_move_to_lru_tail` 中空指针崩溃 |
 | **根因** | 磁盘镜像缺少 `amddrm_exec.ko.zst` DKMS 模块。缺少此模块时 TTM 内存管理器初始化失败，`drm_dev_enter()` 返回 `-EACCES`（-13） |
-| **修复** | 校验当前镜像 bundle，以及其中的 `kernel-release` 和 `amdgpu-module.txt` 记录。输入发生变化时，使用 `scripts/cosim-image build guest/ubuntu/24.04/x86_64/rocm7_0` 重新构建配方。 |
+| **修复** | 校验当前镜像 bundle，以及其中的 `kernel-release` 和 `amdgpu-module.txt` 记录。输入发生变化时，使用 `scripts/host/cosim-image build guest/ubuntu/24.04/x86_64/rocm7_0` 重新构建配方。 |
 
 ### 4.15 驱动 hw_init 失败后 rmmod 导致 oops
 
@@ -314,10 +314,10 @@ docker logs gem5-cosim 2>&1 | tee /tmp/gem5.log
 # 过滤警告/错误
 docker logs gem5-cosim 2>&1 | grep -E "warn|error|GART"
 
-# Guest dmesg（通过 screen）
+# vHost dmesg（通过 screen）
 screen -S qemu-cosim -X stuff 'dmesg | tail -20\n'
 
-# Guest 串口输出（独立仿真）
+# vHost 串口输出（独立仿真）
 tail -f m5out/board.pc.com_1.device
 ```
 
@@ -423,16 +423,16 @@ memcpy(&pte, vramShmemPtr + pte_vram_offset, sizeof(pte));
 
 ---
 
-## 7. Guest 镜像配方
+## 7. vHost 镜像配方
 
-Guest 镜像配方放在 `resources/images/profiles/<role>/<distribution>/<release>/<architecture>/<profile>/`。ROCm 示例的 payload 选择 `guest/ubuntu/24.04/x86_64/rocm7_0`。
+vHost 操作系统镜像配方放在 `resources/images/profiles/<role>/<distribution>/<release>/<architecture>/<profile>/`。ROCm 示例的 payload 选择 `guest/ubuntu/24.04/x86_64/rocm7_0`。
 
 可以用以下命令查看、检查或构建配方：
 
 ```bash
-scripts/cosim-image list
-scripts/cosim-image validate guest/ubuntu/24.04/x86_64/rocm7_0
-scripts/cosim-image build guest/ubuntu/24.04/x86_64/rocm7_0
+scripts/host/cosim-image list
+scripts/host/cosim-image validate guest/ubuntu/24.04/x86_64/rocm7_0
+scripts/host/cosim-image build guest/ubuntu/24.04/x86_64/rocm7_0
 cosim run samples/machines/single-gpu.yaml --payload samples/payloads/ubuntu-rocm7_0.yaml --dry-run
 ```
 
@@ -451,7 +451,7 @@ cosim run samples/machines/single-gpu.yaml --payload samples/payloads/ubuntu-roc
 | `mi300x_vfio_user.{cc,hh}` | vfio-user 服务端 SimObject |
 | `MI300XVfioUser.py` | SimObject Python 封装（vfio-user） |
 | `cosim_bridge.hh` | vfio-user 服务端使用的抽象 CosimBridge 接口 |
-| `amdgpu_device.cc` | GPU 设备模型核心，`readROM()`、`intrPost()`、`writeFrame()` |
+| `amdgpu_device.cc` | GPU Device Model 核心，`readROM()`、`intrPost()`、`writeFrame()` |
 | `amdgpu_vm.{cc,hh}` | 所有转换生成器（GART、AGP、MMHUB、User），cosim VRAM 回退 |
 | `pm4_packet_processor.{cc,hh}` | PM4 包解码、DMA 路由、VRAM 写路由、`isVRAMAddress()` |
 | `pm4_defines.hh` | PM4 操作码，包括 `IT_ACQUIRE_MEM`、`IT_SET_RESOURCES` |
@@ -467,15 +467,16 @@ cosim run samples/machines/single-gpu.yaml --payload samples/payloads/ubuntu-roc
 | `configs/example/gem5_library/x86-mi300x-gpu.py` | 独立 stdlib 仿真配置 |
 | `configs/example/gpufs/mi300.py` | Legacy 独立仿真配置 |
 | `justfile` | 构建、启动、测试和检查任务的统一入口 |
-| `scripts/cosim_launch.sh` | cosim 编排（Docker + QEMU 启动） |
-| `scripts/run_mi300x_fs.sh` | 构建编排（编译、磁盘镜像、运行） |
-| `scripts/Dockerfile.dev` | 开发容器镜像定义 |
-| `scripts/dev.sh` | 在主机或临时开发容器中运行命令 |
-| `scripts/build.sh` | 在所选环境中构建 QEMU、gem5 和 m5 |
+| `scripts/host/cosim_launch.sh` | Host 编排（Docker + QEMU 启动） |
+| `scripts/host/run_mi300x_fs.sh` | Host 构建编排（编译、磁盘镜像、运行） |
+| `scripts/host/Dockerfile.dev` | 开发容器镜像定义 |
+| `scripts/host/dev.sh` | 在 Host 或临时开发容器中运行命令 |
+| `scripts/host/build.sh` | 在所选环境中构建 QEMU、gem5 和 m5 |
 | `resources/images/packer/qemu.pkr.hcl` | 通用 Packer QEMU builder |
 | `resources/images/ansible/provision.yml` | 通用 Ansible 配置入口 |
-| `resources/images/profiles/` | 按 Guest 系统和用途组织的镜像配方 |
-| `scripts/cosim-image` | Bash 镜像配方查看、检查、构建和校验入口 |
+| `resources/images/profiles/` | 按 vHost 操作系统和用途组织的镜像配方 |
+| `resources/vhost/scripts/` | 镜像配方共享的 vHost 脚本 |
+| `scripts/host/cosim-image` | Host 侧 Bash 镜像配方入口 |
 
 ### gem5 修改的基础设施文件
 
@@ -497,9 +498,9 @@ cosim run samples/machines/single-gpu.yaml --payload samples/payloads/ubuntu-roc
 |------|------|
 | `third_party/gem5/ext/libvfio-user/` | libvfio-user 库（git 子模块，vfio-user 传输层） |
 
-### Guest 磁盘镜像内容
+### vHost 磁盘镜像内容
 
-| 文件（Guest 内部） | 用途 |
+| 文件（vHost 内部） | 用途 |
 |--------------------|------|
 | `/root/roms/mi300.rom` | VGA BIOS ROM 二进制 |
 | `/usr/lib/firmware/amdgpu/mi300_discovery` | IP discovery 固件 |

@@ -1,11 +1,11 @@
 ---
 name: cosim-gpu-guest
-description: Use when you need to send commands to a running cosim guest. Console pipe interaction, 9p share mount, GPU status check, manual driver load.
+description: Use when you need to send commands to a running cosim vHost OS. Console pipe interaction, 9p share mount, GPU status check, manual driver load.
 ---
 
-# Cosim Guest
+# Cosim vHost
 
-Interact with the cosim guest Linux through a successful test session kept
+Interact with the cosim vHost Linux through a successful test session kept
 alive with `just test-gpu --keep-alive <program>`. A `just run-launch` session
 keeps the console attached to the terminal instead of creating a detached
 console pipe.
@@ -63,15 +63,15 @@ printf '%s\n' 'mount -t 9p -o trans=virtio,version=9p2000.L cosim_share /mnt' > 
 ```
 
 After mounting, paths under `/mnt` must resolve inside the shared tree. Host
-symlinks that point outside the shared repository will appear in the guest but
-may resolve to an unmounted guest path. If a script or artifact is missing
-through such a symlink, classify it as a guest bridge path issue and rerun with
-a guest-visible path before using the result as model evidence.
+symlinks that point outside the shared repository will appear in the vHost but
+may resolve to an unmounted vHost path. If a script or artifact is missing
+through such a symlink, classify it as a vHost bridge path issue and rerun with
+a vHost-visible path before using the result as model evidence.
 
-Do not assume any particular host storage layout for artifacts. One developer
+Do not assume any particular Host storage layout for artifacts. One developer
 may keep artifacts as a real directory, another may point it at a larger disk,
 and a CI worker may use a temporary workspace. Runner scripts that execute in
-the guest should therefore use a configurable guest-visible bridge path inside
+the vHost should therefore use a configurable vHost-visible bridge path inside
 the shared tree, while final logs, matrices, verdicts, and provenance are still
 archived under the requested artifact directory. The transient bridge directory
 is not evidence by itself; preserve its script and output under the row artifact
@@ -111,10 +111,10 @@ printf '%s\n' 'dd if=/root/roms/mi300.rom of=/dev/mem bs=1k seek=768 count=128 &
 printf '%s\n' "printf '%s\n' \"\${COSIM_GUEST_SUDO_PASSWORD:?set COSIM_GUEST_SUDO_PASSWORD}\" | sudo -S poweroff" > "$CONSOLE_PIPE"
 ```
 
-Use privileged shutdown after guest evidence is saved. This matches the
-privilege level used for ROCm device programs and avoids leaving a live guest
-waiting for manual poweroff. If the guest no longer accepts console input,
-record that fact and use `just run-clean-orphans` to remove orphaned host
+Use privileged shutdown after vHost evidence is saved. This matches the
+privilege level used for ROCm device programs and avoids leaving a live vHost
+waiting for manual poweroff. If the vHost no longer accepts console input,
+record that fact and use `just run-clean-orphans` to remove orphaned Host
 resources.
 
 ## Integration

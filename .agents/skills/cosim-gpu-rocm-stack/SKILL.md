@@ -1,12 +1,12 @@
 ---
 name: cosim-gpu-rocm-stack
-description: Read before debugging guest-side ROCm behavior such as HSA signals, HIP waits, KFD ioctls, driver parameters, PASID/VMID routing, or known cosim runtime quirks.
+description: Read before debugging vHost-side ROCm behavior such as HSA signals, HIP waits, KFD ioctls, driver parameters, PASID/VMID routing, or known cosim runtime quirks.
 ---
 
 # Cosim ROCm Stack
 
-Use this as the guest-side ROCm routing guide. It explains when a symptom
-belongs to test policy, guest inspection, debug evidence, or model-side review.
+Use this as the vHost-side ROCm routing guide. It explains when a symptom
+belongs to test policy, vHost inspection, debug evidence, or model-side review.
 Detailed runtime semantics live in `references/rocm-runtime-reference.md`; read
 that file when debugging HSA signals, HIP API waits, KFD ioctls, PASID, VMID, or
 driver parameters.
@@ -26,8 +26,8 @@ HIP API
 
 | Question | First route |
 |---|---|
-| Environment defaults or `HSA_ENABLE_INTERRUPT` | `cosim-gpu-test`, then `scripts/cosim_guest_env.sh` |
-| Guest device visibility, driver load, debugfs | `cosim-gpu-guest` |
+| Environment defaults or `HSA_ENABLE_INTERRUPT` | `cosim-gpu-test`, then `scripts/host/run_cosim_tests.sh` |
+| vHost device visibility, driver load, debugfs | `cosim-gpu-guest` |
 | Non-PASS row, hang, crash, or timeout | `cosim-gpu-debug` |
 | Disk image package or service changes | `cosim-gpu-disk-image-edit` |
 | HSA signal, HIP wait, KFD ioctl, PASID or VMID meaning | `references/rocm-runtime-reference.md` |

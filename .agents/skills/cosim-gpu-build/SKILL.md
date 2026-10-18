@@ -18,9 +18,9 @@ just build-qemu
 just build-m5 x86
 ```
 
-Use `just build-m5` without an argument to select the host ABI. Pass `x86` for
-the ROCm guest image profile. `just build-gem5 1` limits gem5 compilation to one
-job when linking runs out of memory. The recipes select the host or development
+Use `just build-m5` without an argument to select the Host ABI. Pass `x86` for
+the ROCm vHost image profile. `just build-gem5 1` limits gem5 compilation to one
+job when linking runs out of memory. The recipes select the Host or development
 container through `COSIM_ENV`.
 
 ## Source and output paths
@@ -50,5 +50,5 @@ Use the binary at the selected output path when launching or testing. CI runtime
 artifacts include a manifest with the source revision, build key and artifact
 checksums.
 
-Do not invoke `scripts/build.sh`, raw `scons`, QEMU `configure`, `make`, or
+Do not invoke `scripts/host/build.sh`, raw `scons`, QEMU `configure`, `make`, or
 Docker build commands directly. Use the corresponding `just` recipe.

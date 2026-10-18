@@ -10,10 +10,38 @@ the rules of those repositories.
 The justfile uses `dev-`, `build-`, `run-`, `test-`, `check-`, `ci-` and `maint-`
 prefixes to group recipes by purpose. Run `just` to see the available commands.
 
+## Script layout
+
+| Location | Runs in | Responsibility |
+|---|---|---|
+| `scripts/host/` | Host OS or development container | Host tools called by just, including build, launch, image-profile CLI and repository checks |
+| `resources/vhost/scripts/` | vHost OS | Scripts shared by multiple vHost image profiles |
+| `resources/images/profiles/<role>/<distribution>/<release>/<architecture>/<profile>/files/` | The named vHost image | Image-specific scripts and services installed by Ansible; the Ubuntu ROCm profile keeps its GPU setup and regression scripts here |
+| `tests/run_tests.sh` | vHost OS through the 9p share | Runs HIP test binaries; `scripts/host/run_cosim_tests.sh` launches it |
+| `tests/test_modprobe_params.sh` | Host and CI runner | Checks the vHost GPU setup script through `just check-modprobe-params` |
+| `scripts/ci/` | Host, including GitHub Actions runners | Workflow and artifact helpers plus test harnesses; selected checks are exposed through just for local reproduction |
+
+Every script installed in a vHost image is listed as a profile input so its
+content contributes to the image identity and cache key.
+
+`scripts/host/` contains `dev.sh`, `build.sh`, `cosim-image`, the QEMU launch
+and preflight tools, the Host-side GPU test runners, checkpatch and maintainer
+tools. The two `__init__.py` files in `scripts/` only make Python packages for
+module imports. `scripts/ci/run_rocm.py` is a Host-side regression runner used
+by both `just test-rocm-regression` and the `Integration` workflow. Other
+`scripts/ci/` tools cover artifact handling, maintainer assignment and CI test
+harnesses. `set_assignees.py` and `check_maintainer_changes.py` are used only
+by GitHub Actions; `prepare_image_host.sh` is the Host preparation step called
+by the build workflow through its `ci-*` recipe. `ci.yml` runs workflow lint
+and unit-test discovery directly. The Ubuntu ROCm image packages
+`cosim_gpu_setup.sh` and `cosim_rocm_regression.sh`; the latter is a CI-only
+payload invoked inside the vHost by `scripts/ci/run_rocm.py`. `tests/run_tests.sh`
+is shared to the vHost over 9p to run HIP test binaries.
+
 ## Patch Check Requirement
 
 Every non-merge commit submitted to cosim-gpu must pass
-`scripts/checkpatch.pl` without errors. The script is QEMU's
+`scripts/host/checkpatch.pl` without errors. The script is QEMU's
 `scripts/checkpatch.pl`, and cosim-gpu follows the QEMU patch style it
 enforces:
 
@@ -59,28 +87,28 @@ Check commits since a specific revision:
 just check-patch <base-commit>
 ```
 
-`just check-patch` runs `scripts/check_patch.sh`, which prints only the commits
+`just check-patch` runs `scripts/host/check_patch.sh`, which prints only the commits
 that have problems, prefixed with the commit hash and the patch line number,
 and exits with a non-zero status when any commit has an error.
 
 `just check` runs `just check-patch` together with ShellCheck and the
 `MAINTAINERS.yml` check described below.
 
-Run `scripts/checkpatch.pl` directly for other inputs:
+Run `scripts/host/checkpatch.pl` directly for other inputs:
 
 ```bash
 # One commit or a revision range
-./scripts/checkpatch.pl HEAD
-./scripts/checkpatch.pl origin/main..HEAD
+./scripts/host/checkpatch.pl HEAD
+./scripts/host/checkpatch.pl origin/main..HEAD
 
 # A patch file produced by git format-patch
-./scripts/checkpatch.pl 0001-example.patch
+./scripts/host/checkpatch.pl 0001-example.patch
 
 # Whole files instead of patches (does not check Signed-off-by)
-./scripts/checkpatch.pl -f scripts/cosim_launch.sh
+./scripts/host/checkpatch.pl -f scripts/host/cosim_launch.sh
 ```
 
-`scripts/checkpatch.pl` requires Perl 5 and must run inside the cosim-gpu
+`scripts/host/checkpatch.pl` requires Perl 5 and must run inside the cosim-gpu
 tree.
 
 ## Continuous Integration
@@ -104,7 +132,7 @@ dispatch. Its gem5 job builds `VEGA_X86` once and uploads the compressed binary,
 the `libvfio-user.a` needed by model tests, the development container image,
 and a SHA-256 manifest. The dependent
 `Integration` workflow downloads that same run's artifact, checks the project
-and gem5 revisions, host architecture, run identity and file digests, then loads
+and gem5 revisions, Host architecture, run identity and file digests, then loads
 the exact build image. It runs the restored MI300X model tests and builds QEMU
 and the Rust launcher in that environment. A retry of a failed integration job
 uses the producer's immutable artifact ID and reuses the successful build.
@@ -129,20 +157,20 @@ checks the image structure, and runs on a fresh Ubuntu 24.04 x86_64/KVM runner.
 See [ROCm image profiles](rocm-image.md) for the local interface and inputs.
 
 `just test-rocm-regression <output> <assets>` uses the Rust launcher and the sample
-host/device templates. It boots a fresh guest with a private disk overlay for
-each program, using 4 GiB of guest RAM, 4 GiB of VRAM and two guest CPUs by
+QEMU and Device Model templates. It boots a fresh vHost with a private disk overlay for
+each program, using 4 GiB of vHost RAM, 4 GiB of VRAM and two vHost CPUs by
 default. The 8 GiB pool fits the hosted runner's shared-memory capacity and
 leaves memory for the simulator. `--memory`, `--vram` and `--cpus` override these
 values through the recipe. The regression programs are
 `vector_add`, `gemm`, `reduction`, `transpose`, `prefix_scan` and
-`histogram`. Each guest checks the setup service, amdgpu, KFD, render devices and
+`histogram`. Each vHost checks the setup service, amdgpu, KFD, render devices and
 the gfx942 agent reported by `rocminfo`, then compiles and executes the exact
 HIP program with `HSA_ENABLE_INTERRUPT=0`. Success requires its numerical PASS
 result, a zero process exit status, and successful launcher cleanup. A timeout
 fails even if the program has already printed PASS. Execution stops on the first
 failure and the aggregate verdict requires every listed program to pass.
 
-The `ROCm regression gate` requires gem5, image construction and guest execution
+The `ROCm regression gate` requires gem5, image construction and vHost execution
 to succeed;
 make this check required in branch protection. The `rocm-regression-*` artifact
 contains complete console/model logs, topology and command manifests, source
@@ -151,20 +179,21 @@ revisions and binary digests, per-program verdicts and `matrix.tsv`. The
 evidence for fourteen
 days. To repeat the complete pipeline, dispatch `Build`.
 
-`just test-ci` checks command completion and error handling with real shell
-processes. `just test-legacy-build-image` uses the host's actual Docker daemon
-to verify the selected build image is checked before creating build outputs.
+The `regression-runner` job directly runs
+`python3 -m unittest discover -s scripts/ci -p 'test_*.py' -v` to check command
+completion and failure handling with real processes. The `workflow-lint` job
+directly runs actionlint over `.github/workflows/*.yml`.
+`just test-legacy-build-image` uses the Host's Docker daemon to verify the
+selected build image before creating build outputs.
 `just test-cosim-memory` uses a dedicated 96 MiB container tmpfs
 and real QEMU sessions to verify capacity reservation, rejection of a competing
 session and capacity release. It uses the existing development image.
-`just test-ci-integration` verifies signal and container-input
-cancellation with the Rust launcher and QEMU, including process cleanup and
-retained logs. `just check-ci` validates the workflow dependency graph with
-actionlint.
+`just test-session-lifecycle` verifies signal and container-input cancellation
+with the Rust launcher and QEMU, including process cleanup and retained logs.
 
 ## Differences from QEMU's checkpatch.pl
 
-`scripts/checkpatch.pl` is copied from QEMU commit
+`scripts/host/checkpatch.pl` is copied from QEMU commit
 `615ece3c406b262996e569f29ea6eed0d81c4d8d` with these cosim-gpu changes:
 
 | Area | cosim-gpu behavior |
@@ -189,14 +218,14 @@ update the QEMU commit recorded in this section.
 ## Maintainers and Review Assignment
 
 `MAINTAINERS.yml` divides the repository into areas, such as the QEMU frontend,
-each accelerator backend, the guest image, and the build system. Each area
+each accelerator backend, the vHost image, and the build system. Each area
 lists its files and the GitHub IDs of its maintainers and collaborators. The
 file format follows Zephyr's `MAINTAINERS.yml` and is documented in the comment
 at the top of the file.
 
 ### Looking Up Maintainers
 
-`scripts/get_maintainer.py` (from Zephyr) reads `MAINTAINERS.yml`. Install its
+`scripts/host/get_maintainer.py` (from Zephyr) reads `MAINTAINERS.yml`. Install its
 Python dependencies once:
 
 ```bash
@@ -206,12 +235,12 @@ pip install -r scripts/ci/requirements.txt
 Then query it through just:
 
 ```bash
-just maint-paths scripts/cosim_launch.sh tests/   # areas for paths
+just maint-paths scripts/host/cosim_launch.sh tests/   # areas for paths
 just maint-commits origin/main..                  # areas touched by commits
 just maint-areas                                  # all areas and maintainers
 ```
 
-`python3 scripts/get_maintainer.py --help` lists the other subcommands, such as
+`python3 scripts/host/get_maintainer.py --help` lists the other subcommands, such as
 `orphaned` and `count`.
 
 ### Checks
@@ -257,5 +286,5 @@ data, so pull requests from forks cannot change what the workflow executes.
 
 ## False Positives
 
-If `scripts/checkpatch.pl` reports an error on correct code, open an issue in
+If `scripts/host/checkpatch.pl` reports an error on correct code, open an issue in
 the cosim-gpu repository with the commit and the full report.

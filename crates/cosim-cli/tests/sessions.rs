@@ -585,7 +585,7 @@ fn closed_standard_input_ends_a_lifeline_session() {
         "--run-dir".into(),
         root.join("r").into(),
     ];
-    // scripts/dev.sh enables the lifeline with this variable.
+    // scripts/host/dev.sh enables the lifeline with this variable.
     let mut launcher = Launcher::spawn(root, &args, Stdio::piped(), Some("1"));
     launcher.wait_for("ready: m0.host");
     drop(launcher.child.stdin.take());

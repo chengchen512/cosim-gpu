@@ -7,29 +7,25 @@ From building the components to running your first HIP GPU compute test.
 
 ## Overview
 
-```
-+-----------------------------+       +----------------------------+
-|  QEMU  (Q35 + KVM)          |       |  gem5  (Docker)            |
-|  +-----------------------+  |       |  +----------------------+  |
-|  | Guest Linux           |  |       |  | MI300X GPU Model     |  |
-|  | amdgpu driver         |  |       |  |  Shader / CU / SDMA  |  |
-|  | ROCm 7.0 / HIP        |  |       |  |  PM4 / Ruby caches   |  |
-|  +----------+------------+  |       |  +---------+------------+  |
-|  +----------v------------+  |       |  +---------v------------+  |
-|  | vfio-user-pci         |<-------->|  | MI300XVfioUser       |  |
-|  | (QEMU built-in)       |  |vfio-  |  | (libvfio-user)       |  |
-|  +-----------------------+  |user   |  +----------------------+  |
-+-----------------------------+       +----------------------------+
-        |                                       |
-        v                                       v
-  /dev/shm/cosim-guest-ram            /dev/shm/mi300x-vram
-  (shared guest RAM)                  (shared GPU VRAM)
+```mermaid
+flowchart LR
+    subgraph Host[Host OS]
+        Q[Host-side QEMU]
+        M[gem5 MI300X Device Model]
+        D[QEMU Device Model]
+    end
+    Q -->|KVM or TCG| V[vHost OS · Linux · amdgpu · ROCm/HIP]
+    Q <-->|vfio-user / libvfio-user| M
+    Q <-->|vfio-user| D
+    Q --- R[Shared vHost RAM]
+    M --- R
+    M --- VRAM[Shared GPU VRAM]
 ```
 
-- **QEMU** handles CPU execution, Linux kernel boot, PCIe enumeration, and amdgpu driver loading.
-- **gem5** models the MI300X GPU: Shader, Compute Units, Cache hierarchy, and DMA engines.
-- They communicate via the **vfio-user protocol** over a Unix domain socket. QEMU uses its built-in `vfio-user-pci` device; gem5 runs `MI300XVfioUser` as the server.
-- Guest RAM and GPU VRAM are shared via **shared memory** under `/dev/shm/`.
+- **Host-side QEMU** uses KVM or TCG to run the vHost OS, enumerate PCIe devices and load the amdgpu driver.
+- **gem5 Device Model** simulates the MI300X vGPGPU: Shader, Compute Units, cache hierarchy and DMA engines.
+- **Device Model processes** expose their PCI functions through vfio-user; the gem5 server uses libvfio-user.
+- vHost RAM and GPU VRAM are shared through **shared memory** under `/dev/shm/`.
 
 For a deeper dive into the memory architecture and BAR layout, see [Architecture](architecture.md#shared-memory).
 
@@ -52,9 +48,9 @@ All build, launch and check tasks are recipes in the top-level `justfile`. Run
 
 ### Choose the Build Environment
 
-On Linux, the QEMU, gem5 and m5 build recipes run on the host by default,
+On Linux, the QEMU, gem5 and m5 build recipes run on the Host by default,
 which then needs the gem5 and QEMU build dependencies listed in
-`scripts/Dockerfile.dev`, including `scons`. Set `COSIM_ENV=container` to run
+`scripts/host/Dockerfile.dev`, including `scons`. Set `COSIM_ENV=container` to run
 them in a temporary development container instead; other systems use the
 container by default. Build its image once:
 
@@ -63,9 +59,9 @@ just dev-image
 export COSIM_ENV=container    # Linux without the build dependencies
 ```
 
-`scripts/Dockerfile.dev` is based on Ubuntu 24.04 and contains the gem5 and
-QEMU build dependencies, Rust, QEMU and `qemu-img`. `scripts/dev.sh` mounts the
-source tree at its host path and removes the container when each command exits.
+`scripts/host/Dockerfile.dev` is based on Ubuntu 24.04 and contains the gem5 and
+QEMU build dependencies, Rust, QEMU and `qemu-img`. `scripts/host/dev.sh` mounts the
+source tree at its Host path and removes the container when each command exits.
 
 ### Build gem5
 
@@ -74,7 +70,7 @@ The gem5 binary links against Ubuntu 24.04 libraries and must be compiled in a c
 > **Note:** The vfio-user backend requires `libjson-c-dev` (build-time) and `libjson-c5` (runtime). The `cosim-dev:local` image already includes this dependency.
 
 ```bash
-just build-gem5        # uses all host CPUs
+just build-gem5        # uses all Host CPUs
 just build-gem5 2      # limit parallelism, e.g. when linking is OOM-killed
 ```
 
@@ -89,12 +85,12 @@ The `qemu` submodule tracks the `gevico/cosim-gpu` branch of
 v11.1.2 release. Co-simulation uses its built-in `vfio-user-pci` device.
 
 ```bash
-just build-qemu        # uses all host CPUs; `just build-qemu 4` limits jobs
+just build-qemu        # uses all Host CPUs; `just build-qemu 4` limits jobs
 ```
 
-The recipe configures the host architecture's softmmu target with KVM and the
+The recipe configures the Host architecture's softmmu target with KVM and the
 vfio-user server in `build/qemu`, builds it, and checks that the binary
-provides `vfio-user-pci` and `x-vfio-user-server`. On a Linux host without the
+provides `vfio-user-pci` and `x-vfio-user-server`. On a Linux Host without the
 development container, QEMU's build dependencies (`ninja`, `pkg-config`,
 `glib-2.0`, `pixman`, `slirp`, `json-c`, `cmocka`, Python 3 with `venv`) must
 be installed.
@@ -113,7 +109,7 @@ module and its matching kernel.
 ### Automated Build
 
 ```bash
-just build-m5 x86      # recommended: avoids git clone inside the guest VM
+just build-m5 x86      # recommended: avoids git clone inside the vHost OS
 just build-disk
 just test-rocm-assets
 ```
@@ -125,8 +121,8 @@ builder uses firmware, WMI source and GPU support files from
 ### Custom Image Build
 
 ```bash
-scripts/cosim-image list
-scripts/cosim-image validate guest/ubuntu/24.04/x86_64/rocm7_0
+scripts/host/cosim-image list
+scripts/host/cosim-image validate guest/ubuntu/24.04/x86_64/rocm7_0
 ```
 
 Add another profile directory to select a different OS image or package set.
@@ -135,8 +131,8 @@ Add another profile directory to select a different OS image or package set.
 
 | Artifact | Path | Size |
 |---|---|---|
-| Disk Image | `build/images/guest/ubuntu/24.04/x86_64/rocm7_0/disk` | 56 GB virtual capacity |
-| Kernel | `build/images/guest/ubuntu/24.04/x86_64/rocm7_0/kernel` | Profile output |
+| vHost disk image | `build/images/guest/ubuntu/24.04/x86_64/rocm7_0/disk` | 56 GB virtual capacity |
+| vHost kernel | `build/images/guest/ubuntu/24.04/x86_64/rocm7_0/kernel` | Profile output |
 
 Use `cosim run --dry-run` to check the payload, profile cache state and resolved
 launch commands without building the image or starting the simulators.
@@ -149,9 +145,9 @@ launch commands without building the image or starting the simulators.
 just run-launch
 ```
 
-This recipe runs `scripts/cosim_launch.sh`, which starts the gem5 container, waits for readiness, fixes permissions, starts QEMU, and enters the serial console in interactive mode.
+This recipe runs `scripts/host/cosim_launch.sh`, which starts the gem5 container, waits for readiness, fixes permissions, starts Host-side QEMU, and enters the vHost serial console in interactive mode.
 
-Common options (passed through to `scripts/cosim_launch.sh`):
+Common options (passed through to `scripts/host/cosim_launch.sh`):
 
 ```bash
 just run-launch --gem5-debug MI300XCosim   # enable gem5 debug output
@@ -205,6 +201,9 @@ Waiting for QEMU to connect...
 ============================================================
 ```
 
+The `Host RAM` and `Host SHM` labels in gem5 output identify the vHost RAM
+mapping shared with the Device Model.
+
 #### Fix Permissions
 
 Files created by Docker are owned by root; permissions must be fixed so QEMU can access them:
@@ -232,11 +231,11 @@ qemu-system-x86_64 \
 
 > **Important:** The kernel command line must include `modprobe.blacklist=amdgpu` to prevent auto-loading the driver before the VGA ROM is written to shared memory. The `cosim-gpu-setup.service` handles the correct initialization order.
 
-QEMU writes guest changes to a temporary overlay and discards them when it exits, preserving the verified image bundle.
+QEMU writes vHost OS changes to a temporary overlay and discards them when it exits, preserving the verified image bundle.
 
-#### SSH Access to Guest
+#### SSH Access to vHost
 
-The `cosim_launch.sh` script enables user networking and SSH port forwarding by default. After configuring a network interface inside the guest with `netplan`, connect from the host:
+The `cosim_launch.sh` script enables user networking and SSH port forwarding by default. After configuring a network interface inside the vHost with `netplan`, connect from the Host:
 
 ```bash
 ssh -p 2222 gem5@localhost
@@ -260,7 +259,7 @@ rm -f /tmp/gem5-mi300x.sock
 
 ## GPU Driver Initialization
 
-The MI300X GPU driver can be loaded **automatically** or **manually** after the QEMU guest boots. All required files (ROM, firmware, kernel modules) are already included in the disk image.
+The MI300X GPU driver can be loaded **automatically** or **manually** after the vHost boots. All required files (ROM, firmware, kernel modules) are already included in the disk image.
 
 ### Automatic Loading (Default)
 
@@ -270,7 +269,7 @@ The disk image ships with `cosim-gpu-setup.service`, which runs at boot and perf
 2. Symlink IP discovery firmware
 3. `modprobe amdgpu ip_block_mask=0x67 ppfeaturemask=0 dpm=0 audio=0 ras_enable=0 discovery=2`
 
-The service completes in ~40 seconds. After guest login, the GPU is ready:
+The service completes in ~40 seconds. After vHost login, the GPU is ready:
 
 ```bash
 rocm-smi          # should show device 0x74a0
@@ -299,9 +298,9 @@ WantedBy=multi-user.target
 
 ### Manual Loading
 
-If the systemd service is not installed, or you need to reload the driver, run these commands manually after guest boot.
+If the systemd service is not installed, or you need to reload the driver, run these commands manually after vHost boot.
 
-**Prerequisites:** `cosim_launch.sh` is running (gem5 + QEMU are connected), the guest has booted with a root shell, and `modprobe.blacklist=amdgpu` was passed on the kernel command line.
+**Prerequisites:** `cosim_launch.sh` is running (gem5 + QEMU are connected), the vHost has booted with a root shell, and `modprobe.blacklist=amdgpu` was passed on the kernel command line.
 
 **Quick reference (copy-paste ready):**
 
@@ -388,7 +387,7 @@ KERNEL_DISPATCH capable
 
 > Approximately 80 fence fallback timer warnings may appear during loading. This is normal -- the DRM subsystem uses a polling-mode timeout fallback when probing ring buffers.
 
-### File Locations (Inside the Guest Disk Image)
+### File Locations (Inside the vHost Image)
 
 | File | Path |
 |------|------|
@@ -402,7 +401,7 @@ KERNEL_DISPATCH capable
 
 ### Compile a HIP Test Program
 
-Write a simple vector addition program inside the guest:
+Write a simple vector addition program inside the vHost:
 
 ```bash
 cat > /tmp/vec_add.cpp << 'EOF'
@@ -462,13 +461,13 @@ PASSED!
 
 ### Using the square Test from gem5-resources
 
-You can also use the `square` test program included in gem5-resources. Compile it on the host:
+You can also use the `square` test program included in gem5-resources. Compile it on the Host:
 
 ```bash
 just build-gpu-app square
 ```
 
-Then copy the compiled binary into the guest (via `scp -P 2222` or by mounting the disk image) and run it:
+Then copy the compiled binary into the vHost (via `scp -P 2222` or by mounting the disk image) and run it:
 
 ```bash
 ./square.default
@@ -514,7 +513,7 @@ just build-gpu-app square
 just run-gem5-fs build/apps/square/square.default
 ```
 
-> **Important:** The `--app` parameter must always be specified. Without it, the driver is never loaded inside the guest.
+> **Important:** The `--app` parameter must always be specified. Without it, the driver is never loaded inside the vHost.
 
 **4. Monitor output:**
 
@@ -522,7 +521,7 @@ just run-gem5-fs build/apps/square/square.default
 tail -f m5out/board.pc.com_1.device
 ```
 
-The simulation uses KVM to fast-forward through Linux boot, then automatically loads the GPU driver and runs the specified application. The guest calls `m5 exit` when the test completes.
+The simulation uses KVM to fast-forward through vHost Linux boot, then automatically loads the GPU driver and runs the specified application. The vHost calls `m5 exit` when the test completes.
 
 For full details on the standalone workflow, including the alternative `gpufs`
 configuration, disk image verification with `guestfish`, and build process

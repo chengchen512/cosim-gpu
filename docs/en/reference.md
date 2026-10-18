@@ -14,10 +14,10 @@ Consolidated lookup reference for the QEMU + gem5 MI300X co-simulation system. F
 |-----------|---------|-------------|
 | `--socket-path` | `/tmp/gem5-mi300x.sock` | QEMU <-> gem5 communication socket (vfio-user protocol) |
 | `--shmem-path` | `/mi300x-vram` | GPU VRAM shared memory name (under `/dev/shm`) |
-| `--shmem-host-path` | `/cosim-guest-ram` | Guest RAM shared memory name (under `/dev/shm`) |
+| `--shmem-host-path` | `/cosim-guest-ram` | Host-side POSIX shared-memory path for vHost RAM |
 | `--dgpu-mem-size` | `16GiB` | GPU VRAM size |
 | `--num-compute-units` | `40` | Number of GPU compute units |
-| `--mem-size` | `8GiB` | Guest physical memory size |
+| `--mem-size` | `8GiB` | vHost physical memory size |
 | `--gem5-debug` | (none) | gem5 debug flag(s), e.g. `MI300XCosim`, `AMDGPUDevice,PM4PacketProcessor` |
 | `--vram-size` | `32GiB` | Custom VRAM size (alias for `--dgpu-mem-size`) |
 | `--num-cus` | `80` | Custom CU count (alias for `--num-compute-units`) |
@@ -83,8 +83,8 @@ console=ttyS0,115200 root=/dev/vda1 modprobe.blacklist=amdgpu
 
 | Component | Version |
 |-----------|---------|
-| Guest OS | Ubuntu 24.04.2 LTS |
-| Guest Kernel | 6.8.0-79-generic |
+| vHost OS | Ubuntu 24.04.2 LTS |
+| vHost Kernel | 6.8.0-79-generic |
 | ROCm | 7.0.0 |
 | amdgpu DKMS | Matches ROCm 7.0 |
 | gem5 Build Target | VEGA_X86 |
@@ -97,19 +97,19 @@ console=ttyS0,115200 root=/dev/vda1 modprobe.blacklist=amdgpu
 | Image | Purpose |
 |-------|---------|
 | `ghcr.io/gem5/gpu-fs:latest` | Base image for gem5 runtime container (amd64) |
-| `cosim-dev:local` | Development image built from `scripts/Dockerfile.dev` by `just dev-image` (gem5 and QEMU build dependencies, Rust, QEMU, `qemu-img`) |
+| `cosim-dev:local` | Development image built from `scripts/host/Dockerfile.dev` by `just dev-image` (gem5 and QEMU build dependencies, Rust, QEMU, `qemu-img`) |
 | `ghcr.io/gem5/ubuntu-24.04_all-dependencies:v24-0` | gem5 compilation (arm64 only) |
 
-> On amd64 hosts, use `ghcr.io/gem5/gpu-fs` as the build image or compile natively.
+> On amd64 Hosts, use `ghcr.io/gem5/gpu-fs` as the build image or compile natively.
 
 ### Build Artifacts
 
 | Artifact | Path | Size |
 |----------|------|------|
 | gem5 binary | `build/gem5/<native>/VEGA_X86/gem5.opt` | Depends on build options |
-| Disk image | `build/images/guest/ubuntu/24.04/x86_64/rocm7_0/disk` | 56 GB virtual capacity |
-| Kernel | `build/images/guest/ubuntu/24.04/x86_64/rocm7_0/kernel` | Profile output |
-| QEMU binary | `qemu-system-x86_64` from the host `PATH` | -- |
+| vHost disk image | `build/images/guest/ubuntu/24.04/x86_64/rocm7_0/disk` | 56 GB virtual capacity |
+| vHost kernel | `build/images/guest/ubuntu/24.04/x86_64/rocm7_0/kernel` | Profile output |
+| QEMU binary | `qemu-system-x86_64` from the Host `PATH` | -- |
 
 ---
 
@@ -254,7 +254,7 @@ The driver checks `(amdgpu_ip_block_mask & (1 << i))` where `i` is the discovery
 
 | | |
 |---|---|
-| **Symptom** | No serial output from guest when using `-serial unix:/tmp/serial.sock -nographic` together |
+| **Symptom** | No serial output from the vHost when using `-serial unix:/tmp/serial.sock -nographic` together |
 | **Root Cause** | `-nographic` implies `-serial mon:stdio`, creating serial0 on stdio. Explicit `-serial unix:...` becomes serial1 (ttyS1), but kernel uses `console=ttyS0` |
 | **Fix** | Use `-nographic` alone. For programmatic access, run QEMU inside `screen` |
 
@@ -272,7 +272,7 @@ The driver checks `(amdgpu_ip_block_mask & (1 << i))` where `i` is the discovery
 |---|---|
 | **Symptom** | `Failed to init DRM client: -13` followed by kernel panic. NULL pointer dereference in `ttm_resource_move_to_lru_tail` |
 | **Root Cause** | Disk image missing `amddrm_exec.ko.zst` DKMS module. Without it, TTM memory manager fails, `drm_dev_enter()` returns `-EACCES` (-13) |
-| **Fix** | Verify the selected image bundle and its `kernel-release` and `amdgpu-module.txt` records. Rebuild the profile with `scripts/cosim-image build guest/ubuntu/24.04/x86_64/rocm7_0` when its inputs are stale. |
+| **Fix** | Verify the selected image bundle and its `kernel-release` and `amdgpu-module.txt` records. Rebuild the profile with `scripts/host/cosim-image build guest/ubuntu/24.04/x86_64/rocm7_0` when its inputs are stale. |
 
 ### 4.15 Driver rmmod After hw_init Failure
 
@@ -314,10 +314,10 @@ docker logs gem5-cosim 2>&1 | tee /tmp/gem5.log
 # Filter for warnings/errors
 docker logs gem5-cosim 2>&1 | grep -E "warn|error|GART"
 
-# Guest dmesg (via screen)
+# vHost dmesg (via screen)
 screen -S qemu-cosim -X stuff 'dmesg | tail -20\n'
 
-# Guest serial output (standalone sim)
+# vHost serial output (standalone sim)
 tail -f m5out/board.pc.com_1.device
 ```
 
@@ -423,16 +423,16 @@ If PTE is 0 (unmapped), the address is mapped to sink (`paddr=0`) instead of fau
 
 ---
 
-## 7. Guest Image Profiles
+## 7. vHost Image Profiles
 
-Guest image profiles are stored under `resources/images/profiles/<role>/<distribution>/<release>/<architecture>/<profile>/`. The ROCm sample selects `guest/ubuntu/24.04/x86_64/rocm7_0` from its payload file.
+vHost OS image profiles are stored under `resources/images/profiles/<role>/<distribution>/<release>/<architecture>/<profile>/`. The ROCm sample selects `guest/ubuntu/24.04/x86_64/rocm7_0` from its payload file.
 
 Build or inspect the selected profile with:
 
 ```bash
-scripts/cosim-image list
-scripts/cosim-image validate guest/ubuntu/24.04/x86_64/rocm7_0
-scripts/cosim-image build guest/ubuntu/24.04/x86_64/rocm7_0
+scripts/host/cosim-image list
+scripts/host/cosim-image validate guest/ubuntu/24.04/x86_64/rocm7_0
+scripts/host/cosim-image build guest/ubuntu/24.04/x86_64/rocm7_0
 cosim run samples/machines/single-gpu.yaml --payload samples/payloads/ubuntu-rocm7_0.yaml --dry-run
 ```
 
@@ -451,7 +451,7 @@ The following gem5 source paths are relative to `third_party/gem5/`.
 | `mi300x_vfio_user.{cc,hh}` | vfio-user server SimObject |
 | `MI300XVfioUser.py` | SimObject Python wrapper (vfio-user) |
 | `cosim_bridge.hh` | Abstract CosimBridge interface used by the vfio-user server |
-| `amdgpu_device.cc` | GPU device model core, `readROM()`, `intrPost()`, `writeFrame()` |
+| `amdgpu_device.cc` | GPU Device Model core, `readROM()`, `intrPost()`, `writeFrame()` |
 | `amdgpu_vm.{cc,hh}` | All translation generators (GART, AGP, MMHUB, User), cosim VRAM fallback |
 | `pm4_packet_processor.{cc,hh}` | PM4 packet decode, DMA routing, VRAM write routing, `isVRAMAddress()` |
 | `pm4_defines.hh` | PM4 opcodes including `IT_ACQUIRE_MEM`, `IT_SET_RESOURCES` |
@@ -467,15 +467,16 @@ The following gem5 source paths are relative to `third_party/gem5/`.
 | `configs/example/gem5_library/x86-mi300x-gpu.py` | Standalone stdlib simulation config |
 | `configs/example/gpufs/mi300.py` | Legacy standalone simulation config |
 | `justfile` | Task runner entry point for build, launch, test and check recipes |
-| `scripts/cosim_launch.sh` | Cosim orchestration (Docker + QEMU launch) |
-| `scripts/run_mi300x_fs.sh` | Build orchestration (compile, disk image, run) |
-| `scripts/Dockerfile.dev` | Development container image definition |
-| `scripts/dev.sh` | Runs a command on the host or in a temporary development container |
-| `scripts/build.sh` | Builds QEMU, gem5 and m5 in the selected environment |
+| `scripts/host/cosim_launch.sh` | Host orchestration (Docker + QEMU launch) |
+| `scripts/host/run_mi300x_fs.sh` | Host build orchestration (compile, disk image, run) |
+| `scripts/host/Dockerfile.dev` | Development container image definition |
+| `scripts/host/dev.sh` | Runs a command on the Host or in a temporary development container |
+| `scripts/host/build.sh` | Builds QEMU, gem5 and m5 in the selected environment |
 | `resources/images/packer/qemu.pkr.hcl` | Shared Packer QEMU builder |
 | `resources/images/ansible/provision.yml` | Shared Ansible provisioning entry |
-| `resources/images/profiles/` | OS and role-specific guest image profiles |
-| `scripts/cosim-image` | Bash entry for listing, validating, building and verifying image profiles |
+| `resources/images/profiles/` | OS and role-specific vHost image profiles |
+| `resources/vhost/scripts/` | vHost scripts shared by image profiles |
+| `scripts/host/cosim-image` | Host-side Bash entry for image profiles |
 
 ### gem5 Modified Infrastructure Files
 
@@ -497,9 +498,9 @@ The following gem5 source paths are relative to `third_party/gem5/`.
 |------|---------|
 | `third_party/gem5/ext/libvfio-user/` | libvfio-user library (git submodule, vfio-user transport) |
 
-### Guest Disk Image Contents
+### vHost Disk Image Contents
 
-| File (inside guest) | Purpose |
+| File (inside vHost) | Purpose |
 |----------------------|---------|
 | `/root/roms/mi300.rom` | VGA BIOS ROM binary |
 | `/usr/lib/firmware/amdgpu/mi300_discovery` | IP discovery firmware |

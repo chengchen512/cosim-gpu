@@ -46,7 +46,7 @@ Prefer compact generated tables when available:
 - `diagnostic-summary.tsv`
 
 Classify timeout as `slow_progress` when dispatch or completion counters keep
-changing. Classify it as a wait candidate only when counters, guest output, and
+changing. Classify it as a wait candidate only when counters, vHost output, and
 relevant queue or signal observations stop changing or are missing in a way
 that requires a targeted follow-up.
 
@@ -55,7 +55,7 @@ If diagnostic filters do not cover final waiting objects, mark
 
 ## Performance Rows
 
-Keep runner wall time, host CPU time, guest workload window, event counts,
+Keep runner wall time, Host CPU time, vHost workload window, event counts,
 completion counts, verdict, binary hash, source fingerprint, and candidate diff
 in one artifact set.
 
@@ -76,12 +76,12 @@ run.
 For interrupt-mode rows:
 
 ```bash
-GUEST_TEST_PREFIX="HSA_ENABLE_INTERRUPT=0" bash scripts/run_cosim_tests.sh <program>
-GUEST_TEST_PREFIX="HSA_ENABLE_INTERRUPT=1" bash scripts/run_cosim_tests.sh <program>
+GUEST_TEST_PREFIX="HSA_ENABLE_INTERRUPT=0" bash scripts/host/run_cosim_tests.sh <program>
+GUEST_TEST_PREFIX="HSA_ENABLE_INTERRUPT=1" bash scripts/host/run_cosim_tests.sh <program>
 ```
 
 Accept interrupt mode only from `[COSIM_ENV] HSA_ENABLE_INTERRUPT=<value>` in
-guest logs or from matrix data generated from that line.
+vHost logs or from matrix data generated from that line.
 
 Required matrix columns:
 

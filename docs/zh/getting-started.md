@@ -7,29 +7,25 @@ QEMU + gem5 MI300X 联合仿真项目的快速入门指南。
 
 ## 架构概述
 
-```
-+-----------------------------+       +----------------------------+
-|  QEMU  (Q35 + KVM)          |       |  gem5  (Docker)            |
-|  +-----------------------+  |       |  +----------------------+  |
-|  | Guest Linux           |  |       |  | MI300X GPU Model     |  |
-|  | amdgpu driver         |  |       |  |  Shader / CU / SDMA  |  |
-|  | ROCm 7.0 / HIP        |  |       |  |  PM4 / Ruby caches   |  |
-|  +----------+------------+  |       |  +---------+------------+  |
-|  +----------v------------+  |       |  +---------v------------+  |
-|  | vfio-user-pci         |<-------->|  | MI300XVfioUser       |  |
-|  | (QEMU built-in)       |  |vfio-  |  | (libvfio-user)       |  |
-|  +-----------------------+  |user   |  +----------------------+  |
-+-----------------------------+       +----------------------------+
-        |                                       |
-        v                                       v
-  /dev/shm/cosim-guest-ram            /dev/shm/mi300x-vram
-  (shared guest RAM)                  (shared GPU VRAM)
+```mermaid
+flowchart LR
+    subgraph Host[Host 操作系统]
+        Q[Host-side QEMU]
+        M[gem5 MI300X Device Model]
+        D[QEMU Device Model]
+    end
+    Q -->|KVM 或 TCG| V[vHost 操作系统 · Linux · amdgpu · ROCm/HIP]
+    Q <-->|vfio-user / libvfio-user| M
+    Q <-->|vfio-user| D
+    Q --- R[共享 vHost 内存]
+    M --- R
+    M --- VRAM[共享 GPU VRAM]
 ```
 
-- **QEMU** 负责：CPU 执行、Linux 内核引导、PCIe 枚举、amdgpu 驱动加载
-- **gem5** 负责：MI300X GPU 计算模型（Shader、CU、缓存、DMA 引擎）
-- 两者通过 **vfio-user 协议**（基于 Unix 域套接字）通信。QEMU 使用内置的 `vfio-user-pci` 设备，gem5 端运行 `MI300XVfioUser` 作为 vfio-user 服务端
-- Guest 物理内存和 GPU VRAM 通过 `/dev/shm/` 下的**共享内存**共享
+- **Host-side QEMU** 使用 KVM 或 TCG 运行 vHost 操作系统、枚举 PCIe 设备并加载 amdgpu 驱动。
+- **gem5 Device Model** 模拟 MI300X vGPGPU，包括 Shader、CU、缓存和 DMA 引擎。
+- **Device Model 进程**通过 vfio-user 提供 PCI 设备；gem5 服务端使用 libvfio-user。
+- vHost 内存和 GPU VRAM 通过 `/dev/shm/` 下的**共享内存**共享。
 
 关于内存架构和 BAR 布局的详细说明，请参阅[架构文档](architecture.md#共享内存)。
 
@@ -37,7 +33,7 @@ QEMU + gem5 MI300X 联合仿真项目的快速入门指南。
 
 | 需求 | 说明 |
 |---|---|
-| 宿主机系统 | Linux x86_64，支持 KVM（已在 WSL2 6.6.x 验证） |
+| Host 操作系统 | Linux x86_64，支持 KVM（已在 WSL2 6.6.x 验证） |
 | Docker | 守护进程运行中，当前用户在 `docker` 组 |
 | KVM | `/dev/kvm` 可访问 |
 | QEMU | 由 `qemu` 子模块编译（`just build-qemu`），或使用系统安装且提供 `vfio-user-pci` 的 QEMU 10.1+ |
@@ -52,7 +48,7 @@ QEMU + gem5 MI300X 联合仿真项目的快速入门指南。
 ### 选择构建环境
 
 在 Linux 上，QEMU、gem5 和 m5 的构建 recipe 默认在主机上运行，此时主机需要安装
-`scripts/Dockerfile.dev` 中列出的 gem5 和 QEMU 编译依赖，包括 `scons`。设置
+`scripts/host/Dockerfile.dev` 中列出的 gem5 和 QEMU 编译依赖，包括 `scons`。设置
 `COSIM_ENV=container` 后，这些 recipe 改为在临时开发容器中运行；其他系统默认使用
 开发容器。先构建一次镜像：
 
@@ -61,8 +57,8 @@ just dev-image
 export COSIM_ENV=container    # 未安装编译依赖的 Linux 主机
 ```
 
-`scripts/Dockerfile.dev` 基于 Ubuntu 24.04，包含 gem5 和 QEMU 的编译依赖、Rust、QEMU
-和 `qemu-img`。`scripts/dev.sh` 按主机上的路径挂载源码树，每条命令结束后删除容器。
+`scripts/host/Dockerfile.dev` 基于 Ubuntu 24.04，包含 gem5 和 QEMU 的编译依赖、Rust、QEMU
+和 `qemu-img`。`scripts/host/dev.sh` 按 Host 路径挂载源码树，每条命令结束后删除容器。
 
 ### 编译 gem5
 
@@ -71,7 +67,7 @@ gem5 二进制链接了 Ubuntu 24.04 的库，需要在兼容环境中编译。
 > **注意：** vfio-user 后端依赖 `libjson-c-dev`（编译时）和 `libjson-c5`（运行时）。`cosim-dev:local` 镜像已包含此依赖，无需额外安装。
 
 ```bash
-just build-gem5        # 使用宿主机全部 CPU
+just build-gem5        # 使用 Host 全部 CPU
 just build-gem5 2      # 限制并行度，例如链接阶段内存不足时
 ```
 
@@ -84,10 +80,10 @@ X86、VEGA 模型及 GPU_VIPER 配置。
 `qemu` 子模块跟踪 [gevico/qemu](https://github.com/gevico/qemu) 的 `gevico/cosim-gpu` 分支，该分支基于 QEMU v11.1.2 发布版本。联合仿真使用其中内置的 `vfio-user-pci` 设备。
 
 ```bash
-just build-qemu        # 使用宿主机全部 CPU；`just build-qemu 4` 限制并行任务数
+just build-qemu        # 使用 Host 全部 CPU；`just build-qemu 4` 限制并行任务数
 ```
 
-该任务在 `build/qemu` 中为主机架构配置启用 KVM 和 vfio-user server 的 softmmu 目标，完成编译，并检查程序是否提供 `vfio-user-pci` 和 `x-vfio-user-server`。不使用开发容器的 Linux 主机需要安装 QEMU 的编译依赖（`ninja`、`pkg-config`、`glib-2.0`、`pixman`、`slirp`、`json-c`、`cmocka`，以及带 `venv` 的 Python 3）。
+该任务在 `build/qemu` 中为 Host 架构配置启用 KVM 和 vfio-user server 的 softmmu 目标，完成编译，并检查程序是否提供 `vfio-user-pci` 和 `x-vfio-user-server`。不使用开发容器的 Linux Host 需要安装 QEMU 的编译依赖（`ninja`、`pkg-config`、`glib-2.0`、`pixman`、`slirp`、`json-c`、`cmocka`，以及带 `venv` 的 Python 3）。
 
 `just run-launch` 和 `just build-disk` 按以下顺序选择 QEMU：
 
@@ -102,7 +98,7 @@ just build-qemu        # 使用宿主机全部 CPU；`just build-qemu 4` 限制�
 ### 自动构建
 
 ```bash
-just build-m5 x86      # 推荐：避免在 Guest 虚拟机内 git clone
+just build-m5 x86      # 推荐：避免在 vHost 操作系统内 git clone
 just build-disk
 just test-rocm-assets
 ```
@@ -113,8 +109,8 @@ just test-rocm-assets
 ### 自定义镜像构建
 
 ```bash
-scripts/cosim-image list
-scripts/cosim-image validate guest/ubuntu/24.04/x86_64/rocm7_0
+scripts/host/cosim-image list
+scripts/host/cosim-image validate guest/ubuntu/24.04/x86_64/rocm7_0
 ```
 
 添加新的 profile 目录即可选择其他操作系统镜像或软件包组合。
@@ -123,8 +119,8 @@ scripts/cosim-image validate guest/ubuntu/24.04/x86_64/rocm7_0
 
 | 产物 | 路径 | 大小 |
 |---|---|---|
-| 磁盘镜像 | `build/images/guest/ubuntu/24.04/x86_64/rocm7_0/disk` | 虚拟容量 56 GB |
-| 内核 | `build/images/guest/ubuntu/24.04/x86_64/rocm7_0/kernel` | 配方产物 |
+| vHost 磁盘镜像 | `build/images/guest/ubuntu/24.04/x86_64/rocm7_0/disk` | 虚拟容量 56 GB |
+| vHost 内核 | `build/images/guest/ubuntu/24.04/x86_64/rocm7_0/kernel` | 配方产物 |
 
 使用 `cosim run --dry-run` 可以检查 payload、镜像缓存状态和解析后的启动命令，
 整个过程不会构建镜像，也不会启动模拟器。
@@ -137,9 +133,9 @@ scripts/cosim-image validate guest/ubuntu/24.04/x86_64/rocm7_0
 just run-launch
 ```
 
-该任务运行 `scripts/cosim_launch.sh`，自动完成以下所有步骤（启动 gem5 容器、等待就绪、修复权限、启动 QEMU），并以交互模式进入 QEMU 串口控制台。
+该任务运行 `scripts/host/cosim_launch.sh`，自动完成以下所有步骤（启动 gem5 容器、等待就绪、修复权限、启动 Host-side QEMU），并以交互模式进入 vHost 串口控制台。
 
-可用参数（传给 `scripts/cosim_launch.sh`）：
+可用参数（传给 `scripts/host/cosim_launch.sh`）：
 
 ```bash
 just run-launch --gem5-debug MI300XCosim   # 开启 gem5 调试输出
@@ -193,6 +189,8 @@ Waiting for QEMU to connect...
 ============================================================
 ```
 
+gem5 输出中的 `Host RAM` 和 `Host SHM` 表示与 Device Model 共享的 vHost 内存映射。
+
 #### 修复权限
 
 Docker 创建的文件归 root 所有，需要修复权限以便 QEMU 访问：
@@ -220,11 +218,11 @@ qemu-system-x86_64 \
 
 > **重要：** 内核命令行必须包含 `modprobe.blacklist=amdgpu`，防止 PCI 子系统在 VGA ROM 写入共享内存之前自动加载驱动。`cosim-gpu-setup.service` 会按正确顺序初始化。
 
-QEMU 会把客户机的修改写入临时覆盖镜像，并在退出时丢弃这些修改，从而保留已校验的镜像包。
+QEMU 会把 vHost 操作系统的修改写入临时覆盖镜像，并在退出时丢弃这些修改，从而保留已校验的镜像包。
 
-#### SSH 访问客户机
+#### SSH 访问 vHost
 
-`cosim_launch.sh` 脚本默认启用了用户态网络和 SSH 端口转发。在客户机内通过 `netplan` 配置网络接口后，从宿主机连接：
+`cosim_launch.sh` 脚本默认启用了用户态网络和 SSH 端口转发。在 vHost 内通过 `netplan` 配置网络接口后，从 Host 连接：
 
 ```bash
 ssh -p 2222 gem5@localhost
@@ -248,7 +246,7 @@ rm -f /tmp/gem5-mi300x.sock
 
 ## GPU 驱动初始化
 
-MI300X GPU 驱动可在 QEMU 客户机启动后**自动**或**手动**加载。磁盘镜像中已包含所有必需的文件（ROM、固件、内核模块）。
+MI300X GPU 驱动可在 vHost 启动后**自动**或**手动**加载。磁盘镜像中已包含所有必需的文件（ROM、固件、内核模块）。
 
 ### 自动加载（默认）
 
@@ -258,7 +256,7 @@ MI300X GPU 驱动可在 QEMU 客户机启动后**自动**或**手动**加载。�
 2. 链接 IP discovery 固件
 3. `modprobe amdgpu ip_block_mask=0x67 ppfeaturemask=0 dpm=0 audio=0 ras_enable=0 discovery=2`
 
-服务约 40 秒完成。登录后 GPU 即可使用：
+服务约 40 秒完成。登录 vHost 后 GPU 即可使用：
 
 ```bash
 rocm-smi          # 应显示设备 0x74a0
@@ -287,9 +285,9 @@ WantedBy=multi-user.target
 
 ### 手动加载
 
-如果 systemd 服务未安装，或需要重新加载驱动，在客户机启动后手动执行以下命令。
+如果 systemd 服务未安装，或需要重新加载驱动，在 vHost 启动后手动执行以下命令。
 
-**前置条件：** `cosim_launch.sh` 正在运行（gem5 + QEMU 已连接），客户机已启动并获取了 root shell，内核命令行中传递了 `modprobe.blacklist=amdgpu`。
+**前置条件：** `cosim_launch.sh` 正在运行（gem5 + QEMU 已连接），vHost 已启动并获取了 root shell，内核命令行中传递了 `modprobe.blacklist=amdgpu`。
 
 **快速参考（可直接复制粘贴）：**
 
@@ -376,7 +374,7 @@ KERNEL_DISPATCH capable
 
 > 加载过程中可能出现约 80 条 fence fallback timer 警告，这是正常现象——DRM 子系统在探测所有 ring buffer 时使用轮询模式的超时回退机制。
 
-### 文件位置（客户机磁盘镜像内部）
+### 文件位置（vHost 镜像内部）
 
 | 文件 | 路径 |
 |------|------|
@@ -390,7 +388,7 @@ KERNEL_DISPATCH capable
 
 ### 编译 HIP 测试程序
 
-在客户机内编写一个简单的向量加法程序：
+在 vHost 内编写一个简单的向量加法程序：
 
 ```bash
 cat > /tmp/vec_add.cpp << 'EOF'
@@ -450,13 +448,13 @@ PASSED!
 
 ### 使用 gem5-resources 中的 square 测试
 
-也可以使用 gem5-resources 自带的 `square` 测试程序。需要先在宿主机编译：
+也可以使用 gem5-resources 自带的 `square` 测试程序。需要先在 Host 上编译：
 
 ```bash
 just build-gpu-app square
 ```
 
-然后将编译产物拷入客户机（通过 `scp -P 2222` 或直接挂载磁盘镜像），在客户机内运行：
+然后将编译产物拷入 vHost（通过 `scp -P 2222` 或直接挂载磁盘镜像），在 vHost 内运行：
 
 ```bash
 ./square.default
@@ -510,7 +508,7 @@ just run-gem5-fs build/apps/square/square.default
 tail -f m5out/board.pc.com_1.device
 ```
 
-仿真使用 KVM 快进 Linux 启动过程，然后自动加载 GPU 驱动并运行指定的应用。Guest 在测试完成后调用 `m5 exit` 结束仿真。
+仿真使用 KVM 快进 vHost Linux 启动过程，然后自动加载 GPU 驱动并运行指定的应用。vHost 在测试完成后调用 `m5 exit` 结束仿真。
 
 关于独立仿真流程的完整细节（包括另一套 `gpufs` 配置、使用 `guestfish`
 验证磁盘镜像以及构建过程内部原理），请参阅 gem5 文档。
