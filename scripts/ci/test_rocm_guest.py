@@ -138,11 +138,29 @@ class GuestBuildTargetTests(unittest.TestCase):
             == "Build the AMDGPU DKMS module for the selected kernel"
         )
 
+        rescue_tasks = dkms_task["rescue"]
+        discovery_task = next(
+            task for task in rescue_tasks
+            if task["name"] == "Find AMDGPU DKMS build logs"
+        )
         log_task = next(
-            task for task in dkms_task["rescue"]
+            task for task in rescue_tasks
             if task["name"] == "Print AMDGPU DKMS build logs"
         )
-        failure_task = dkms_task["rescue"][-1]
+        failure_task = rescue_tasks[-1]
+
+        self.assertLess(
+            rescue_tasks.index(discovery_task), rescue_tasks.index(log_task)
+        )
+        self.assertEqual(
+            discovery_task["ansible.builtin.find"],
+            {
+                "paths": "/var/lib/dkms/amdgpu",
+                "patterns": "make.log",
+                "recurse": True,
+            },
+        )
+        self.assertEqual(discovery_task["register"], "amdgpu_dkms_logs")
 
         self.assertEqual(
             log_task["ansible.builtin.command"]["argv"],
