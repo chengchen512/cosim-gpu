@@ -14,13 +14,13 @@ import uuid
 
 from .errors import ImageError
 from .fingerprint import digest_json, sha256_file
-from .profile import ImageProfile
+from .recipe import ImageRecipe
 from .toolchain import qemu_img_binary
 
 
 def verify_bundle(
     workspace: Path,
-    profile: ImageProfile,
+    recipe: ImageRecipe,
     directory: Path,
     expected_key: str | None = None,
     *,
@@ -35,7 +35,7 @@ def verify_bundle(
     manifest = read_json(manifest_path)
     if (
         manifest.get("schema") != 1
-        or manifest.get("profile") != profile.identifier
+        or manifest.get("recipe") != recipe.identifier
     ):
         raise ImageError(f"invalid image manifest: {manifest_path}")
     inputs = manifest.get("inputs")
@@ -44,12 +44,12 @@ def verify_bundle(
         raise ImageError("image manifest input fingerprint is invalid")
     if expected_key is not None and input_key != expected_key:
         raise ImageError("image bundle was built from different inputs")
-    if manifest.get("disk_format") != profile.disk_format:
+    if manifest.get("disk_format") != recipe.disk_format:
         raise ImageError(
-            "image manifest disk format does not match its profile"
+            "image manifest disk format does not match its recipe"
         )
     files = manifest.get("files")
-    expected_files = {"disk", *(output.name for output in profile.outputs)}
+    expected_files = {"disk", *(output.name for output in recipe.outputs)}
     if not isinstance(files, dict) or set(files) != expected_files:
         raise ImageError("image manifest does not describe its disk")
     for name in sorted(files, key=lambda item: (item == "disk", item)):
@@ -88,24 +88,24 @@ def verify_bundle(
             [str(qemu_img), "check", "-q", "-f", "qcow2", str(disk)],
             check=True,
         )
-    if profile.kernel_artifact:
-        kernel = directory / profile.kernel_artifact
+    if recipe.kernel_artifact:
+        kernel = directory / recipe.kernel_artifact
         readelf = shutil.which("readelf")
         if readelf is None:
-            raise ImageError("readelf is required to verify the profile kernel")
+            raise ImageError("readelf is required to verify the recipe kernel")
         subprocess.run(
             [readelf, "--file-header", str(kernel)],
             check=True,
             stdout=subprocess.DEVNULL,
         )
     if write_stamp:
-        mark_verified_bundle(workspace, profile, directory, manifest)
+        mark_verified_bundle(workspace, recipe, directory, manifest)
     return manifest
 
 
 def mark_verified_bundle(
     workspace: Path,
-    profile: ImageProfile,
+    recipe: ImageRecipe,
     directory: Path,
     manifest: dict,
 ) -> None:
@@ -116,7 +116,7 @@ def mark_verified_bundle(
     }
     record = {
         "schema": 1,
-        "profile": profile.identifier,
+        "recipe": recipe.identifier,
         "bundle_path": str(path),
         "input_key": manifest["input_key"],
         "manifest_sha256": sha256_file(directory / "manifest.json"),
@@ -137,7 +137,7 @@ def _stamp_matches(workspace: Path, directory: Path, manifest: dict) -> bool:
         marker = read_json(_verification_marker(workspace, path))
         if (
             marker.get("schema") != 1
-            or marker.get("profile") != manifest.get("profile")
+            or marker.get("recipe") != manifest.get("recipe")
             or marker.get("bundle_path") != str(path)
             or marker.get("input_key") != manifest.get("input_key")
             or marker.get("manifest_sha256")
@@ -175,11 +175,11 @@ def _file_state(path: Path) -> dict:
 
 
 def write_manifest(
-    profile: ImageProfile,
+    recipe: ImageRecipe,
     fingerprint: dict,
     products: Path,
 ) -> dict:
-    names = {"disk", *(output.name for output in profile.outputs)}
+    names = {"disk", *(output.name for output in recipe.outputs)}
     files = {
         name: {
             "sha256": sha256_file(products / name),
@@ -189,11 +189,11 @@ def write_manifest(
     }
     manifest = {
         "schema": 1,
-        "profile": profile.identifier,
+        "recipe": recipe.identifier,
         "input_key": fingerprint["input_key"],
         "inputs": fingerprint["inputs"],
-        "disk_format": profile.disk_format,
-        "kernel_release": profile.variables.get("kernel_release"),
+        "disk_format": recipe.disk_format,
+        "kernel_release": recipe.variables.get("kernel_release"),
         "files": files,
         "built_at": datetime.now(timezone.utc).isoformat(),
     }
@@ -251,7 +251,7 @@ def publish(products: Path, output: Path) -> None:
         print(f"Preserved previous image bundle at {previous}")
 
 
-def profile_lock_key(identifier: str) -> str:
+def recipe_lock_key(identifier: str) -> str:
     return hashlib.sha256(identifier.encode()).hexdigest()[:24]
 
 

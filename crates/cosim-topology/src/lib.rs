@@ -25,7 +25,7 @@ pub use layout::{DeviceRegions, GuestRange, MemoryLayout, PageSize, Region};
 pub use loader::{load, load_payload, load_payload_with_workspace, load_with_workspace};
 pub use model::{
     Device, DeviceModel, DirectBoot, Disk, DiskBus, DiskFormat, DiskMode, GuestHints, Host,
-    Identifier, ImageProfile, Machine, MemoryRegion, Payload, Pci, Program, Role, SerialReady,
+    Identifier, ImageRecipe, Machine, MemoryRegion, Payload, Pci, Program, Role, SerialReady,
     Topology,
 };
 pub use size::ByteSize;
@@ -35,8 +35,8 @@ pub fn validate_payload(topology: &Topology, payload: Option<&Payload>) -> anyho
     resolve::validate_payload(topology, payload)
 }
 
-/// Adds the verified kernel and root disk selected by a payload image profile.
-pub fn materialize_image_profile(
+/// Adds the verified kernel and root disk selected by a payload image recipe.
+pub fn materialize_image_recipe(
     payload: &mut Payload,
     kernel: Option<std::path::PathBuf>,
     disk: std::path::PathBuf,
@@ -45,7 +45,7 @@ pub fn materialize_image_profile(
     disk_bus: DiskBus,
     kernel_cmdline: Option<String>,
 ) -> anyhow::Result<()> {
-    resolve::materialize_image_profile(
+    resolve::materialize_image_recipe(
         payload,
         kernel,
         disk,

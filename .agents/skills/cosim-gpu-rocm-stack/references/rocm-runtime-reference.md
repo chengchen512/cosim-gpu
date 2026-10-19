@@ -48,7 +48,7 @@ Common cosim issues:
 
 The Host test runner sets the vHost workload environment in
 `scripts/host/run_cosim_tests.sh`; the ROCm regression executable is stored with
-its image profile. `HSA_ENABLE_INTERRUPT=0` uses polling;
+its vHost image recipe. `HSA_ENABLE_INTERRUPT=0` uses polling;
 `HSA_ENABLE_INTERRUPT=1` tests interrupt routing.
 
 ## HIP API To HSA

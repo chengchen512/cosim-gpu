@@ -6,7 +6,7 @@
 
 **Host（宿主机环境）** 是运行 Rust 启动器、Host-side QEMU 和 Device Model 进程的操作系统环境，可以是 Linux 或开发容器。**vHost（虚拟 Host 环境）** 是 QEMU 使用 KVM 或 TCG 创建的虚拟化 Host 环境。**Device Model（设备模型）** 是 Host 上的独立 gem5 或 QEMU 进程，用于模拟 vGPU/vGPGPU 目标，并通过 libvfio-user 提供 vfio-user 端点。
 
-YAML 的 `host` 字段和 Rust 的 `Host` 类型用于配置 Host-side QEMU 及其向 vHost 提供的虚拟硬件。`guest`、`guest_ranges` 和 `guest_ram` 等现有 profile 或布局标识仍作为接口名称使用；正文将运行环境称为 vHost。
+YAML 的 `host` 字段和 Rust 的 `Host` 类型用于配置 Host-side QEMU 及其向 vHost 提供的虚拟硬件。`guest`、`guest_ranges` 和 `guest_ram` 等现有布局标识仍作为接口名称使用；正文将运行环境称为 vHost。
 
 ## 机器与 Device Model
 
@@ -76,7 +76,8 @@ Host-side QEMU 运行 vHost Linux 操作系统、amdgpu 驱动和 ROCm 程序。
   以及本地输入文件检查。
 - `cosim-runtime/src/images.rs`：调用统一的镜像配方工具，把验证后的磁盘及可选内核
   加入 payload。
-- `resources/images/`：共享 Packer/QEMU 模板、Ansible 入口和按操作系统组织的配方。
+- `resources/images/`：共享 Packer/QEMU 模板和镜像构建程序，以及按操作系统组织的配方；
+  每个配方包含自身的 Ansible playbook 和任务。
   `scripts/host/cosim-image` 允许 Bash 调用相同的构建和校验接口，不启动模拟器。
 
 拓扑库公开 `load`、`graph`、`schema`，校验后的类型根据 `DeviceContext` 和
@@ -91,7 +92,7 @@ Tokio 在单个线程上运行会话，`futures-util` 并发推进各进程节�
 `unsafe_code = "forbid"`。
 
 Host 架构决定运行哪个 QEMU 二进制文件。YAML 的 `host` 字段和 `host-x86`、`host-arm`
-等 profile 用于配置 Host-side QEMU 及其向 vHost 提供的虚拟硬件。规划阶段据此计算
+等 Host 模板用于配置 Host-side QEMU 及其向 vHost 提供的虚拟硬件。规划阶段据此计算
 共享文件偏移和连接路径。gem5 与 QEMU 直接交换 vfio-user 消息，Rust 通过 QMP 检查
 就绪状态并管理进程资源。交换机节点是设计中的预留部分；远程 placement 可以在配置
 中描述，本地执行器会在分配资源前拒绝执行。

@@ -21,7 +21,7 @@ which guestmount || echo "Install: apt install libguestfs-tools"
 ## Disk image location
 
 ```
-build/images/guest/ubuntu/24.04/x86_64/rocm7_0/disk
+build/images/ubuntu/24.04/x86_64/rocm7_0/disk
 ```
 
 Format: QCOW2, based on the pinned Ubuntu 24.04 cloud disk image.
@@ -29,7 +29,7 @@ Format: QCOW2, based on the pinned Ubuntu 24.04 cloud disk image.
 ## Mount
 
 ```bash
-DISK="./build/images/guest/ubuntu/24.04/x86_64/rocm7_0/disk"
+DISK="./build/images/ubuntu/24.04/x86_64/rocm7_0/disk"
 MOUNTPOINT="/tmp/cosim-disk"
 mkdir -p "$MOUNTPOINT"
 guestmount -a "$DISK" -i --rw "$MOUNTPOINT"

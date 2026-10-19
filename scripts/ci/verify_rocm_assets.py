@@ -7,28 +7,28 @@ from pathlib import Path
 import shutil
 import tempfile
 
-from resources.images.builder import build_profile, inspect_profile
+from resources.images.builder import build_recipe, inspect_recipe
 from resources.images.bundle import verify_bundle
 from resources.images.errors import ImageError
-from resources.images.profile import load_profile
+from resources.images.recipe import load_recipe
 
 
-PROFILE = "guest/ubuntu/24.04/x86_64/rocm7_0"
+RECIPE = "ubuntu/24.04/x86_64/rocm7_0"
 
 
 def check(output: Path) -> None:
     workspace = Path(__file__).resolve().parents[2]
-    profile = load_profile(workspace, PROFILE)
-    state = inspect_profile(workspace, PROFILE)
+    recipe = load_recipe(workspace, RECIPE)
+    state = inspect_recipe(workspace, RECIPE)
     if state["status"] != "ready":
-        build_profile(workspace, PROFILE)
+        build_recipe(workspace, RECIPE)
     manifest = json.loads(
-        (profile.output_path(workspace) / "manifest.json").read_text()
+        (recipe.output_path(workspace) / "manifest.json").read_text()
     )
-    if output.resolve() != profile.output_path(workspace).resolve():
+    if output.resolve() != recipe.output_path(workspace).resolve():
         raise ValueError(
             "the requested image directory must be "
-            f"{profile.output_path(workspace)}"
+            f"{recipe.output_path(workspace)}"
         )
     with tempfile.TemporaryDirectory(
         prefix="image-integrity-", dir=output.parent
@@ -45,7 +45,7 @@ def check(output: Path) -> None:
         with kernel.open("r+b") as stream:
             stream.truncate(kernel.stat().st_size - 1)
         try:
-            verify_bundle(workspace, profile, directory, manifest["input_key"])
+            verify_bundle(workspace, recipe, directory, manifest["input_key"])
         except ImageError as error:
             message = str(error)
             if not any(

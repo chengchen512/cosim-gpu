@@ -53,8 +53,8 @@ fn directory() -> tempfile::TempDir {
         .unwrap()
 }
 
-/// Returns the host profile file and template for this architecture.
-fn host_profile() -> (&'static str, &'static str) {
+/// Returns the Host template file and name for this architecture.
+fn host_template() -> (&'static str, &'static str) {
     if cfg!(target_arch = "aarch64") {
         ("hosts/host-arm-tcg.yaml", "host-arm-tcg")
     } else {
@@ -66,11 +66,11 @@ fn host_profile() -> (&'static str, &'static str) {
 ///
 /// Each machine is `(id, extra host fields, device list)`.
 fn topology(root: &Path, machines: &[(&str, &str, &str)], extra: &str) -> PathBuf {
-    let (profile, template) = host_profile();
+    let (host_file, template) = host_template();
     let mut text = format!(
         "version: 1\nimports: [{}, {}]\n{extra}machines:\n",
         samples().join("hosts/qemu.yaml").display(),
-        samples().join(profile).display()
+        samples().join(host_file).display()
     );
     for (id, host, devices) in machines {
         let pid = root.join(format!("{id}.pid"));
@@ -90,14 +90,14 @@ fn topology(root: &Path, machines: &[(&str, &str, &str)], extra: &str) -> PathBu
 #[test]
 fn validate_dry_run_and_run_reject_guest_hints_without_payload() {
     let root = directory();
-    let (profile, host) = host_profile();
+    let (host_file, host) = host_template();
     let topology = root.path().join("topology.yaml");
     fs::write(
         &topology,
         format!(
             "version: 1\nimports: [{}, {}, {}]\nmachines:\n  - id: m0\n    host: {{use: {host}}}\n    devices: [{{use: mi300x, guest_hints: {{cmdline: quiet}}}}]\n",
             samples().join("hosts/qemu.yaml").display(),
-            samples().join(profile).display(),
+            samples().join(host_file).display(),
             samples().join("devices/gpu/mi300x.yaml").display(),
         ),
     )
@@ -129,9 +129,9 @@ fn run_dry_run_displays_image_and_launch_plan_without_writing_outputs() {
     let root = directory();
     let topology = samples().join("machines/host-only.yaml");
     let payload = samples().join("payloads/ubuntu-rocm7_0.yaml");
-    let image_dir = workspace().join("build/images/guest/ubuntu/24.04/x86_64/rocm7_0");
+    let image_dir = workspace().join("build/images/ubuntu/24.04/x86_64/rocm7_0");
     let image_existed = image_dir.exists();
-    let dry_run_dir = workspace().join(".cosim/dry-run");
+    let dry_run_dir = workspace().join(".r");
     let dry_run_dir_existed = dry_run_dir.exists();
     let verification_cache = workspace().join("build/cache/image-verification");
     let verification_cache_existed = verification_cache.exists();
@@ -141,7 +141,9 @@ fn run_dry_run_displays_image_and_launch_plan_without_writing_outputs() {
         topology.into(),
         OsString::from("--payload"),
         payload.into(),
-        OsString::from("--dry-run"),
+        OsString::from("--run-dir"),
+        dry_run_dir.clone().into_os_string(),
+        "--dry-run".into(),
     ];
     let (status, output) = Launcher::start(root.path(), &args, Stdio::null()).finish();
     assert!(status.success(), "{output:#?}");
@@ -153,10 +155,7 @@ fn run_dry_run_displays_image_and_launch_plan_without_writing_outputs() {
         .join("\n");
     let plan: Value = serde_json::from_str(&stdout).unwrap();
     assert_eq!(plan["dry_run"], true);
-    assert_eq!(
-        plan["image"]["profile"]["id"],
-        "guest/ubuntu/24.04/x86_64/rocm7_0"
-    );
+    assert_eq!(plan["image"]["recipe"]["id"], "ubuntu/24.04/x86_64/rocm7_0");
     assert!(plan["launch"]["processes"].is_array());
     assert_eq!(image_dir.exists(), image_existed);
     assert_eq!(dry_run_dir.exists(), dry_run_dir_existed);
@@ -866,7 +865,7 @@ fn vfio_user_devices_start_before_the_host_and_stop_after_it() {
 fn vfio_user_option_rom_is_checked_and_exposed() {
     let root = directory();
     let root = root.path();
-    let (profile, host) = host_profile();
+    let (host_file, host) = host_template();
     let (arch, device) = if cfg!(target_arch = "aarch64") {
         ("aarch64", "qemu-edu-aarch64")
     } else {
@@ -887,7 +886,7 @@ machines:
       - {{id: edu, use: {device}, pci: {{rom: {rom}}}}}
 "#,
             samples().join("hosts/qemu.yaml").display(),
-            samples().join(profile).display(),
+            samples().join(host_file).display(),
             samples().join("devices/pci/qemu-edu.yaml").display(),
             serde_json::to_string(&qemu).unwrap(),
             rom = serde_json::to_string(&rom).unwrap(),

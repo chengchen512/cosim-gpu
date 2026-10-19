@@ -13,7 +13,7 @@ packer {
   }
 }
 
-variable "profile_id" {
+variable "recipe_id" {
   type = string
 }
 
@@ -99,7 +99,7 @@ source "qemu" "base_image" {
   cpus                     = var.builder_cpus
   memory                   = var.builder_memory
   cd_content = {
-    "meta-data" = "instance-id: iid-cosim-${var.profile_id}\n"
+    "meta-data" = "instance-id: iid-cosim-${var.recipe_id}\n"
     "user-data" = "#cloud-config\nusers:\n  - name: ${var.ssh_username}\n    ssh_authorized_keys:\n      - ${var.ssh_public_key}\n    lock_passwd: true\n    shell: /bin/bash\n    sudo: ALL=(ALL) NOPASSWD:ALL\n"
   }
   cd_label                 = "cidata"

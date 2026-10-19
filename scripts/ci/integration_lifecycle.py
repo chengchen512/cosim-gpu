@@ -81,8 +81,8 @@ class LauncherLifecycleTests(unittest.TestCase):
                         budget,
                     )
                     self.assertEqual(
-                        plan["image"]["profile"]["id"],
-                        "guest/ubuntu/24.04/x86_64/rocm7_0",
+                        plan["image"]["recipe"]["id"],
+                        "ubuntu/24.04/x86_64/rocm7_0",
                     )
                     host = next(p for p in plan["launch"]["processes"]
                                 if p["role"] == "host")
@@ -97,9 +97,9 @@ class LauncherLifecycleTests(unittest.TestCase):
         ))
         launcher = launcher / "release/cosim"
         if platform.machine() == "aarch64":
-            profile = "host-arm-tcg"
+            host_template = "host-arm-tcg"
         else:
-            profile = "host-x86-tcg"
+            host_template = "host-x86-tcg"
         output = ROOT / "artifacts/ci-check" / uuid.uuid4().hex[:8]
         output.mkdir(parents=True)
         session_parent = ROOT / ".cosim"
@@ -117,9 +117,9 @@ class LauncherLifecycleTests(unittest.TestCase):
                 config.write_text(yaml.safe_dump({
                     "version": 1,
                     "imports": [str(ROOT / "samples/hosts" / path) for path in
-                                ("qemu.yaml", f"{profile}.yaml")],
+                                ("qemu.yaml", f"{host_template}.yaml")],
                     "machines": [{"id": "m0", "host": {
-                        "use": profile,
+                        "use": host_template,
                         "args": [
                             "-S", "-nodefaults", "-pidfile", str(pid_file)
                         ],

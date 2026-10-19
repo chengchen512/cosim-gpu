@@ -2,23 +2,88 @@
 
 import os
 from pathlib import Path
+import shutil
+import subprocess
+import tempfile
 import unittest
 
 from resources.images.fingerprint import sha256_file
-from resources.images.identity import _input_candidates, reusable_input_issues
-from resources.images.profile import load_profile
+from resources.images.identity import (
+    _input_candidates,
+    recipe_source_files,
+    reusable_input_issues,
+    stage_recipe,
+)
+from resources.images.recipe import load_recipe
 from resources.images.toolchain import ANSIBLE_CORE_VERSION, PACKER_VERSION
 
 
 WORKSPACE = Path(__file__).resolve().parents[2]
-PROFILE_ID = "guest/ubuntu/24.04/x86_64/rocm7_0"
+RECIPE_ID = "ubuntu/24.04/x86_64/rocm7_0"
 
 
 class ReusableImageInputTests(unittest.TestCase):
+    def test_untracked_recipe_files_are_staged_but_ignored_files_are_not(self):
+        source_recipe = load_recipe(WORKSPACE, RECIPE_ID)
+        with tempfile.TemporaryDirectory() as name:
+            workspace = Path(name)
+            relative_recipe = Path("resources/images/recipes") / RECIPE_ID
+            recipe_directory = workspace / relative_recipe
+            recipe_directory.parent.mkdir(parents=True)
+            shutil.copytree(source_recipe.directory, recipe_directory)
+            (recipe_directory / ".gitignore").write_text(
+                "ignored-input.txt\n", encoding="utf-8"
+            )
+            subprocess.run(
+                ["git", "init", "--quiet"], cwd=workspace, check=True
+            )
+            subprocess.run(
+                ["git", "add", str(relative_recipe)],
+                cwd=workspace,
+                check=True,
+            )
+            untracked = recipe_directory / "local-input.txt"
+            untracked.write_text("untracked input\n", encoding="utf-8")
+            (recipe_directory / "ignored-input.txt").write_text(
+                "ignored input\n", encoding="utf-8"
+            )
+
+            recipe = load_recipe(workspace, RECIPE_ID)
+            paths = {
+                relative
+                for relative, _ in recipe_source_files(workspace, recipe)
+            }
+
+            self.assertIn(untracked.relative_to(workspace).as_posix(), paths)
+            self.assertNotIn(
+                (recipe_directory / "ignored-input.txt")
+                .relative_to(workspace)
+                .as_posix(),
+                paths,
+            )
+            staged = stage_recipe(
+                workspace, recipe, workspace / "build/staging"
+            )
+
+            self.assertTrue(
+                (staged.directory / "local-input.txt").is_file()
+            )
+            self.assertFalse(
+                (staged.directory / "ignored-input.txt").exists()
+            )
+            self.assertTrue(staged.playbook_file.is_file())
+            self.assertTrue(staged.tasks_file.is_file())
+            self.assertEqual(
+                staged.inputs["run_gem5_app"].parent, staged.directory / "files"
+            )
+            self.assertEqual(
+                staged.inputs["mi300_rom"], recipe.inputs["mi300_rom"]
+            )
+
     def test_removed_recipe_file_invalidates_a_previous_bundle(self):
-        profile = load_profile(WORKSPACE, PROFILE_ID)
+        recipe = load_recipe(WORKSPACE, RECIPE_ID)
         files = {}
-        for _, path in _input_candidates(WORKSPACE, profile):
+        for _, path in _input_candidates(WORKSPACE, recipe):
             resolved = path.resolve()
             if resolved.is_file():
                 files[resolved.relative_to(WORKSPACE).as_posix()] = (
@@ -26,11 +91,11 @@ class ReusableImageInputTests(unittest.TestCase):
                 )
         stored = {
             "schema": 1,
-            "profile": profile.identifier,
+            "recipe": recipe.identifier,
             "base": {
-                "url": profile.base_url,
-                "sha256": profile.base_sha256,
-                "format": profile.base_format,
+                "url": recipe.base_url,
+                "sha256": recipe.base_sha256,
+                "format": recipe.base_format,
             },
             "epoch": os.environ.get("COSIM_ROCM_IMAGE_EPOCH", "1"),
             "toolchain": {
@@ -39,12 +104,12 @@ class ReusableImageInputTests(unittest.TestCase):
             },
             "files": files,
         }
-        baseline_issues = reusable_input_issues(WORKSPACE, profile, stored)
+        baseline_issues = reusable_input_issues(WORKSPACE, recipe, stored)
 
         removed_path = "resources/images/packer/removed-template.pkr.hcl"
         stored["files"][removed_path] = "0" * 64
 
-        issues = reusable_input_issues(WORKSPACE, profile, stored)
+        issues = reusable_input_issues(WORKSPACE, recipe, stored)
         self.assertEqual(
             issues,
             [*baseline_issues, f"image input removed: {removed_path}"],

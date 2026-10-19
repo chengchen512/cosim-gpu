@@ -8,16 +8,16 @@ import unittest
 
 from resources.images.bundle import _stamp_matches, mark_verified_bundle
 from resources.images.fingerprint import digest_json, sha256_file
-from resources.images.profile import load_profile
+from resources.images.recipe import load_recipe
 
 
 WORKSPACE = Path(__file__).resolve().parents[2]
-PROFILE_ID = "guest/ubuntu/24.04/x86_64/rocm7_0"
+RECIPE_ID = "ubuntu/24.04/x86_64/rocm7_0"
 
 
 class ImageBundleVerificationStampTests(unittest.TestCase):
     def test_stamp_rejects_replaced_artifact_with_preserved_timestamp(self):
-        profile = load_profile(WORKSPACE, PROFILE_ID)
+        recipe = load_recipe(WORKSPACE, RECIPE_ID)
         with tempfile.TemporaryDirectory() as name:
             temporary = Path(name)
             workspace = temporary / "workspace"
@@ -26,10 +26,10 @@ class ImageBundleVerificationStampTests(unittest.TestCase):
             bundle.mkdir()
             disk = bundle / "disk"
             disk.write_bytes(b"original image")
-            inputs = {"schema": 1, "profile": PROFILE_ID}
+            inputs = {"schema": 1, "recipe": RECIPE_ID}
             manifest = {
                 "schema": 1,
-                "profile": PROFILE_ID,
+                "recipe": RECIPE_ID,
                 "input_key": digest_json(inputs),
                 "inputs": inputs,
                 "disk_format": "qcow2",
@@ -43,7 +43,7 @@ class ImageBundleVerificationStampTests(unittest.TestCase):
             (bundle / "manifest.json").write_text(
                 json.dumps(manifest), encoding="utf-8"
             )
-            mark_verified_bundle(workspace, profile, bundle, manifest)
+            mark_verified_bundle(workspace, recipe, bundle, manifest)
             self.assertTrue(_stamp_matches(workspace, bundle, manifest))
 
             original_state = disk.stat()

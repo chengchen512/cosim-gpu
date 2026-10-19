@@ -12,8 +12,8 @@ justfile 使用 `dev-`、`build-`、`run-`、`test-`、`check-`、`ci-` 和 `mai
 | 路径 | 运行环境 | 职责 |
 |---|---|---|
 | `scripts/host/` | Host 操作系统或开发容器 | 由 just 调用的 Host 工具，包括构建、启动、镜像配方入口和仓库检查 |
-| `resources/vhost/scripts/` | vHost 操作系统 | 多个 vHost 镜像配方共同使用的脚本 |
-| `resources/images/profiles/<role>/<distribution>/<release>/<architecture>/<profile>/files/` | 对应的 vHost 镜像 | 由 Ansible 安装的镜像专用脚本和服务；Ubuntu ROCm 配方把 GPU 初始化和回归脚本放在这里 |
+| `resources/scripts/` | vHost 操作系统 | 多个 vHost 镜像配方共同使用的脚本 |
+| `resources/images/recipes/<distribution>/<release>/<architecture>/<recipe>/files/` | 对应的 vHost 镜像 | 由 Ansible 安装的镜像专用脚本和服务；Ubuntu ROCm 镜像配方把 GPU 初始化和回归脚本放在这里 |
 | `tests/run_tests.sh` | 通过 9p 共享目录运行于 vHost | 运行 HIP 测试程序；由 `scripts/host/run_cosim_tests.sh` 启动 |
 | `tests/test_modprobe_params.sh` | Host 和 CI runner | 通过 `just check-modprobe-params` 检查 vHost GPU 初始化脚本 |
 | `scripts/ci/` | Host，包括 GitHub Actions runner | 工作流和产物辅助程序、测试运行工具；部分检查由 just 提供本地复现入口 |
@@ -25,7 +25,7 @@ Host 侧 GPU 测试运行器、checkpatch 和维护者工具。`scripts/` 下两
 声明 Python 包。`scripts/ci/run_rocm.py` 是 Host 侧回归运行器，由 `just test-rocm-regression`
 和 `Integration` workflow 共用。其他 `scripts/ci/` 工具负责产物处理、维护者分配和 CI 测试。
 `set_assignees.py` 和 `check_maintainer_changes.py` 只由 GitHub Actions 调用；
-`prepare_image_host.sh` 是 Build workflow 通过 `ci-*` recipe 调用的 Host 准备步骤。
+`prepare_image_host.sh` 是 Build workflow 通过 `ci-*` just 任务调用的 Host 准备步骤。
 `ci.yml` 直接运行工作流语法检查和 Python 测试发现。Ubuntu ROCm 镜像会安装 `cosim_gpu_setup.sh` 和
 `cosim_rocm_regression.sh`；后者是由 `scripts/ci/run_rocm.py` 调用、在 vHost 内执行的
 CI 专用负载。`tests/run_tests.sh` 通过 9p 共享到 vHost，用于运行 HIP 测试程序。
@@ -105,14 +105,14 @@ gem5 任务只编译一次 `VEGA_X86`，上传压缩后的二进制文件、模�
 不同运行之间，输入标识匹配时可以一起恢复 gem5、静态库和原构建容器镜像。
 清单同时保留最初的编译来源和本轮产物发布标识。
 
-独立的镜像任务并行构建 x86 `m5` 工具，并使用仓库维护的 Packer/Ansible 配方：
-`resources/images/profiles/guest/ubuntu/24.04/x86_64/rocm7_0`。任务从校验值固定的
+独立的镜像任务并行构建 x86 `m5` 工具，并使用仓库维护的 Packer/Ansible 镜像配方：
+`resources/images/recipes/ubuntu/24.04/x86_64/rocm7_0`。任务从校验值固定的
 Ubuntu cloud 磁盘镜像开始，安装 ROCm 7.0、AMDGPU DKMS、PyTorch 和 GPU 初始化服务，
 再导出配套的 Linux 6.8.0-124-generic 内核。QCOW2 磁盘、内核、软件包清单和文件摘要
-组成可复用产物。ROM、discovery 固件和 WMI 源码仍从 `third_party/gem5-resources`
-读取。
+组成可复用产物。WMI 源码和 guest 脚本由镜像配方目录维护；`third_party/gem5-resources`
+子模块提供 GPU 应用源码，以及 ROCm 镜像配方声明的 ROM 和 discovery 固件输入。
 
-镜像缓存标识包含基础镜像摘要、profile 与 Ansible 输入、外部文件摘要、`m5` 二进制、
+镜像缓存标识包含基础镜像摘要、配方与 Ansible 输入、外部文件摘要、`m5` 二进制、
 QEMU、Packer、Ansible 和磁盘格式。复用时校验输入标识和产物摘要。
 将 `COSIM_ROCM_IMAGE_EPOCH` 从默认值 `1` 改为新值可以请求重新构建。回归任务使用固定
 artifact ID 下载两份构建产物，检查镜像结构，并在独立的 Ubuntu 24.04 x86_64/KVM runner

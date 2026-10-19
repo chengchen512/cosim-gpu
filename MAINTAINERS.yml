@@ -176,14 +176,24 @@ vHost Image:
   files:
     - resources/__init__.py
     - resources/images/
-    - resources/vhost/
-  files-regex:
-    - ^third_party/gem5-resources$
+    - resources/scripts/
   labels:
     - "area: vHost image"
   description: >-
-    vHost operating system image profiles built with Packer and Ansible,
-    along with profile-specific scripts, kernel and driver setup.
+    vHost operating system image recipes built with Packer and Ansible,
+    along with recipe-specific scripts, kernel and driver setup.
+
+GPU Applications and Firmware Inputs:
+  status: maintained
+  maintainers:
+    - zevorn
+  files-regex:
+    - ^third_party/gem5-resources$
+  labels:
+    - "area: tests"
+  description: >-
+    GPU application programs, workload sources and vHost firmware inputs
+    provided by gem5-resources for regressions and standalone gem5 examples.
 
 vHost Tests:
   status: maintained
@@ -194,7 +204,7 @@ vHost Tests:
     - scripts/ci/guest_console.py
     - scripts/ci/ci_lifecycle.py
     - scripts/ci/run_rocm.py
-    - resources/images/profiles/guest/ubuntu/24.04/x86_64/rocm7_0/files/cosim_rocm_regression.sh
+    - resources/images/recipes/ubuntu/24.04/x86_64/rocm7_0/files/cosim_rocm_regression.sh
     - scripts/ci/test_guest_console.py
     - scripts/ci/test_ci_lifecycle.py
     - scripts/ci/test_image_process.py

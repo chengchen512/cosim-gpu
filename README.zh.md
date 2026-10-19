@@ -133,13 +133,13 @@ QEMU Device Model 示例使用 <code>just build-qemu</code> 构建的 QEMU，通
 - **Rust 工作区：** <code>crates/cosim-topology/</code>、
   <code>crates/cosim-runtime/</code> 和 <code>crates/cosim-cli/</code>。
 - **模拟器模型：** <code>third_party/gem5/</code>、
-  <code>third_party/qemu/</code>、<code>third_party/gem5-resources/</code> 和
-  <code>configs/sst/</code>。
+  <code>third_party/qemu/</code> 和 <code>configs/sst/</code>。
+- **GPU 工作负载和 vHost 固件输入：** <code>third_party/gem5-resources/</code>。
 - **项目工具：** <code>samples/</code>、<code>scripts/</code>、
   <code>justfile</code> 和 <code>.agents/</code>。
-- **vHost 镜像配方：** <code>resources/images/</code> 中按操作系统组织的 Packer/QEMU
-  和 Ansible 配置；镜像专用脚本放在对应配方的 <code>files/</code> 目录。
-- **vHost 通用脚本：** 多个镜像配方共用的脚本放在 <code>resources/vhost/scripts/</code>。
+- **vHost 镜像配方：** <code>resources/images/recipes/</code> 中按操作系统组织的
+  Packer/QEMU 配置、Ansible playbook 和镜像文件。
+- **vHost 通用脚本：** 多个 vHost 镜像配方共用的脚本放在 <code>resources/scripts/</code>。
 - **Host 与 CI 脚本：** Host 上由 just 调用的工具放在 <code>scripts/host/</code>；
   workflow 专用辅助程序和测试放在 <code>scripts/ci/</code>。
 

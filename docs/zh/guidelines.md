@@ -140,7 +140,7 @@ QEMU 适配器必须绑定生成的内存池，并提供声明的 QMP 和串口�
 
 ## 验证与文档
 
-构建、测试和检查使用顶层 `justfile`；recipe 根据 `COSIM_ENV` 在 Host 或开发容器中运行。
+构建、测试和检查使用顶层 `justfile`；just 任务根据 `COSIM_ENV` 在 Host 或开发容器中运行。
 `just check-cosim` 以检查模式运行 rustfmt，并运行 Clippy 和回归测试。
 `just test-cosim-integration` 使用真实 QEMU 进程、磁盘镜像和信号运行会话。
 `just test-cosim-vfio-user` 在 `just build-qemu` 之后运行带有 QEMU Device Model 的 vHost。

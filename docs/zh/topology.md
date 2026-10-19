@@ -42,13 +42,16 @@ machines:
       - {use: qemu-edu, count: 2}
 ```
 
-未知字段会报错。`cosim schema` 输出该格式的 JSON Schema。vHost 操作系统启动和存储输入单独
-保存在 payload 文档中。运行 `validate` 或 `run` 时，通过
-`--payload samples/payloads/ubuntu-rocm7_0.yaml` 选择；一个 payload 会应用于拓扑中的
-每台机器。`cosim run --dry-run` 会检查 payload 和所选镜像配方，显示解析后的启动计划和
-缓存状态，不会构建或启动模拟器。
+未知字段会报错。`cosim schema` 输出该格式的 JSON Schema。vHost 启动和存储输入保存在运行时
+payload 文档中。payload 示例放在 `samples/payloads/`，当前 vHost 示例为
+`samples/payloads/ubuntu-rocm7_0.yaml`。payload 可以选择 vHost 镜像配方或直接声明启动配置，
+也可以附加数据盘。选择镜像配方时，配方提供启动内核和根磁盘；直接启动时，启动配置由 payload 声明。
+`resources/images/recipes/` 下的镜像配方描述镜像构建方式和默认产物映射，拓扑文档描述硬件。
+运行 `validate` 或 `run` 时，通过 `--payload samples/payloads/ubuntu-rocm7_0.yaml` 选择；
+一个 payload 会应用于拓扑中的每台机器。`cosim run --dry-run` 会检查 payload 和所选镜像配方，
+显示解析后的启动计划和缓存状态，不会构建或启动模拟器。
 
-payload 可以通过 `image.profile` 选择 `resources/images/profiles/` 下的配方。配方提供
+payload 可以通过 `image.recipe` 选择 `resources/images/recipes/` 下的镜像配方。配方提供
 启动内核和根磁盘。普通 `cosim run` 会在缓存未命中时构建配方，校验 manifest，然后检查
 输入文件并启动拓扑。
 
@@ -72,7 +75,7 @@ flowchart LR
 
 资源路径相对于工作区根目录解析，包括含有 `/` 的可执行文件、设备 `config` 和
 `pci.rom`、payload 的 `boot.kernel` 和 `boot.initrd`、磁盘的 `path` 和 `backing`，以及
-`image.profile` 指定的配方标识。相对路径不能包含 `..`；绝对路径可以使用。不含 `/` 的
+`image.recipe` 指定的配方标识。相对路径不能包含 `..`；绝对路径可以使用。不含 `/` 的
 可执行文件名称在生成计划时从 `PATH` 中查找。`scripts/host/dev.sh` 会将 `COSIM_WORKSPACE` 设置为仓库根目录。直接运行
 `cosim` 时默认使用当前目录；可以设置 `COSIM_WORKSPACE` 选择其他工作区。YAML 资源值
 直接写 `build/qemu/qemu-system-x86_64` 这类路径，不需要添加工作区变量前缀。
@@ -101,7 +104,7 @@ flowchart LR
 - `host-x86` 在 `memory_map` 中描述 x86_64 的 PCI 空洞；`host-arm` 把内存放在
   `0x40000000`。`memory_map` 是 MiniJinja 模板，接收 `host` 和 `ram.size`，渲染出
   有序、互不重叠且正好覆盖 `memory` 的 `{start, size}` 区间。
-- 当前 QEMU profile 支持 x86_64 和 ARM64 vHost；构建 recipe 还没有 RISC-V vHost profile。
+- 当前 QEMU Host 配置支持 x86_64 和 ARM64 vHost；镜像配方还没有 RISC-V vHost。
 - `serial.wait_for` 增加串口就绪标记；`serial.timeout` 以秒为单位设置该标记的
   截止时间，从 Host-side QEMU 启动时开始计算。
 
@@ -110,7 +113,7 @@ flowchart LR
 独立的 payload YAML 可以包含 `boot`（`kernel`、`initrd` 和 `cmdline`）、`disks` 和
 `snapshot` 字段。一个 payload 会应用于拓扑中的每台机器。仅描述硬件的拓扑可以省略
 payload；包含 `guest_hints.cmdline` 的设备必须使用包含 `boot.kernel` 的 payload。
-`boot.kernel` 启用直接内核启动；QEMU profile 描述 vHost 硬件和 QEMU 设置。
+`boot.kernel` 启用直接内核启动；QEMU Host 配置描述 vHost 硬件和 QEMU 设置。
 
 ### 设备
 
@@ -128,7 +131,7 @@ payload；包含 `guest_hints.cmdline` 的设备必须使用包含 `boot.kernel`
   `runtime.argv` 或 `runtime.command` 可以替换任何设备的命令。这类命令需要
   `ready_log`，即设备开始监听后输出的消息。
 
-可选字段 `pci.rom` 指定 Host 侧的 PCI option ROM。QEMU profile 模板将它作为
+可选字段 `pci.rom` 指定 Host 侧的 PCI option ROM。QEMU Host 模板将它作为
 vfio-user 客户端的 `romfile`，通过该设备的 ROM BAR 提供文件内容。launcher
 在分配会话资源前检查文件是否存在。MI300X 模板指定对应的资源文件，各个设备可以
 覆盖这个路径。
@@ -242,13 +245,13 @@ sequenceDiagram
 
 ## 开发容器
 
-构建 QEMU、gem5、m5 和 `cosim`，运行拓扑，以及运行 Rust 检查的 recipe 使用
-`scripts/host/dev.sh`。依赖安装齐全时，这些 recipe 在 Linux 上原生运行。其他系统，或者
+构建 QEMU、gem5、m5 和 `cosim`，运行拓扑，以及运行 Rust 检查的 just 任务使用
+`scripts/host/dev.sh`。依赖安装齐全时，这些 just 任务在 Linux 上原生运行。其他系统，或者
 设置了 `COSIM_ENV=container` 的 Linux，使用临时容器：
 
 - `just dev-image` 根据 `scripts/host/Dockerfile.dev` 构建 `cosim-dev:local`，其中包含
   gem5 和 QEMU 的构建依赖、Rust、QEMU 和 `qemu-img`。
-- `scripts/host/dev.sh` 在 `docker run --rm --init` 中运行这类 recipe 的命令。源码树按 Host
+- `scripts/host/dev.sh` 在 `docker run --rm --init` 中运行这类任务的命令。源码树按 Host
   上的路径挂载，YAML、执行计划和日志中的路径在容器内外一致。除磁盘锁目录和通过
   `--mount` 指定的目录外，源码树之外的文件在容器中不可见。
 - 容器使用自己的 `/dev/shm`，大小上限等于 Docker daemon 的内存；内存池随容器一起

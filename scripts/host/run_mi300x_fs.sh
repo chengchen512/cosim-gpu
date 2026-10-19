@@ -6,7 +6,7 @@
 #   cosim-gpu/
 #     third_party/gem5/         <- gem5 source
 #     build/gem5/               <- gem5 build output
-#     third_party/gem5-resources/ <- ROM and GPU app sources
+#     third_party/gem5-resources/ <- external GPU application sources
 #     scripts/host/             <- this script
 #
 # Usage:
@@ -31,7 +31,7 @@ GEM5_DIR="${COSIM_DIR}/third_party/gem5"
 RESOURCES_DIR="${COSIM_DIR}/third_party/gem5-resources"
 
 # Built artifacts (ROCm 7.0 disk image)
-DISK_IMAGE_DIR="${COSIM_DIR}/build/images/guest/ubuntu/24.04/x86_64/rocm7_0"
+DISK_IMAGE_DIR="${COSIM_DIR}/build/images/ubuntu/24.04/x86_64/rocm7_0"
 DISK_IMAGE="${DISK_IMAGE_DIR}/disk"
 KERNEL="${DISK_IMAGE_DIR}/kernel"
 SQUARE_APP="${COSIM_DIR}/build/apps/square/square.default"

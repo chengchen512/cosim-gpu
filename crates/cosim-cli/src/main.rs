@@ -128,7 +128,7 @@ async fn execute(cli: Cli) -> Result<ExitCode> {
                 .transpose()?;
             if let Some(payload) = &mut payload {
                 let workspace = image_workspace()?;
-                cosim_runtime::prepare_image_profile(payload, &workspace, false)?;
+                cosim_runtime::prepare_image_recipe(payload, &workspace, false)?;
             }
             cosim_topology::validate_payload(&topology, payload.as_ref())?;
             SessionLayout::check_identifiers(&topology)?;
@@ -176,7 +176,7 @@ async fn execute(cli: Cli) -> Result<ExitCode> {
             let original_payload = payload.clone();
             let image = if let Some(payload) = &mut payload {
                 let workspace = image_workspace()?;
-                cosim_runtime::prepare_image_profile(payload, &workspace, !dry_run)?
+                cosim_runtime::prepare_image_recipe(payload, &workspace, !dry_run)?
             } else {
                 None
             };

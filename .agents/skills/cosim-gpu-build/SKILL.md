@@ -19,7 +19,7 @@ just build-m5 x86
 ```
 
 Use `just build-m5` without an argument to select the Host ABI. Pass `x86` for
-the ROCm vHost image profile. `just build-gem5 1` limits gem5 compilation to one
+the ROCm vHost image recipe. `just build-gem5 1` limits gem5 compilation to one
 job when linking runs out of memory. The recipes select the Host or development
 container through `COSIM_ENV`.
 

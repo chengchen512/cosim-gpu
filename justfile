@@ -12,8 +12,8 @@ host_arch_input := env("COSIM_HOST_ARCH", arch())
 host_arch := if host_arch_input == "aarch64" { "aarch64" } else if host_arch_input == "x86_64" { "x86_64" } else { error("COSIM_HOST_ARCH must be aarch64 or x86_64") }
 container_platform := if host_arch == "aarch64" { "linux/arm64" } else { "linux/amd64" }
 gem5_build_dir := env("GEM5_BUILD_DIR", "build/gem5/" + host_arch + "/VEGA_X86")
-rocm_profile := "guest/ubuntu/24.04/x86_64/rocm7_0"
-rocm_image_dir := "build/images/" + rocm_profile
+rocm_recipe := "ubuntu/24.04/x86_64/rocm7_0"
+rocm_image_dir := "build/images/" + rocm_recipe
 dev_image := env("COSIM_DEV_IMAGE", "cosim-dev:local")
 gpu_fs_image := env("GPU_APP_BUILD_IMAGE", "ghcr.io/gem5/gpu-fs:latest")
 build_jobs := env("JOBS", num_cpus())
@@ -61,26 +61,30 @@ build-gem5 jobs=build_jobs *scons_args:
 
 # Build the m5 utility under the top-level build directory
 [group('build')]
-build-m5 abi=m5_abi: dev-rocm-sources
+build-m5 abi=m5_abi: dev-gem5-source
     {{ dev }} scripts/host/build.sh m5 "$1"
 
-# Initialize missing image sources while preserving existing worktrees
+# Initialize gem5 sources while preserving the existing worktree
 [group('dev')]
-dev-rocm-sources:
+dev-gem5-source:
     if [ ! -e third_party/gem5/.git ]; then git submodule update --init third_party/gem5; fi
+
+# Initialize gem5-resources for GPU applications and image firmware inputs
+[group('dev')]
+dev-rocm-sources: dev-gem5-source
     if [ ! -e third_party/gem5-resources/.git ]; then git submodule update --init third_party/gem5-resources; fi
 
 # Build the x86 vHost OS disk image and kernel (needs Linux KVM, QEMU, ~60 GB disk)
 [group('build')]
-build-disk:
+build-disk: dev-rocm-sources
     just build-m5 x86
-    scripts/host/cosim-image build {{ rocm_profile }}
+    scripts/host/cosim-image build {{ rocm_recipe }}
 
 # Build a reusable kernel/disk bundle from the vHost image recipe library
 [group('build')]
-build-rocm-assets:
+build-rocm-assets: dev-rocm-sources
     just build-m5 x86
-    scripts/host/cosim-image build {{ rocm_profile }}
+    scripts/host/cosim-image build {{ rocm_recipe }}
 
 # Prepare disk capacity and dependencies on a disposable CI image builder
 [group('ci')]
@@ -167,17 +171,17 @@ ci-rocm-assets operation *args:
 # Validate the complete image configuration with real Packer plugins
 [group('check')]
 check-rocm-image:
-    scripts/host/cosim-image validate {{ rocm_profile }}
+    scripts/host/cosim-image validate {{ rocm_recipe }}
 
 # Check Packer HCL and Ansible syntax on a supported Host
 [group('check')]
 check-rocm-syntax:
-    scripts/host/cosim-image validate {{ rocm_profile }} --syntax-only
+    scripts/host/cosim-image validate {{ rocm_recipe }} --syntax-only
 
 # Check the resource scripts used by the image producer
 [group('check')]
 check-rocm-build-scripts:
-    shellcheck scripts/host/cosim-image resources/images/profiles/guest/ubuntu/24.04/x86_64/rocm7_0/files/*.sh
+    shellcheck scripts/host/cosim-image resources/images/recipes/ubuntu/24.04/x86_64/rocm7_0/files/*.sh
 
 # Exercise reuse and corruption rejection against a real built ROCm bundle
 [group('test')]
@@ -355,7 +359,7 @@ check-shell:
     shellcheck \
         scripts/host/*.sh \
         scripts/ci/*.sh \
-        resources/images/profiles/guest/ubuntu/24.04/x86_64/rocm7_0/files/*.sh \
+        resources/images/recipes/ubuntu/24.04/x86_64/rocm7_0/files/*.sh \
         tests/run_tests.sh tests/test_modprobe_params.sh
 
 # Check that cosim modprobe commands carry the required amdgpu parameters

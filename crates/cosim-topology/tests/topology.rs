@@ -540,16 +540,16 @@ fn guest_hints_require_a_payload_with_kernel_boot() {
 }
 
 #[test]
-fn image_profile_materializes_a_kernel_and_immutable_root_disk() {
+fn image_recipe_materializes_a_kernel_and_immutable_root_disk() {
     let root = tempfile::tempdir().unwrap();
-    let mut payload = payload(
-        root.path(),
-        "image: {profile: guest/ubuntu/24.04/x86_64/rocm7_0}",
-    )
-    .unwrap();
-    let kernel = root.path().join("build/images/profile/kernel");
-    let disk = root.path().join("build/images/profile/disk");
-    cosim_topology::materialize_image_profile(
+    let mut payload = payload(root.path(), "image: {recipe: ubuntu/24.04/x86_64/rocm7_0}").unwrap();
+    let kernel = root
+        .path()
+        .join("build/images/ubuntu/24.04/x86_64/rocm7_0/kernel");
+    let disk = root
+        .path()
+        .join("build/images/ubuntu/24.04/x86_64/rocm7_0/disk");
+    cosim_topology::materialize_image_recipe(
         &mut payload,
         Some(kernel.clone()),
         disk.clone(),
@@ -572,17 +572,31 @@ fn image_profile_materializes_a_kernel_and_immutable_root_disk() {
 }
 
 #[test]
-fn image_profile_rejects_disk_ids_that_differ_only_by_ascii_case() {
+fn payload_rejects_the_removed_image_profile_selector() {
+    let root = tempfile::tempdir().unwrap();
+    let error = failure(payload(
+        root.path(),
+        "image: {profile: ubuntu/24.04/x86_64/rocm7_0}",
+    ));
+    assert!(
+        error.contains("profile") && error.contains("recipe"),
+        "{error}"
+    );
+}
+
+#[test]
+fn image_recipe_rejects_disk_ids_that_differ_only_by_ascii_case() {
     let root = tempfile::tempdir().unwrap();
     let mut payload = payload(
         root.path(),
-        "image: {profile: guest/ubuntu/24.04/x86_64/rocm7_0}\ndisks: [{id: ROOT, path: existing.qcow2}]",
+        "image: {recipe: ubuntu/24.04/x86_64/rocm7_0}\ndisks: [{id: ROOT, path: existing.qcow2}]",
     )
     .unwrap();
-    let error = cosim_topology::materialize_image_profile(
+    let error = cosim_topology::materialize_image_recipe(
         &mut payload,
         None,
-        root.path().join("build/images/profile/disk"),
+        root.path()
+            .join("build/images/ubuntu/24.04/x86_64/rocm7_0/disk"),
         "root",
         DiskFormat::Qcow2,
         cosim_topology::DiskBus::Virtio,
@@ -921,8 +935,8 @@ fn sample_host_template_attaches_devices_behind_root_ports() {
         &workspace,
     )
     .unwrap();
-    let image_dir = workspace.join("build/images/guest/ubuntu/24.04/x86_64/rocm7_0");
-    cosim_topology::materialize_image_profile(
+    let image_dir = workspace.join("build/images/ubuntu/24.04/x86_64/rocm7_0");
+    cosim_topology::materialize_image_recipe(
         &mut payload,
         Some(image_dir.join("kernel")),
         image_dir.join("disk"),
@@ -996,9 +1010,7 @@ fn sample_host_template_attaches_devices_behind_root_ports() {
         .collect::<Vec<_>>();
     assert_eq!(clients[3], (json!("rp3"), json!(sockets[3])));
     let kernel = launch.argv.iter().position(|arg| arg == "-kernel").unwrap();
-    assert!(
-        launch.argv[kernel + 1].ends_with("build/images/guest/ubuntu/24.04/x86_64/rocm7_0/kernel")
-    );
+    assert!(launch.argv[kernel + 1].ends_with("build/images/ubuntu/24.04/x86_64/rocm7_0/kernel"));
     let append = launch.argv.iter().position(|arg| arg == "-append").unwrap();
     assert!(launch.argv[append + 1].starts_with("console=ttyS0"));
     let blockdev = launch

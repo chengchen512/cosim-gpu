@@ -8,19 +8,19 @@ import subprocess
 import sys
 
 from .builder import (
-    build_profile,
-    inspect_profile,
-    profile_fingerprint,
-    validate_profile,
-    verify_profile,
+    build_recipe,
+    inspect_recipe,
+    recipe_fingerprint,
+    validate_recipe,
+    verify_recipe,
 )
 from .errors import ImageError
-from .profile import ProfileError, list_profiles, load_profile
+from .recipe import RecipeError, list_recipes, load_recipe
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Build and verify vHost OS image profiles"
+        description="Build and verify vHost OS image recipes"
     )
     parser.add_argument(
         "--workspace",
@@ -28,47 +28,47 @@ def main() -> int:
         default=Path(os.environ.get("COSIM_WORKSPACE", Path.cwd())),
     )
     commands = parser.add_subparsers(dest="operation", required=True)
-    commands.add_parser("list", help="list available image profiles")
+    commands.add_parser("list", help="list available image recipes")
     inspect = commands.add_parser(
         "inspect",
-        help="show profile inputs and cache status",
+        help="show recipe inputs and cache status",
     )
-    inspect.add_argument("profile")
+    inspect.add_argument("recipe")
     inspect.add_argument("--json", action="store_true")
     inspect.add_argument("--write-verification-cache", action="store_true")
-    key = commands.add_parser("key", help="print the profile build identity")
-    key.add_argument("profile")
+    key = commands.add_parser("key", help="print the recipe build identity")
+    key.add_argument("recipe")
     validate = commands.add_parser(
         "validate",
-        help="validate the profile and Packer configuration",
+        help="validate the recipe and Packer configuration",
     )
-    validate.add_argument("profile")
+    validate.add_argument("recipe")
     validate.add_argument("--syntax-only", action="store_true")
     build = commands.add_parser(
         "build",
         help="build or reuse a verified image bundle",
     )
-    build.add_argument("profile")
+    build.add_argument("recipe")
     verify = commands.add_parser(
         "verify",
         help="verify an existing image bundle",
     )
-    verify.add_argument("profile")
+    verify.add_argument("recipe")
     verify.add_argument("--expected-key")
     arguments = parser.parse_args()
     workspace = arguments.workspace.resolve()
     try:
         if arguments.operation == "list":
-            for identifier in list_profiles(workspace):
-                profile = load_profile(workspace, identifier)
+            for identifier in list_recipes(workspace):
+                recipe = load_recipe(workspace, identifier)
                 print(
-                    f"{identifier}\t{profile.distribution} "
-                    f"{profile.release}\t{profile.architecture}"
+                    f"{identifier}\t{recipe.distribution} "
+                    f"{recipe.release}\t{recipe.architecture}"
                 )
         elif arguments.operation == "inspect":
-            state = inspect_profile(
+            state = inspect_recipe(
                 workspace,
-                arguments.profile,
+                arguments.recipe,
                 cache_verification=arguments.write_verification_cache,
             )
             if arguments.json:
@@ -77,21 +77,21 @@ def main() -> int:
                 print(json.dumps(state, indent=2, sort_keys=True))
         elif arguments.operation == "key":
             print(
-                profile_fingerprint(workspace, arguments.profile)["input_key"]
+                recipe_fingerprint(workspace, arguments.recipe)["input_key"]
             )
         elif arguments.operation == "validate":
-            validate_profile(
+            validate_recipe(
                 workspace,
-                arguments.profile,
+                arguments.recipe,
                 syntax_only=arguments.syntax_only,
             )
         elif arguments.operation == "build":
-            result = build_profile(workspace, arguments.profile)
+            result = build_recipe(workspace, arguments.recipe)
             print(json.dumps(result, sort_keys=True))
         else:
-            manifest = verify_profile(
+            manifest = verify_recipe(
                 workspace,
-                arguments.profile,
+                arguments.recipe,
                 arguments.expected_key,
             )
             print(
@@ -102,7 +102,7 @@ def main() -> int:
             )
     except (
         ImageError,
-        ProfileError,
+        RecipeError,
         OSError,
         ValueError,
         json.JSONDecodeError,

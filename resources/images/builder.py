@@ -12,7 +12,7 @@ from .bundle import (
     exclusive_lock,
     mark_verified_bundle,
     packer_disk_output,
-    profile_lock_key,
+    recipe_lock_key,
     publish,
     verify_bundle,
     write_manifest,
@@ -23,9 +23,10 @@ from .identity import (
     missing_inputs,
     missing_recipe_files,
     reusable_input_issues,
+    stage_recipe,
 )
 from .process import run_logged
-from .profile import ImageProfile, load_profile
+from .recipe import ImageRecipe, load_recipe
 from .toolchain import (
     PACKER_ROOT,
     ensure_ansible,
@@ -38,15 +39,15 @@ from .toolchain import (
 )
 
 
-def inspect_profile(
+def inspect_recipe(
     workspace: Path,
     identifier: str,
     *,
     cache_verification: bool = False,
 ) -> dict:
     root = workspace.resolve()
-    profile = load_profile(root, identifier)
-    output = profile.output_path(root)
+    recipe = load_recipe(root, identifier)
+    output = recipe.output_path(root)
     fingerprint = None
     status = "build-required"
     reasons: list[str] = []
@@ -55,82 +56,82 @@ def inspect_profile(
         try:
             cached_manifest = verify_bundle(
                 root,
-                profile,
+                recipe,
                 output,
                 use_stamp=True,
                 write_stamp=cache_verification,
             )
             reasons.extend(
-                reusable_input_issues(root, profile, cached_manifest["inputs"])
+                reusable_input_issues(root, recipe, cached_manifest["inputs"])
             )
             status = "rebuild-required" if reasons else "ready"
         except (OSError, ValueError, ImageError) as error:
             status = "rebuild-required"
             reasons.append(str(error))
     if status != "ready":
-        missing = missing_inputs(root, profile)
-        tools, missing_tools = inspect_toolchain(root, profile)
+        missing = missing_inputs(root, recipe)
+        tools, missing_tools = inspect_toolchain(root, recipe)
         missing.extend(missing_tools)
         if missing:
             status = "blocked"
             reasons.extend(missing)
         elif tools is not None:
-            fingerprint = input_fingerprint(root, profile, tools)
+            fingerprint = input_fingerprint(root, recipe, tools)
     if status == "ready" and cached_manifest is not None:
         fingerprint = {
             "input_key": cached_manifest["input_key"],
             "inputs": cached_manifest["inputs"],
         }
     return {
-        "profile": {
-            "id": profile.identifier,
-            "role": profile.role,
-            "distribution": profile.distribution,
-            "release": profile.release,
-            "architecture": profile.architecture,
+        "recipe": {
+            "id": recipe.identifier,
+            "role": recipe.role,
+            "distribution": recipe.distribution,
+            "release": recipe.release,
+            "architecture": recipe.architecture,
         },
         "status": status,
         "input_key": fingerprint["input_key"] if fingerprint else None,
         "inputs": fingerprint["inputs"] if fingerprint else None,
         "artifact_directory": str(output),
         "disk": str(output / "disk"),
-        "disk_format": profile.disk_format,
-        "disk_id": profile.disk_id,
-        "disk_bus": profile.disk_bus,
+        "disk_format": recipe.disk_format,
+        "disk_id": recipe.disk_id,
+        "disk_bus": recipe.disk_bus,
         "kernel": (
-            str(output / profile.kernel_artifact)
-            if profile.kernel_artifact else None
+            str(output / recipe.kernel_artifact)
+            if recipe.kernel_artifact else None
         ),
-        "kernel_cmdline": profile.kernel_cmdline,
+        "kernel_cmdline": recipe.kernel_cmdline,
         "reasons": reasons,
         "commands": [
-            ["scripts/host/cosim-image", "validate", profile.identifier],
-            ["scripts/host/cosim-image", "build", profile.identifier],
+            ["scripts/host/cosim-image", "validate", recipe.identifier],
+            ["scripts/host/cosim-image", "build", recipe.identifier],
         ],
     }
 
 
-def profile_fingerprint(workspace: Path, identifier: str) -> dict:
+def recipe_fingerprint(workspace: Path, identifier: str) -> dict:
     root = workspace.resolve()
-    profile = load_profile(root, identifier)
-    missing = missing_inputs(root, profile)
-    tools, missing_tools = inspect_toolchain(root, profile)
+    recipe = load_recipe(root, identifier)
+    missing = missing_inputs(root, recipe)
+    tools, missing_tools = inspect_toolchain(root, recipe)
     missing.extend(missing_tools)
     if missing or tools is None:
         raise ImageError(
             "image build inputs are unavailable: " + "; ".join(missing)
         )
-    return input_fingerprint(root, profile, tools)
+    return input_fingerprint(root, recipe, tools)
 
 
-def validate_profile(
+def validate_recipe(
     workspace: Path,
     identifier: str,
     *,
     syntax_only: bool = False,
 ) -> None:
     root = workspace.resolve()
-    profile = load_profile(root, identifier)
+    recipe = load_recipe(root, identifier)
     if syntax_only:
         packer, ansible = _ensure_toolchain(root)
         run_logged(
@@ -139,10 +140,10 @@ def validate_profile(
             tool_environment(root),
             root / "build/logs/packer-syntax.log",
         )
-        validate_ansible(root, profile, ansible)
-        print(f"Profile is valid: {profile.identifier}")
+        validate_ansible(root, recipe, ansible)
+        print(f"Recipe is valid: {recipe.identifier}")
         return
-    missing = missing_recipe_files(root, profile)
+    missing = missing_recipe_files(root, recipe)
     if missing:
         raise ImageError(
             "image recipe files are unavailable: " + "; ".join(missing)
@@ -151,7 +152,7 @@ def validate_profile(
     environment = tool_environment(root)
     tools, missing_tools = inspect_toolchain(
         root,
-        profile,
+        recipe,
         require_kernel_tools=False,
     )
     if missing_tools or tools is None:
@@ -162,11 +163,11 @@ def validate_profile(
     validate_stage = root / "build/images/.validate"
     variable_file = root / "build/images/.validate.pkrvars.json"
     variable_file.parent.mkdir(parents=True, exist_ok=True)
+    staged_recipe = stage_recipe(root, recipe, validate_stage / "recipe")
     key_directory, private_key, public_key = create_temporary_ssh_keypair(root)
     try:
         variables = packer_variables(
-            root,
-            profile,
+            staged_recipe,
             validate_stage,
             tools,
             ansible,
@@ -201,39 +202,39 @@ def validate_profile(
             environment,
             root / "build/logs/packer-validate.log",
         )
-        validate_ansible(root, profile, ansible)
+        validate_ansible(root, staged_recipe, ansible)
     finally:
         variable_file.unlink(missing_ok=True)
         shutil.rmtree(key_directory, ignore_errors=True)
-    print(f"Packer and Ansible configuration is valid: {profile.identifier}")
+    print(f"Packer and Ansible configuration is valid: {recipe.identifier}")
 
 
-def build_profile(workspace: Path, identifier: str) -> dict:
+def build_recipe(workspace: Path, identifier: str) -> dict:
     root = workspace.resolve()
-    profile = load_profile(root, identifier)
-    missing = missing_inputs(root, profile)
+    recipe = load_recipe(root, identifier)
+    missing = missing_inputs(root, recipe)
     if missing:
         raise ImageError(
             "image build inputs are unavailable: " + "; ".join(missing)
         )
-    _require_accelerator(profile)
+    _require_accelerator(recipe)
     packer, ansible = _ensure_toolchain(root)
-    tools, missing_tools = inspect_toolchain(root, profile)
+    tools, missing_tools = inspect_toolchain(root, recipe)
     if missing_tools or tools is None:
         raise ImageError(
             "image build tools are unavailable: " + "; ".join(missing_tools)
         )
-    fingerprint = input_fingerprint(root, profile, tools)
-    output = profile.output_path(root)
+    fingerprint = input_fingerprint(root, recipe, tools)
+    output = recipe.output_path(root)
     lock_path = (
-        root / "build/images/.locks" / f"{profile_lock_key(identifier)}.lock"
+        root / "build/images/.locks" / f"{recipe_lock_key(identifier)}.lock"
     )
     with exclusive_lock(lock_path):
         if output.exists():
             try:
                 manifest = verify_bundle(
                     root,
-                    profile,
+                    recipe,
                     output,
                     fingerprint["input_key"],
                     use_stamp=True,
@@ -256,14 +257,14 @@ def build_profile(workspace: Path, identifier: str) -> dict:
         ansible_temp.mkdir()
         logs = stage / "logs"
         logs.mkdir()
+        staged_recipe = stage_recipe(root, recipe, stage / "recipe")
         environment = tool_environment(root)
         key_directory, private_key, public_key = create_temporary_ssh_keypair(
             root
         )
         try:
             variables = packer_variables(
-                root,
-                profile,
+                staged_recipe,
                 stage,
                 tools,
                 ansible,
@@ -272,7 +273,7 @@ def build_profile(workspace: Path, identifier: str) -> dict:
                 ssh_private_key_file=private_key,
                 ssh_public_key=public_key,
             )
-            variable_file = stage / "profile.pkrvars.json"
+            variable_file = stage / "recipe.pkrvars.json"
             variable_file.write_text(
                 json.dumps(variables, indent=2) + "\n",
                 encoding="utf-8",
@@ -318,9 +319,9 @@ def build_profile(workspace: Path, identifier: str) -> dict:
             )
             products = stage / "products"
             products.mkdir()
-            disk_image = packer_disk_output(packer_output, profile.image_name)
+            disk_image = packer_disk_output(packer_output, recipe.image_name)
             os.replace(disk_image, products / "disk")
-            for artifact in profile.outputs:
+            for artifact in recipe.outputs:
                 fetched_path = fetched / artifact.name
                 if not fetched_path.is_file():
                     raise ImageError(
@@ -330,10 +331,10 @@ def build_profile(workspace: Path, identifier: str) -> dict:
                 os.replace(fetched_path, products / artifact.name)
             shutil.copy2(logs / "packer.log", products / "packer.log")
             shutil.copy2(logs / "packer-build.log", products / "build.log")
-            manifest = write_manifest(profile, fingerprint, products)
-            verify_bundle(root, profile, products, fingerprint["input_key"])
+            manifest = write_manifest(recipe, fingerprint, products)
+            verify_bundle(root, recipe, products, fingerprint["input_key"])
             publish(products, output)
-            mark_verified_bundle(root, profile, output, manifest)
+            mark_verified_bundle(root, recipe, output, manifest)
             shutil.rmtree(stage)
             print(f"Built and verified image bundle: {output}")
             return {
@@ -352,17 +353,17 @@ def build_profile(workspace: Path, identifier: str) -> dict:
             shutil.rmtree(key_directory, ignore_errors=True)
 
 
-def verify_profile(
+def verify_recipe(
     workspace: Path,
     identifier: str,
     expected_key: str | None = None,
 ) -> dict:
     root = workspace.resolve()
-    profile = load_profile(root, identifier)
-    return verify_bundle(root, profile, profile.output_path(root), expected_key)
+    recipe = load_recipe(root, identifier)
+    return verify_bundle(root, recipe, recipe.output_path(root), expected_key)
 
 
-def _require_accelerator(profile: ImageProfile) -> None:
+def _require_accelerator(recipe: ImageRecipe) -> None:
     system = platform.system()
     host_architecture = {
         "x86_64": "x86_64",
@@ -371,24 +372,24 @@ def _require_accelerator(profile: ImageProfile) -> None:
         "arm64": "aarch64",
         "riscv64": "riscv64",
     }.get(platform.machine().lower())
-    if profile.accelerator == "kvm":
-        if system != "Linux" or host_architecture != profile.architecture:
+    if recipe.accelerator == "kvm":
+        if system != "Linux" or host_architecture != recipe.architecture:
             raise ImageError(
-                f"profile {profile.identifier} requires Linux KVM "
-                f"on {profile.architecture}"
+                f"recipe {recipe.identifier} requires Linux KVM "
+                f"on {recipe.architecture}"
             )
         if not Path("/dev/kvm").exists():
-            raise ImageError("the selected image profile requires /dev/kvm")
-    elif profile.accelerator == "hvf":
-        if system != "Darwin" or host_architecture != profile.architecture:
+            raise ImageError("the selected image recipe requires /dev/kvm")
+    elif recipe.accelerator == "hvf":
+        if system != "Darwin" or host_architecture != recipe.architecture:
             raise ImageError(
-                f"profile {profile.identifier} requires macOS "
+                f"recipe {recipe.identifier} requires macOS "
                 "Hypervisor.framework on "
-                f"{profile.architecture}"
+                f"{recipe.architecture}"
             )
-    elif profile.accelerator != "tcg":
+    elif recipe.accelerator != "tcg":
         raise ImageError(
-            f"unsupported image builder accelerator: {profile.accelerator}"
+            f"unsupported image builder accelerator: {recipe.accelerator}"
         )
 
 
