@@ -115,7 +115,7 @@ just test-rocm-assets
 ```
 
 The recipe, Ansible playbook, guest scripts and WMI source are stored in
-`resources/images/recipes/vhost/ubuntu/24.04/x86_64/rocm7_0/`.
+`resources/images/recipes/ubuntu/24.04/x86_64/rocm7_0/`.
 The pinned `third_party/gem5-resources/` submodule provides GPU applications
 and the ROM and discovery firmware inputs used by the image recipe.
 
@@ -123,7 +123,7 @@ and the ROM and discovery firmware inputs used by the image recipe.
 
 ```bash
 scripts/host/cosim-image list
-scripts/host/cosim-image validate vhost/ubuntu/24.04/x86_64/rocm7_0
+scripts/host/cosim-image validate ubuntu/24.04/x86_64/rocm7_0
 ```
 
 Add another recipe directory to select a different vHost OS image or package set.
@@ -132,8 +132,8 @@ Add another recipe directory to select a different vHost OS image or package set
 
 | Artifact | Path | Size |
 |---|---|---|
-| vHost disk image | `build/images/vhost/ubuntu/24.04/x86_64/rocm7_0/disk` | 56 GB virtual capacity |
-| vHost kernel | `build/images/vhost/ubuntu/24.04/x86_64/rocm7_0/kernel` | Recipe output |
+| vHost disk image | `build/images/ubuntu/24.04/x86_64/rocm7_0/disk` | 56 GB virtual capacity |
+| vHost kernel | `build/images/ubuntu/24.04/x86_64/rocm7_0/kernel` | Recipe output |
 
 Use `cosim run --dry-run` to check the payload, recipe cache state and resolved
 launch commands without building the image or starting the simulators.
@@ -223,9 +223,9 @@ qemu-system-x86_64 \
     -m 8G -smp 4 \
     -object memory-backend-file,id=mem0,size=8G,mem-path=/dev/shm/cosim-guest-ram,share=on \
     -numa node,memdev=mem0 \
-    -kernel "$PWD/build/images/vhost/ubuntu/24.04/x86_64/rocm7_0/kernel" \
+    -kernel "$PWD/build/images/ubuntu/24.04/x86_64/rocm7_0/kernel" \
     -append "console=ttyS0,115200 root=/dev/vda1 modprobe.blacklist=amdgpu" \
-    -drive "file=$PWD/build/images/vhost/ubuntu/24.04/x86_64/rocm7_0/disk,format=qcow2,if=virtio" \
+    -drive "file=$PWD/build/images/ubuntu/24.04/x86_64/rocm7_0/disk,format=qcow2,if=virtio" \
     -device 'vfio-user-pci,socket={"type":"unix","path":"/tmp/gem5-mi300x.sock"}' \
     -nographic -no-reboot
 ```

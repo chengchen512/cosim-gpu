@@ -107,8 +107,8 @@ console=ttyS0,115200 root=/dev/vda1 modprobe.blacklist=amdgpu
 | Artifact | Path | Size |
 |----------|------|------|
 | gem5 binary | `build/gem5/<native>/VEGA_X86/gem5.opt` | Depends on build options |
-| vHost disk image | `build/images/vhost/ubuntu/24.04/x86_64/rocm7_0/disk` | 56 GB virtual capacity |
-| vHost kernel | `build/images/vhost/ubuntu/24.04/x86_64/rocm7_0/kernel` | Recipe output |
+| vHost disk image | `build/images/ubuntu/24.04/x86_64/rocm7_0/disk` | 56 GB virtual capacity |
+| vHost kernel | `build/images/ubuntu/24.04/x86_64/rocm7_0/kernel` | Recipe output |
 | QEMU binary | `qemu-system-x86_64` from the Host `PATH` | -- |
 
 ---
@@ -272,7 +272,7 @@ The driver checks `(amdgpu_ip_block_mask & (1 << i))` where `i` is the discovery
 |---|---|
 | **Symptom** | `Failed to init DRM client: -13` followed by kernel panic. NULL pointer dereference in `ttm_resource_move_to_lru_tail` |
 | **Root Cause** | Disk image missing `amddrm_exec.ko.zst` DKMS module. Without it, TTM memory manager fails, `drm_dev_enter()` returns `-EACCES` (-13) |
-| **Fix** | Verify the selected image bundle and its `kernel-release` and `amdgpu-module.txt` records. Rebuild the recipe with `scripts/host/cosim-image build vhost/ubuntu/24.04/x86_64/rocm7_0` when its inputs are stale. |
+| **Fix** | Verify the selected image bundle and its `kernel-release` and `amdgpu-module.txt` records. Rebuild the recipe with `scripts/host/cosim-image build ubuntu/24.04/x86_64/rocm7_0` when its inputs are stale. |
 
 ### 4.15 Driver rmmod After hw_init Failure
 
@@ -425,14 +425,14 @@ If PTE is 0 (unmapped), the address is mapped to sink (`paddr=0`) instead of fau
 
 ## 7. vHost Image Recipes
 
-vHost OS image recipes are stored under `resources/images/recipes/<role>/<distribution>/<release>/<architecture>/<recipe>/`. The ROCm sample selects `vhost/ubuntu/24.04/x86_64/rocm7_0` from its payload file.
+vHost OS image recipes are stored under `resources/images/recipes/<distribution>/<release>/<architecture>/<recipe>/`. The ROCm sample selects `ubuntu/24.04/x86_64/rocm7_0` from its payload file.
 
 Build or inspect the selected recipe with:
 
 ```bash
 scripts/host/cosim-image list
-scripts/host/cosim-image validate vhost/ubuntu/24.04/x86_64/rocm7_0
-scripts/host/cosim-image build vhost/ubuntu/24.04/x86_64/rocm7_0
+scripts/host/cosim-image validate ubuntu/24.04/x86_64/rocm7_0
+scripts/host/cosim-image build ubuntu/24.04/x86_64/rocm7_0
 cosim run samples/machines/single-gpu.yaml --payload samples/payloads/ubuntu-rocm7_0.yaml --dry-run
 ```
 
@@ -473,8 +473,8 @@ The following gem5 source paths are relative to `third_party/gem5/`.
 | `scripts/host/dev.sh` | Runs a command on the Host or in a temporary development container |
 | `scripts/host/build.sh` | Builds QEMU, gem5 and m5 in the selected environment |
 | `resources/images/packer/qemu.pkr.hcl` | Shared Packer QEMU builder |
-| `resources/images/recipes/` | OS and role-specific vHost image recipes with Ansible playbooks and files |
-| `resources/vhost/scripts/` | vHost scripts shared by image recipes |
+| `resources/images/recipes/` | vHost image recipes grouped by OS and software, with Ansible playbooks and files |
+| `resources/scripts/` | vHost scripts shared by image recipes |
 | `scripts/host/cosim-image` | Host-side Bash entry for image recipes |
 
 ### gem5 Modified Infrastructure Files

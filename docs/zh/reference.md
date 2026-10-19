@@ -107,8 +107,8 @@ console=ttyS0,115200 root=/dev/vda1 modprobe.blacklist=amdgpu
 | 产物 | 路径 | 大小 |
 |------|------|------|
 | gem5 二进制 | `build/gem5/<native>/VEGA_X86/gem5.opt` | 由构建配置决定 |
-| vHost 磁盘镜像 | `build/images/vhost/ubuntu/24.04/x86_64/rocm7_0/disk` | 虚拟容量 56 GB |
-| vHost 内核 | `build/images/vhost/ubuntu/24.04/x86_64/rocm7_0/kernel` | 镜像配方产物 |
+| vHost 磁盘镜像 | `build/images/ubuntu/24.04/x86_64/rocm7_0/disk` | 虚拟容量 56 GB |
+| vHost 内核 | `build/images/ubuntu/24.04/x86_64/rocm7_0/kernel` | 镜像配方产物 |
 | QEMU 二进制 | Host 的 `PATH` 中的 `qemu-system-x86_64` | -- |
 
 ---
@@ -272,7 +272,7 @@ MI300X 检测顺序（ROCm 7.0 DKMS，来自 dmesg）：
 |---|---|
 | **症状** | `Failed to init DRM client: -13` 后内核 panic。`ttm_resource_move_to_lru_tail` 中空指针崩溃 |
 | **根因** | 磁盘镜像缺少 `amddrm_exec.ko.zst` DKMS 模块。缺少此模块时 TTM 内存管理器初始化失败，`drm_dev_enter()` 返回 `-EACCES`（-13） |
-| **修复** | 校验当前镜像 bundle，以及其中的 `kernel-release` 和 `amdgpu-module.txt` 记录。输入发生变化时，使用 `scripts/host/cosim-image build vhost/ubuntu/24.04/x86_64/rocm7_0` 重新构建镜像配方。 |
+| **修复** | 校验当前镜像 bundle，以及其中的 `kernel-release` 和 `amdgpu-module.txt` 记录。输入发生变化时，使用 `scripts/host/cosim-image build ubuntu/24.04/x86_64/rocm7_0` 重新构建镜像配方。 |
 
 ### 4.15 驱动 hw_init 失败后 rmmod 导致 oops
 
@@ -425,14 +425,14 @@ memcpy(&pte, vramShmemPtr + pte_vram_offset, sizeof(pte));
 
 ## 7. vHost 镜像配方
 
-vHost 操作系统镜像配方放在 `resources/images/recipes/<role>/<distribution>/<release>/<architecture>/<recipe>/`。ROCm 示例的 payload 选择 `vhost/ubuntu/24.04/x86_64/rocm7_0`。
+vHost 操作系统镜像配方放在 `resources/images/recipes/<distribution>/<release>/<architecture>/<recipe>/`。ROCm 示例的 payload 选择 `ubuntu/24.04/x86_64/rocm7_0`。
 
 可以用以下命令查看、检查或构建配方：
 
 ```bash
 scripts/host/cosim-image list
-scripts/host/cosim-image validate vhost/ubuntu/24.04/x86_64/rocm7_0
-scripts/host/cosim-image build vhost/ubuntu/24.04/x86_64/rocm7_0
+scripts/host/cosim-image validate ubuntu/24.04/x86_64/rocm7_0
+scripts/host/cosim-image build ubuntu/24.04/x86_64/rocm7_0
 cosim run samples/machines/single-gpu.yaml --payload samples/payloads/ubuntu-rocm7_0.yaml --dry-run
 ```
 
@@ -474,7 +474,7 @@ cosim run samples/machines/single-gpu.yaml --payload samples/payloads/ubuntu-roc
 | `scripts/host/build.sh` | 在所选环境中构建 QEMU、gem5 和 m5 |
 | `resources/images/packer/qemu.pkr.hcl` | 通用 Packer QEMU builder |
 | `resources/images/recipes/` | 按 vHost 操作系统和用途组织的镜像配方、Ansible playbook 和文件 |
-| `resources/vhost/scripts/` | 镜像配方共用的 vHost 脚本 |
+| `resources/scripts/` | 镜像配方共用的 vHost 脚本 |
 | `scripts/host/cosim-image` | Host 侧 Bash 镜像配方入口 |
 
 ### gem5 修改的基础设施文件

@@ -6,8 +6,8 @@ SPDX-License-Identifier: Apache-2.0
 
 # vHost 镜像配方
 
-vHost 操作系统镜像配方放在 `resources/images/recipes/`，按角色、发行版、版本和架构组织。
-当前首个配方是 `vhost/ubuntu/24.04/x86_64/rocm7_0`。选择该配方的运行时 payload 示例是
+vHost 操作系统镜像配方放在 `resources/images/recipes/`，按发行版、版本、架构和软件配方组织。
+当前首个配方是 `ubuntu/24.04/x86_64/rocm7_0`。选择该配方的运行时 payload 示例是
 `samples/payloads/ubuntu-rocm7_0.yaml`；运行时 payload 示例放在 `samples/payloads/`。
 镜像配方描述镜像构建方式和默认产物映射，机器拓扑描述硬件。
 
@@ -60,7 +60,7 @@ Host 侧 Bash 入口 `scripts/host/cosim-image` 可以在不启动模拟器的�
 `cosim run` 在缓存未命中时构建镜像，验证镜像清单，再检查 kernel 和磁盘后启动。
 
 验证后的 bundle 保存在
-`build/images/vhost/ubuntu/24.04/x86_64/rocm7_0/`，包含 `disk`、配套 `kernel`、软件包
+`build/images/ubuntu/24.04/x86_64/rocm7_0/`，包含 `disk`、配套 `kernel`、软件包
 清单、构建日志和 `manifest.json`。清单记录固定版本的基础镜像、配方文件、声明的外部固件与
 `m5` 输入、QEMU 和 QEMU 镜像工具版本、Packer 与 Ansible 版本，以及每个产物的
 SHA-256。QCOW2 bundle 必须通过 `qemu-img check`，并且不能依赖 backing file。配方或输入变化会产生

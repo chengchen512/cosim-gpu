@@ -6,9 +6,9 @@ SPDX-License-Identifier: Apache-2.0
 
 # vHost Image Recipes
 
-vHost OS image recipes live in `resources/images/recipes/`, organized by role,
-distribution, release and architecture. The first recipe is
-`vhost/ubuntu/24.04/x86_64/rocm7_0`. The runtime payload example that selects it
+vHost OS image recipes live in `resources/images/recipes/`, organized by
+distribution, release, architecture and software recipe. The first recipe is
+`ubuntu/24.04/x86_64/rocm7_0`. The runtime payload example that selects it
 is `samples/payloads/ubuntu-rocm7_0.yaml`; runtime payload examples belong in
 `samples/payloads/`. A recipe describes image construction and its output
 artifacts, while the machine topology describes hardware.
@@ -73,7 +73,7 @@ starting QEMU or gem5. A normal `cosim run` builds on a cache miss, verifies the
 bundle, then validates its kernel and disk before launching.
 
 The verified bundle is stored under
-`build/images/vhost/ubuntu/24.04/x86_64/rocm7_0/`. It contains `disk`, the
+`build/images/ubuntu/24.04/x86_64/rocm7_0/`. It contains `disk`, the
 matching `kernel`, package inventories, build logs and `manifest.json`. The
 manifest records the pinned base image, recipe files, declared external
 firmware and `m5` inputs, QEMU and QEMU image tool versions, Packer and Ansible versions,

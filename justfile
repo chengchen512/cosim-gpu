@@ -12,7 +12,7 @@ host_arch_input := env("COSIM_HOST_ARCH", arch())
 host_arch := if host_arch_input == "aarch64" { "aarch64" } else if host_arch_input == "x86_64" { "x86_64" } else { error("COSIM_HOST_ARCH must be aarch64 or x86_64") }
 container_platform := if host_arch == "aarch64" { "linux/arm64" } else { "linux/amd64" }
 gem5_build_dir := env("GEM5_BUILD_DIR", "build/gem5/" + host_arch + "/VEGA_X86")
-rocm_recipe := "vhost/ubuntu/24.04/x86_64/rocm7_0"
+rocm_recipe := "ubuntu/24.04/x86_64/rocm7_0"
 rocm_image_dir := "build/images/" + rocm_recipe
 dev_image := env("COSIM_DEV_IMAGE", "cosim-dev:local")
 gpu_fs_image := env("GPU_APP_BUILD_IMAGE", "ghcr.io/gem5/gpu-fs:latest")
@@ -181,7 +181,7 @@ check-rocm-syntax:
 # Check the resource scripts used by the image producer
 [group('check')]
 check-rocm-build-scripts:
-    shellcheck scripts/host/cosim-image resources/images/recipes/vhost/ubuntu/24.04/x86_64/rocm7_0/files/*.sh
+    shellcheck scripts/host/cosim-image resources/images/recipes/ubuntu/24.04/x86_64/rocm7_0/files/*.sh
 
 # Exercise reuse and corruption rejection against a real built ROCm bundle
 [group('test')]
@@ -359,7 +359,7 @@ check-shell:
     shellcheck \
         scripts/host/*.sh \
         scripts/ci/*.sh \
-        resources/images/recipes/vhost/ubuntu/24.04/x86_64/rocm7_0/files/*.sh \
+        resources/images/recipes/ubuntu/24.04/x86_64/rocm7_0/files/*.sh \
         tests/run_tests.sh tests/test_modprobe_params.sh
 
 # Check that cosim modprobe commands carry the required amdgpu parameters

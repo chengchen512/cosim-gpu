@@ -82,7 +82,7 @@ class LauncherLifecycleTests(unittest.TestCase):
                     )
                     self.assertEqual(
                         plan["image"]["recipe"]["id"],
-                        "vhost/ubuntu/24.04/x86_64/rocm7_0",
+                        "ubuntu/24.04/x86_64/rocm7_0",
                     )
                     host = next(p for p in plan["launch"]["processes"]
                                 if p["role"] == "host")

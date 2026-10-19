@@ -19,7 +19,7 @@ from resources.images.toolchain import ANSIBLE_CORE_VERSION, PACKER_VERSION
 
 
 WORKSPACE = Path(__file__).resolve().parents[2]
-RECIPE_ID = "vhost/ubuntu/24.04/x86_64/rocm7_0"
+RECIPE_ID = "ubuntu/24.04/x86_64/rocm7_0"
 
 
 class ReusableImageInputTests(unittest.TestCase):

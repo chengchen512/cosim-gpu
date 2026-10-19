@@ -48,7 +48,7 @@ if [[ -z "${QEMU_BIN:-}" ]]; then
         QEMU_BIN="$(command -v qemu-system-x86_64 2>/dev/null || true)"
     fi
 fi
-IMAGE_DIR="${COSIM_DIR}/build/images/vhost/ubuntu/24.04/x86_64/rocm7_0"
+IMAGE_DIR="${COSIM_DIR}/build/images/ubuntu/24.04/x86_64/rocm7_0"
 DISK_IMAGE="${IMAGE_DIR}/disk"
 KERNEL="${IMAGE_DIR}/kernel"
 

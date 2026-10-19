@@ -12,8 +12,8 @@ justfile 使用 `dev-`、`build-`、`run-`、`test-`、`check-`、`ci-` 和 `mai
 | 路径 | 运行环境 | 职责 |
 |---|---|---|
 | `scripts/host/` | Host 操作系统或开发容器 | 由 just 调用的 Host 工具，包括构建、启动、镜像配方入口和仓库检查 |
-| `resources/vhost/scripts/` | vHost 操作系统 | 多个 vHost 镜像配方共同使用的脚本 |
-| `resources/images/recipes/<role>/<distribution>/<release>/<architecture>/<recipe>/files/` | 对应的 vHost 镜像 | 由 Ansible 安装的镜像专用脚本和服务；Ubuntu ROCm 镜像配方把 GPU 初始化和回归脚本放在这里 |
+| `resources/scripts/` | vHost 操作系统 | 多个 vHost 镜像配方共同使用的脚本 |
+| `resources/images/recipes/<distribution>/<release>/<architecture>/<recipe>/files/` | 对应的 vHost 镜像 | 由 Ansible 安装的镜像专用脚本和服务；Ubuntu ROCm 镜像配方把 GPU 初始化和回归脚本放在这里 |
 | `tests/run_tests.sh` | 通过 9p 共享目录运行于 vHost | 运行 HIP 测试程序；由 `scripts/host/run_cosim_tests.sh` 启动 |
 | `tests/test_modprobe_params.sh` | Host 和 CI runner | 通过 `just check-modprobe-params` 检查 vHost GPU 初始化脚本 |
 | `scripts/ci/` | Host，包括 GitHub Actions runner | 工作流和产物辅助程序、测试运行工具；部分检查由 just 提供本地复现入口 |
@@ -106,7 +106,7 @@ gem5 任务只编译一次 `VEGA_X86`，上传压缩后的二进制文件、模�
 清单同时保留最初的编译来源和本轮产物发布标识。
 
 独立的镜像任务并行构建 x86 `m5` 工具，并使用仓库维护的 Packer/Ansible 镜像配方：
-`resources/images/recipes/vhost/ubuntu/24.04/x86_64/rocm7_0`。任务从校验值固定的
+`resources/images/recipes/ubuntu/24.04/x86_64/rocm7_0`。任务从校验值固定的
 Ubuntu cloud 磁盘镜像开始，安装 ROCm 7.0、AMDGPU DKMS、PyTorch 和 GPU 初始化服务，
 再导出配套的 Linux 6.8.0-124-generic 内核。QCOW2 磁盘、内核、软件包清单和文件摘要
 组成可复用产物。WMI 源码和 guest 脚本由镜像配方目录维护；`third_party/gem5-resources`

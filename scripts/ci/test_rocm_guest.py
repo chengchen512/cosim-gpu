@@ -13,7 +13,7 @@ from resources.images.recipe import load_recipe
 class GuestBuildTargetTests(unittest.TestCase):
     def test_guest_build_directory_matches_the_makefile_targets(self):
         script = (
-            ROOT / "resources/images/recipes/vhost/ubuntu/24.04/x86_64/"
+            ROOT / "resources/images/recipes/ubuntu/24.04/x86_64/"
             "rocm7_0/files/cosim_rocm_regression.sh"
         ).read_text()
         self.assertIn('make -j1 "BUILDDIR=build" "build/$program"', script)
@@ -34,7 +34,7 @@ class GuestBuildTargetTests(unittest.TestCase):
 
     def test_vhost_scripts_are_image_inputs(self):
         recipe = load_recipe(
-            ROOT, "vhost/ubuntu/24.04/x86_64/rocm7_0"
+            ROOT, "ubuntu/24.04/x86_64/rocm7_0"
         )
         tasks = yaml.safe_load(
             recipe.tasks_file.read_text(encoding="utf-8")
@@ -60,7 +60,7 @@ class GuestBuildTargetTests(unittest.TestCase):
 
     def test_serial_console_override_is_installed_for_ttyS0(self):
         recipe = load_recipe(
-            ROOT, "vhost/ubuntu/24.04/x86_64/rocm7_0"
+            ROOT, "ubuntu/24.04/x86_64/rocm7_0"
         )
         tasks = yaml.safe_load(
             recipe.tasks_file.read_text(encoding="utf-8")
@@ -84,7 +84,7 @@ class GuestBuildTargetTests(unittest.TestCase):
 
     def test_amd_bsd_license_is_installed_in_the_guest(self):
         recipe = load_recipe(
-            ROOT, "vhost/ubuntu/24.04/x86_64/rocm7_0"
+            ROOT, "ubuntu/24.04/x86_64/rocm7_0"
         )
         tasks = yaml.safe_load(
             recipe.tasks_file.read_text(encoding="utf-8")
@@ -106,7 +106,7 @@ class GuestBuildTargetTests(unittest.TestCase):
 
     def test_amdgpu_dkms_is_pinned_to_the_verified_package(self):
         recipe = load_recipe(
-            ROOT, "vhost/ubuntu/24.04/x86_64/rocm7_0"
+            ROOT, "ubuntu/24.04/x86_64/rocm7_0"
         )
         tasks = yaml.safe_load(
             recipe.tasks_file.read_text(encoding="utf-8")
@@ -137,7 +137,7 @@ class GuestBuildTargetTests(unittest.TestCase):
 
     def test_dkms_failure_path_prints_logs_and_fails_the_build(self):
         recipe = load_recipe(
-            ROOT, "vhost/ubuntu/24.04/x86_64/rocm7_0"
+            ROOT, "ubuntu/24.04/x86_64/rocm7_0"
         )
         tasks = yaml.safe_load(
             recipe.tasks_file.read_text(encoding="utf-8")

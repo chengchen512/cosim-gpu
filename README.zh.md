@@ -139,7 +139,7 @@ QEMU Device Model 示例使用 <code>just build-qemu</code> 构建的 QEMU，通
   <code>justfile</code> 和 <code>.agents/</code>。
 - **vHost 镜像配方：** <code>resources/images/recipes/</code> 中按操作系统组织的
   Packer/QEMU 配置、Ansible playbook 和镜像文件。
-- **vHost 通用脚本：** 多个 vHost 镜像配方共用的脚本放在 <code>resources/vhost/scripts/</code>。
+- **vHost 通用脚本：** 多个 vHost 镜像配方共用的脚本放在 <code>resources/scripts/</code>。
 - **Host 与 CI 脚本：** Host 上由 just 调用的工具放在 <code>scripts/host/</code>；
   workflow 专用辅助程序和测试放在 <code>scripts/ci/</code>。
 

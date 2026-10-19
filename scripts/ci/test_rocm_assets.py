@@ -9,7 +9,7 @@ from resources.images.recipe import RecipeError, list_recipes, load_recipe
 
 
 WORKSPACE = Path(__file__).resolve().parents[2]
-RECIPE = "vhost/ubuntu/24.04/x86_64/rocm7_0"
+RECIPE = "ubuntu/24.04/x86_64/rocm7_0"
 
 
 class ImageRecipeTests(unittest.TestCase):

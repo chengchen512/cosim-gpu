@@ -129,7 +129,7 @@ fn run_dry_run_displays_image_and_launch_plan_without_writing_outputs() {
     let root = directory();
     let topology = samples().join("machines/host-only.yaml");
     let payload = samples().join("payloads/ubuntu-rocm7_0.yaml");
-    let image_dir = workspace().join("build/images/vhost/ubuntu/24.04/x86_64/rocm7_0");
+    let image_dir = workspace().join("build/images/ubuntu/24.04/x86_64/rocm7_0");
     let image_existed = image_dir.exists();
     let dry_run_dir = workspace().join(".r");
     let dry_run_dir_existed = dry_run_dir.exists();
@@ -155,10 +155,7 @@ fn run_dry_run_displays_image_and_launch_plan_without_writing_outputs() {
         .join("\n");
     let plan: Value = serde_json::from_str(&stdout).unwrap();
     assert_eq!(plan["dry_run"], true);
-    assert_eq!(
-        plan["image"]["recipe"]["id"],
-        "vhost/ubuntu/24.04/x86_64/rocm7_0"
-    );
+    assert_eq!(plan["image"]["recipe"]["id"], "ubuntu/24.04/x86_64/rocm7_0");
     assert!(plan["launch"]["processes"].is_array());
     assert_eq!(image_dir.exists(), image_existed);
     assert_eq!(dry_run_dir.exists(), dry_run_dir_existed);

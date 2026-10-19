@@ -144,7 +144,7 @@ def topology(inputs: Inputs, share: Path) -> dict:
 def payload() -> dict:
     return {
         "version": 1,
-        "image": {"recipe": "vhost/ubuntu/24.04/x86_64/rocm7_0"},
+        "image": {"recipe": "ubuntu/24.04/x86_64/rocm7_0"},
     }
 
 

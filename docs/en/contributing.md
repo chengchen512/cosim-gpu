@@ -15,8 +15,8 @@ prefixes to group recipes by purpose. Run `just` to see the available commands.
 | Location | Runs in | Responsibility |
 |---|---|---|
 | `scripts/host/` | Host OS or development container | Host tools called by just, including build, launch, image-recipe CLI and repository checks |
-| `resources/vhost/scripts/` | vHost OS | Scripts shared by multiple vHost image recipes |
-| `resources/images/recipes/<role>/<distribution>/<release>/<architecture>/<recipe>/files/` | The named vHost image | Image-specific scripts and services installed by Ansible; the Ubuntu ROCm recipe keeps its GPU setup and regression scripts here |
+| `resources/scripts/` | vHost OS | Scripts shared by multiple vHost image recipes |
+| `resources/images/recipes/<distribution>/<release>/<architecture>/<recipe>/files/` | The named vHost image | Image-specific scripts and services installed by Ansible; the Ubuntu ROCm recipe keeps its GPU setup and regression scripts here |
 | `tests/run_tests.sh` | vHost OS through the 9p share | Runs HIP test binaries; `scripts/host/run_cosim_tests.sh` launches it |
 | `tests/test_modprobe_params.sh` | Host and CI runner | Checks the vHost GPU setup script through `just check-modprobe-params` |
 | `scripts/ci/` | Host, including GitHub Actions runners | Workflow and artifact helpers plus test harnesses; selected checks are exposed through just for local reproduction |
@@ -141,7 +141,7 @@ library and original development image together. Its manifest keeps the
 original compilation provenance and the current publication identity.
 
 A parallel image job builds the x86 `m5` utility and uses the repository-owned
-Packer/Ansible recipe at `resources/images/recipes/vhost/ubuntu/24.04/x86_64/rocm7_0`.
+Packer/Ansible recipe at `resources/images/recipes/ubuntu/24.04/x86_64/rocm7_0`.
 It starts from a checksum-pinned Ubuntu cloud disk, installs ROCm 7.0, AMDGPU
 DKMS, PyTorch and the GPU initialization service, then exports the paired
 Linux 6.8.0-124-generic kernel. The QCOW2 disk, kernel, package inventory and

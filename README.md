@@ -146,7 +146,7 @@ container from <code>scripts/host/Dockerfile.dev</code>. vHost image and HIP bui
   <code>justfile</code> and <code>.agents/</code>.
 - **vHost image recipes:** <code>resources/images/recipes/</code> with
   Packer/QEMU metadata, Ansible playbooks and OS-specific files.
-- **Shared vHost scripts:** <code>resources/vhost/scripts/</code> for scripts
+- **Shared vHost scripts:** <code>resources/scripts/</code> for scripts
   used by multiple vHost recipes.
 - **Host and CI scripts:** <code>scripts/host/</code> for Host tools called by
   just, and <code>scripts/ci/</code> for workflow-only helpers and tests.
