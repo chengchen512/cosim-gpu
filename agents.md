@@ -85,7 +85,7 @@ ip_block_mask=0x67 ppfeaturemask=0 dpm=0 audio=0 ras_enable=0 discovery=2
 - gem5: pre-commit hooks apply; use tags from `MAINTAINERS.yaml`.
 - Top-level cosim-gpu: every non-merge commit must pass `just check-patch`
   (QEMU `checkpatch.pl` rules, enforced by the `Checkpatch` CI job). See
-  `docs/en/contributing.md`.
+  `docs/contributing/index.rst`.
 - Every tracked file must belong to an area in `MAINTAINERS.yml`; update it
   in the same commit that adds files outside existing areas, and run
   `just check-maintainers`.
@@ -94,6 +94,20 @@ ip_block_mask=0x67 ppfeaturemask=0 dpm=0 audio=0 ras_enable=0 discovery=2
 
 ## Documentation Rules
 
-- Project docs under `docs/` must keep both `docs/zh/` and `docs/en/` versions.
-- First line: `[English](../en/<file>.md)` or `[中文](../zh/<file>.md)`.
-- When adding or modifying a doc, update both language versions.
+- Sources are reStructuredText under `docs/`. Chinese is the primary language
+  (`docs/zh/`); English (`docs/en/`) is a synchronized mirror with the same
+  relative path and the same heading skeleton.
+- There is no per-page first-line language link. The built site (GitHub Pages)
+  is the only published form and provides the language switcher.
+- When adding or modifying a page, update both language versions in the same
+  change; run `just docs-check` (build + bilingual parity + site verification).
+- Page format: chapter index pages are navigation only (short intro + toctree);
+  details live in child pages; headings stay at H2/H3; use RST labels,
+  `:doc:`/`:ref:`, `code-block`, and `list-table` as described in
+  `docs/contributing/documentation.rst`.
+- Support status (Supported/Experimental/Planned, status columns, support
+  matrix) is deferred: do not add status claims until the support-status
+  refactor lands.
+- Attribution to the Zephyr documentation lives only in source files
+  (`docs/NOTICE.md`, `docs/conf.py` header and the theme CSS header), never on
+  rendered pages.
