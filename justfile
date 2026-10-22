@@ -417,8 +417,13 @@ docs:
 docs-serve: docs
     docs/scripts/serve.sh
 
-# Check bilingual parity and verify the generated documentation site
+# Check RST syntax and repository documentation formatting rules
 [group('docs')]
-docs-check: docs
+docs-format:
+    docs/scripts/check_format.sh
+
+# Check formatting, bilingual parity and the generated documentation site
+[group('docs')]
+docs-check: docs-format docs
     docs/scripts/check_i18n.py
     docs/scripts/verify_build.py

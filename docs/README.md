@@ -18,7 +18,8 @@ python3 -m venv docs/.venv
 docs/.venv/bin/pip install -r docs/requirements.txt
 just docs          # strict build, both languages, zh-first landing
 just docs-serve    # serve http://127.0.0.1:8010/
-just docs-check    # bilingual parity + generated site verification
+just docs-format   # sphinx-lint + repository formatting rules
+just docs-check    # format + build + bilingual parity + site verification
 ~~~
 
 ## Layout
@@ -28,7 +29,7 @@ docs/
 ├── conf.py                 # shared configuration, COSIM_DOCS_LANG selects zh/en
 ├── requirements.txt        # pinned toolchain
 ├── _static/                # independent theme layer, logo, language switcher
-├── scripts/                # build, serve, i18n check, site verification
+├── scripts/                # build, serve, format/lint, i18n check, site verification
 ├── zh/                     # primary Chinese source tree
 ├── en/                     # synchronized English mirror
 ├── NOTICE.md               # source-only attribution

@@ -135,11 +135,19 @@ Then use these commands:
 
    just docs          # strict build of both languages (warnings are errors)
    just docs-serve    # build and preview at http://127.0.0.1:8010/
-   just docs-check    # build + bilingual check + generated-site check
+   just docs-format   # RST syntax and repository formatting checks
+   just docs-check    # format + build + bilingual check + generated-site check
 
-``just docs-check`` runs ``docs/scripts/build.sh``,
-``docs/scripts/check_i18n.py`` and ``docs/scripts/verify_build.py`` in order:
+``just docs-format`` runs ``docs/scripts/check_format.sh``: ``sphinx-lint``
+for RST syntax plus ``docs/scripts/check_format.py`` for repository rules
+(SPDX first line, one H1 with depth at most H3, explicit label, no tabs, CRLF
+or trailing whitespace, final newline, navigation-sized chapter indexes, and
+no stub or first-line language markers). ``just docs-check`` runs the format
+check first, then ``docs/scripts/build.sh``, ``docs/scripts/check_i18n.py``
+and ``docs/scripts/verify_build.py`` in order:
 
+- Format check: sphinx-lint and the repository formatting rules pass for both
+  language trees.
 - Bilingual check: every page has a twin in the other language, every page has an
   explicit label, the heading-level skeleton matches, and no first-line language
   link exists.
@@ -147,8 +155,9 @@ Then use these commands:
   source file produced an HTML page, the page count meets the expectation, no migration stub marker remains, and the
   theme and language switcher are loaded.
 
-``.github/workflows/docs.yml`` runs the same build and checks when
-``docs/**`` changes; builds from ``main`` are published to GitHub Pages.
+``.github/workflows/docs.yml`` runs the format checks, build and remaining
+checks when ``docs/**`` changes; builds from ``main`` are published to
+GitHub Pages.
 
 Related pages
 -------------

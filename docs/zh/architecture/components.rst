@@ -94,7 +94,7 @@ vfio-user：两者之间的桥
 -----------------------
 
 host QEMU 使用内置的 ``vfio-user-pci`` 客户端，设备侧由 gem5 的
-``MI300XVfioUser``（libvfio-user）或 QEMU 的 ``x-vfio-user-server`` 提供
+``MI300XVfioUser``\ （libvfio-user）或 QEMU 的 ``x-vfio-user-server`` 提供
 服务端。协议走 Unix socket，支持 PCI 配置空间、MMIO、DMA 映射与中断。
 细节见 :doc:`vfio_user`。
 

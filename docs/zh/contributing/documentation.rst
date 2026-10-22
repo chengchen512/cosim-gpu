@@ -119,19 +119,25 @@ RST 书写约定
 
    just docs          # 严格构建中英文站点（警告视为错误）
    just docs-serve    # 构建后在 http://127.0.0.1:8010/ 预览
-   just docs-check    # 构建 + 双语检查 + 生成站点检查
+   just docs-format   # RST 语法与仓库格式检查
+   just docs-check    # 格式 + 构建 + 双语检查 + 生成站点检查
 
-``just docs-check`` 依次执行 ``docs/scripts/build.sh``、
-``docs/scripts/check_i18n.py`` 与 ``docs/scripts/verify_build.py``：
+``just docs-format`` 运行 ``docs/scripts/check_format.sh``：用 ``sphinx-lint``
+检查 RST 语法，并用 ``docs/scripts/check_format.py`` 检查仓库规则（SPDX 首行、
+唯一 H1 且层级不超过 H3、显式标签、无 tab/CRLF/行尾空格、文件末尾换行、
+导航型章节索引长度、无 stub 与首行语言标记）。``just docs-check`` 先运行格式
+检查，再依次执行 ``docs/scripts/build.sh``、``docs/scripts/check_i18n.py``
+与 ``docs/scripts/verify_build.py``：
 
+- 格式检查：两棵语言树都通过 sphinx-lint 与仓库格式规则。
 - 双语检查：每页在两种语言下都有对应文件、每页都有显式标签、标题层级骨架一致、
   不存在首行语言链接。
 - 站点检查：landing 页面存在并跳转到中文站点、每个源文件都生成了 HTML、页面数量
   达到预期、没有残留的迁移占位标记（stub marker）、主题与语言
   切换器已加载。
 
-``.github/workflows/docs.yml`` 在修改 ``docs/**`` 时运行同样的构建与检查；
-``main`` 分支的产物发布到 GitHub Pages。
+``.github/workflows/docs.yml`` 在修改 ``docs/**`` 时运行格式检查、构建与其余
+检查；``main`` 分支的产物发布到 GitHub Pages。
 
 相关页面
 --------
