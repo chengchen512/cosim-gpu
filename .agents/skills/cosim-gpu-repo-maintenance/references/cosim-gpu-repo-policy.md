@@ -65,16 +65,14 @@ source document under `docs/` or an artifact summary under a task workspace.
 
 ## Documentation Pairing
 
-Project docs under `docs/` must keep both `docs/zh/` and `docs/en/` versions.
-The first line links to the other language version:
+Project docs under `docs/` are reStructuredText built with Sphinx. Chinese is
+primary (`docs/zh/`); English (`docs/en/`) is a synchronized mirror with the
+same relative path and heading skeleton. Do not add per-page first-line
+language links: the built GitHub Pages site provides the language switcher.
 
-```text
-[English](../en/<file>.md)
-[中文](../zh/<file>.md)
-```
-
-When adding or modifying project docs, update both languages unless the file is
-explicitly a temporary patch or source evidence artifact.
+When adding or modifying project docs, update both languages and run
+`just docs-check` unless the file is explicitly a temporary patch or source
+evidence artifact.
 
 ## Safe Submodule Pointer Review
 

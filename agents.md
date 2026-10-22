@@ -85,7 +85,7 @@ ip_block_mask=0x67 ppfeaturemask=0 dpm=0 audio=0 ras_enable=0 discovery=2
 - gem5: pre-commit hooks apply; use tags from `MAINTAINERS.yaml`.
 - Top-level cosim-gpu: every non-merge commit must pass `just check-patch`
   (QEMU `checkpatch.pl` rules, enforced by the `Checkpatch` CI job). See
-  `docs/en/contributing.md`.
+  `docs/contributing/index.rst`.
 - Every tracked file must belong to an area in `MAINTAINERS.yml`; update it
   in the same commit that adds files outside existing areas, and run
   `just check-maintainers`.
@@ -94,6 +94,34 @@ ip_block_mask=0x67 ppfeaturemask=0 dpm=0 audio=0 ras_enable=0 discovery=2
 
 ## Documentation Rules
 
-- Project docs under `docs/` must keep both `docs/zh/` and `docs/en/` versions.
-- First line: `[English](../en/<file>.md)` or `[中文](../zh/<file>.md)`.
-- When adding or modifying a doc, update both language versions.
+- Sources are reStructuredText under `docs/`. Chinese is the primary language
+  (`docs/zh/`); English (`docs/en/`) is a synchronized mirror with the same
+  relative path and the same heading skeleton.
+- There is no per-page first-line language link. The built site (GitHub Pages)
+  is the only published form and provides the language switcher.
+- When adding or modifying a page, update both language versions in the same
+  change; run `just docs-check` (build + bilingual parity + site verification).
+- Page format: chapter index pages are navigation only (short intro + toctree);
+  details live in child pages; headings stay at H2/H3; use RST labels,
+  `:doc:`/`:ref:`, `code-block`, and `list-table` as described in
+  `docs/contributing/documentation.rst`.
+- Support status (Supported/Experimental/Planned, status columns, support
+  matrix) is deferred: do not add status claims until the support-status
+  refactor lands.
+- Attribution to the Zephyr documentation lives only in source files
+  (`docs/NOTICE.md`, `docs/conf.py` header and the theme CSS header), never on
+  rendered pages.
+
+## Agent Review Reports
+
+- Agent-generated review reports must only report **P0** and **P1** findings.
+  Do not report P2 or lower findings (nits, style preferences, optional
+  improvements) at all, and do not relabel them as P0/P1 to keep them.
+- **P0**: blocks merge or execution - correctness, security, data loss, a
+  broken build/test gate, or a required check that cannot pass.
+- **P1**: significant defect, regression, or spec violation that must be fixed
+  before merge.
+- If a finding does not meet P0 or P1, omit it from the report. If the context
+  is required to explain a P0/P1 finding, include only that context.
+- This applies to delegated reviews (`cosim-gpu-review`,
+  `cosim-gpu-codex-review`) and to any ad-hoc agent review output.

@@ -167,7 +167,8 @@ Documentation:
   labels:
     - "area: documentation"
   description: >-
-    Project documentation in English and Chinese.
+    Project documentation: RST sources with Chinese primary and an English
+    mirror, built with Sphinx and published to GitHub Pages.
 
 vHost Image:
   status: maintained

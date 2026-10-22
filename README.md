@@ -18,9 +18,9 @@
 </p>
 
 <p align="center">
-  <a href="docs/en/getting-started.md">Getting started</a> ·
-  <a href="docs/en/topology.md">Topology reference</a> ·
-  <a href="docs/en/architecture.md">Architecture</a>
+  <a href="https://gevico.github.io/cosim-gpu/en/getting_started/">Getting started</a> ·
+  <a href="https://gevico.github.io/cosim-gpu/en/topology/">Topology and hardware support</a> ·
+  <a href="https://gevico.github.io/cosim-gpu/en/architecture/">Architecture</a>
 </p>
 
 Define QEMU and Device Model settings in YAML, then launch a session with the
@@ -153,9 +153,9 @@ container from <code>scripts/host/Dockerfile.dev</code>. vHost image and HIP bui
 
 ## More documentation
 
-- [Rust guidelines](docs/en/guidelines.md)
-- [Reference](docs/en/reference.md)
-- [Contributing](docs/en/contributing.md)
+- [Documentation home](https://gevico.github.io/cosim-gpu/en/)
+- [Reference](https://gevico.github.io/cosim-gpu/en/reference/)
+- [Contributing](https://gevico.github.io/cosim-gpu/en/contributing/)
 
 The top-level project uses the [Apache 2.0 license](LICENSE). Submodules retain
 their respective licenses.

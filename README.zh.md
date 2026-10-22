@@ -18,9 +18,9 @@
 </p>
 
 <p align="center">
-  <a href="docs/zh/getting-started.md">快速入门</a> ·
-  <a href="docs/zh/topology.md">拓扑参考</a> ·
-  <a href="docs/zh/architecture.md">架构说明</a>
+  <a href="https://gevico.github.io/cosim-gpu/zh/getting_started/">快速入门</a> ·
+  <a href="https://gevico.github.io/cosim-gpu/zh/topology/">拓扑与硬件支持</a> ·
+  <a href="https://gevico.github.io/cosim-gpu/zh/architecture/">整体架构</a>
 </p>
 
 使用 YAML 描述 QEMU 和 Device Model 配置，再用 Rust <code>cosim</code> 启动会话。
@@ -145,8 +145,8 @@ QEMU Device Model 示例使用 <code>just build-qemu</code> 构建的 QEMU，通
 
 ## 更多文档
 
-- [Rust 开发规范](docs/zh/guidelines.md)
-- [参考手册](docs/zh/reference.md)
-- [贡献指南](docs/zh/contributing.md)
+- [文档首页](https://gevico.github.io/cosim-gpu/zh/)
+- [参考手册](https://gevico.github.io/cosim-gpu/zh/reference/)
+- [贡献指南](https://gevico.github.io/cosim-gpu/zh/contributing/)
 
 顶层项目使用 [Apache 2.0 许可证](LICENSE)。子模块保留各自的许可证。

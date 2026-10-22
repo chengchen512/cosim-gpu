@@ -402,3 +402,28 @@ maint-commits range="HEAD~..":
 [group('maint')]
 maint-areas:
     @python3 scripts/host/get_maintainer.py areas
+
+# ---------------------------------------------------------------------------
+# Documentation
+# ---------------------------------------------------------------------------
+
+# Build the documentation site (Chinese primary, English mirror)
+[group('docs')]
+docs:
+    docs/scripts/build.sh
+
+# Build and serve the documentation site at http://127.0.0.1:8010/
+[group('docs')]
+docs-serve: docs
+    docs/scripts/serve.sh
+
+# Check RST syntax and repository documentation formatting rules
+[group('docs')]
+docs-format:
+    docs/scripts/check_format.sh
+
+# Check formatting, bilingual parity and the generated documentation site
+[group('docs')]
+docs-check: docs-format docs
+    docs/scripts/check_i18n.py
+    docs/scripts/verify_build.py
