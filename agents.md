@@ -111,3 +111,17 @@ ip_block_mask=0x67 ppfeaturemask=0 dpm=0 audio=0 ras_enable=0 discovery=2
 - Attribution to the Zephyr documentation lives only in source files
   (`docs/NOTICE.md`, `docs/conf.py` header and the theme CSS header), never on
   rendered pages.
+
+## Agent Review Reports
+
+- Agent-generated review reports must only report **P0** and **P1** findings.
+  Do not report P2 or lower findings (nits, style preferences, optional
+  improvements) at all, and do not relabel them as P0/P1 to keep them.
+- **P0**: blocks merge or execution - correctness, security, data loss, a
+  broken build/test gate, or a required check that cannot pass.
+- **P1**: significant defect, regression, or spec violation that must be fixed
+  before merge.
+- If a finding does not meet P0 or P1, omit it from the report. If the context
+  is required to explain a P0/P1 finding, include only that context.
+- This applies to delegated reviews (`cosim-gpu-review`,
+  `cosim-gpu-codex-review`) and to any ad-hoc agent review output.
