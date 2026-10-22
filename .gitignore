@@ -16,3 +16,5 @@ build/
 /artifacts/rocm-image-validate/
 /artifacts/rocm-image-syntax/
 /artifacts/gem5-cache/
+/docs/_build/
+/docs/.venv

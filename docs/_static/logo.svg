@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="210" height="44" viewBox="0 0 210 44">
+  <!-- Transparent wordmark so the logo blends with the navy Zephyr-like sidebar. -->
+  <text x="0" y="31" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif"
+        font-size="27" font-weight="600" fill="#ffffff">cosim<tspan fill="#c3e3ff">-gpu</tspan></text>
+</svg>
