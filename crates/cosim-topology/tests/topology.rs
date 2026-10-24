@@ -481,7 +481,7 @@ fn vhost_validation_rejects_inconsistent_declarations() {
             "disks: [{id: d, path: a, format: vmdk}]",
             "unknown variant `vmdk`",
         ),
-        ("cmdline: quiet", "requires vhost.kernel or vhost.image"),
+        ("cmdline: quiet", "require vhost.kernel or vhost.image"),
     ];
     for (fields, expected) in cases {
         let root = tempfile::tempdir().unwrap();
