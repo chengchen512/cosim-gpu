@@ -186,12 +186,13 @@ GPU Applications and Firmware Inputs:
   maintainers:
     - zevorn
   files-regex:
+    - ^samples/
     - ^third_party/gem5-resources$
   labels:
     - "area: tests"
   description: >-
-    GPU application programs, workload sources and vHost firmware inputs
-    provided by gem5-resources for regressions and standalone gem5 examples.
+    Example programs for the vHost, along with GPU workloads and firmware
+    inputs provided by gem5-resources for co-simulation regressions.
 
 vHost Tests:
   status: maintained
@@ -202,7 +203,7 @@ vHost Tests:
     - scripts/ci/guest_console.py
     - scripts/ci/ci_lifecycle.py
     - scripts/ci/run_rocm.py
-    - resources/images/recipes/ubuntu/24.04/x86_64/rocm7_0/files/cosim_rocm_regression.sh
+    - resources/images/recipes/ubuntu/24.04/x86_64/rocm/7.0/files/cosim_rocm_regression.sh
     - scripts/ci/test_guest_console.py
     - scripts/ci/test_ci_lifecycle.py
     - scripts/ci/test_image_process.py
@@ -255,9 +256,12 @@ Topology and Runtime:
     - Cargo.toml
     - Cargo.lock
     - crates/
-    - samples/
+    - resources/vhosts/
+    - resources/devices/
+    - resources/machines/
+    - resources/clusters/
   labels:
     - "area: QEMU frontend"
   description: >-
     YAML topology loading and validation, session planning, Rust process
-    supervision and the sample configurations.
+    supervision and reusable vHost, device, machine and cluster configurations.

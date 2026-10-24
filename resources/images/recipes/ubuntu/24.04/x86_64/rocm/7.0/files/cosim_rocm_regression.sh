@@ -15,11 +15,11 @@ export LD_LIBRARY_PATH="/opt/rocm/lib:${LD_LIBRARY_PATH:-}"
 export HSA_ENABLE_INTERRUPT=0
 export TMPDIR=/root/cosim-ci/scratch
 mkdir -p "$TMPDIR"
-trap 'dmesg; journalctl -u cosim-gpu-setup.service --no-pager' EXIT
+trap 'dmesg; journalctl -u cosim-gpu-initialize.service --no-pager' EXIT
 
 echo "[COSIM_ENV] HSA_ENABLE_INTERRUPT=$HSA_ENABLE_INTERRUPT"
-systemctl start cosim-gpu-setup.service
-systemctl is-active --quiet cosim-gpu-setup.service
+systemctl start cosim-gpu-initialize.service
+systemctl is-active --quiet cosim-gpu-initialize.service
 test -d /sys/module/amdgpu
 test -c /dev/kfd
 compgen -G '/dev/dri/renderD*' >/dev/null

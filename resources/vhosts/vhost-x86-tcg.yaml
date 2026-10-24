@@ -1,11 +1,11 @@
 # SPDX-License-Identifier: Apache-2.0
 version: 1
 templates:
-  host-arm-tcg:
-    use: host-arm
-    runtime: {binary: qemu-system-aarch64}
+  vhost-x86-tcg:
+    use: vhost-x86
+    runtime: {binary: qemu-system-x86_64}
     memory: 64M
     cpus: 1
-    cpu: cortex-a72
+    cpu: qemu64
     accel: tcg
     args: [-S, -nodefaults]

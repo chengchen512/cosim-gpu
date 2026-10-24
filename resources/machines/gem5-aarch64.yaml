@@ -1,14 +1,14 @@
 # SPDX-License-Identifier: Apache-2.0
-# Paused ARM64 host with one native ARM64 gem5 MI300X process.
+# Paused ARM64 vHost with one native ARM64 gem5 MI300X process.
 version: 1
 imports:
-  - hosts/qemu.yaml
-  - hosts/host-arm-tcg.yaml
+  - vhosts/qemu.yaml
+  - vhosts/vhost-arm-tcg.yaml
   - devices/gpu/mi300x.yaml
 machines:
   - id: m0
-    host:
-      use: host-arm-tcg
+    vhost:
+      use: vhost-arm-tcg
       runtime: {binary: build/qemu/qemu-system-aarch64}
       memory: 512M
     devices:

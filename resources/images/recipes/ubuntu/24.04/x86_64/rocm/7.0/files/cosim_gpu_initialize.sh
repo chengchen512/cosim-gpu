@@ -1,6 +1,6 @@
 #!/bin/bash
 # ==========================================================================
-# vHost-side setup script for MI300X co-simulation
+# vHost-side initialization script for MI300X co-simulation
 #
 # Run this INSIDE the vHost OS after booting to:
 #   1. Load the AMD GPU VGA ROM (for each GPU)
@@ -11,12 +11,12 @@
 # and loads ROM for each one.
 #
 # Usage (inside vHost OS):
-#   sudo bash /path/to/cosim_gpu_setup.sh
+#   sudo bash /path/to/cosim_gpu_initialize.sh
 # ==========================================================================
 
 set -e
 
-echo "=== MI300X Co-simulation vHost Setup ==="
+echo "=== MI300X Co-simulation vHost Initialization ==="
 
 # ---- Environment ----
 export LD_LIBRARY_PATH=/opt/rocm/lib:${LD_LIBRARY_PATH:-}
@@ -56,8 +56,6 @@ else
 fi
 
 # ---- Step 3: Load amdgpu driver ----
-# NOTE: Do NOT delegate to /home/gem5/load_amdgpu.sh — that script uses
-# ip_block_mask=0x6f (PSP enabled) which is for standalone gem5 only.
 echo "[3/4] Loading amdgpu kernel module..."
 AMDGPU_ARGS=(ip_block_mask=0x67 ppfeaturemask=0 dpm=0 audio=0 ras_enable=0 discovery=2)
 
@@ -80,7 +78,7 @@ fi
 echo "  amdgpu module loaded."
 
 # ---- Step 4: Verify ----
-echo "[4/4] Verifying GPU setup..."
+echo "[4/4] Verifying GPU initialization..."
 
 echo ""
 echo "--- lspci (GPU) ---"
@@ -121,7 +119,7 @@ if command -v rocminfo &>/dev/null; then
 fi
 
 echo ""
-echo "=== MI300X setup complete ($INITIALIZED_COUNT GPU(s)) ==="
+echo "=== MI300X initialization complete ($INITIALIZED_COUNT GPU(s)) ==="
 echo ""
 echo "You can now run GPU workloads:"
 echo "  hipcc --amdgpu-target=gfx942 square.cpp -o square && ./square"
