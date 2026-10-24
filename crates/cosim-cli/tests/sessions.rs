@@ -128,7 +128,15 @@ fn validate_dry_run_and_run_reject_guest_hints_without_vhost_image() {
 #[test]
 fn run_dry_run_displays_image_and_launch_plan_without_writing_outputs() {
     let root = directory();
-    let topology = resources().join("machines/single-gpu.yaml");
+    let topology = root.path().join("topology.yaml");
+    fs::write(
+        &topology,
+        format!(
+            "version: 1\nimports: [{}]\nmachines:\n  - id: m0\n    vhost: {{use: vhost-x86-rocm}}\n",
+            resources().join("vhosts/qemu.yaml").display(),
+        ),
+    )
+    .unwrap();
     let image_dir = workspace().join("build/images/ubuntu/24.04/x86_64/rocm/7.0");
     let image_existed = image_dir.exists();
     let dry_run_dir = workspace().join(".r");
@@ -157,7 +165,7 @@ fn run_dry_run_displays_image_and_launch_plan_without_writing_outputs() {
         plan["images"][0]["recipe"]["id"],
         "ubuntu/24.04/x86_64/rocm/7.0"
     );
-    assert!(plan["launch"]["processes"].is_array());
+    assert_eq!(plan["launch"]["processes"].as_array().unwrap().len(), 1);
     assert_eq!(image_dir.exists(), image_existed);
     assert_eq!(dry_run_dir.exists(), dry_run_dir_existed);
     assert_eq!(verification_cache.exists(), verification_cache_existed);
