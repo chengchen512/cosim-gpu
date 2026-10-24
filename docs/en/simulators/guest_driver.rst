@@ -18,7 +18,7 @@ Image and Driver Prerequisites
 Kernel Command Line
 --------------------
 
-The sample vHost ``resources/vhosts/qemu.yaml`` uses the following command line:
+The sample vHost template ``resources/vhosts/qemu.yaml`` uses the following command line:
 
 .. code-block:: text
 

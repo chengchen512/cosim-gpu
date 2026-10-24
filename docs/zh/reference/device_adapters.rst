@@ -219,7 +219,7 @@ vHost 模板可用的上下文变量：
    * - ``qmp`` / ``serial`` / ``serial_log``
      - QMP socket、串口 socket 与串口日志路径
    * - ``cmdline``
-     - vHost``cmdline`` 与所有设备 ``guest_hints.cmdline`` 空格连接的结果
+     - vHost 的 ``cmdline`` 与所有设备 ``guest_hints.cmdline`` 空格连接的结果
    * - ``run_dir`` / ``node_dir``
      - 会话运行目录与该 vHost 节点的工作目录
 

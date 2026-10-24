@@ -18,7 +18,7 @@
 内核命令行
 -----------
 
-样例 vHost``resources/vhosts/qemu.yaml``\ 使用以下命令行：
+样例 vHost 模板 ``resources/vhosts/qemu.yaml``\ 使用以下命令行：
 
 .. code-block:: text
 

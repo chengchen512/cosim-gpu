@@ -219,7 +219,7 @@ vHost template context variables:
    * - ``qmp`` / ``serial`` / ``serial_log``
      - QMP socket, serial socket and serial log paths
    * - ``cmdline``
-     - vHost ``cmdline`` joined with every device ``guest_hints.cmdline``
+     - The vHost's ``cmdline`` joined with every device ``guest_hints.cmdline``
    * - ``run_dir`` / ``node_dir``
      - session run directory and the working directory of this vHost node
 
