@@ -92,7 +92,7 @@ vHost 字段
 .. _topo-vhost-x86:
 
 vhost-x86
-~~~~~~~~
+~~~~~~~~~
 
 - ``q35``\ 、``kvm``\ 、``host`` CPU、8 GiB RAM、4 vCPU；二进制为 ``build/qemu/qemu-system-x86_64``\ 。
 - ``memory_map`` 描述 x86_64 PCI 空洞：RAM 不小于 2.75 GiB 时，4 GiB 以下保留 2 GiB，其余放到 4 GiB 以上。
@@ -101,7 +101,7 @@ vhost-x86
 .. _topo-vhost-arm:
 
 vhost-arm
-~~~~~~~~
+~~~~~~~~~
 
 - ``virt,gic-version=3``\ 、``kvm``\ 、``host`` CPU、8 GiB RAM、4 vCPU；二进制为 ``build/qemu/qemu-system-aarch64``\ 。
 - ``memory_map`` 把 RAM 放在 1 GiB。
@@ -110,7 +110,7 @@ vhost-arm
 .. _topo-vhost-x86-tcg:
 
 vhost-x86-tcg
-~~~~~~~~~~~~
+~~~~~~~~~~~~~
 
 - 继承 ``vhost-x86``\ ，覆盖为 ``tcg``\ 、``qemu64``\ 、64 MiB RAM、1 vCPU。
 - 二进制写裸名 ``qemu-system-x86_64``\ ，生成计划时从 ``PATH`` 查找。
@@ -119,7 +119,7 @@ vhost-x86-tcg
 .. _topo-vhost-arm-tcg:
 
 vhost-arm-tcg
-~~~~~~~~~~~~
+~~~~~~~~~~~~~
 
 - 继承 ``vhost-arm``\ ，覆盖为 ``tcg``\ 、``cortex-a72``\ 、64 MiB RAM、1 vCPU。
 - 二进制写裸名 ``qemu-system-aarch64``\ ；``args`` 为 ``[-S, -nodefaults]``\ 。

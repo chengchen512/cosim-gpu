@@ -93,7 +93,7 @@ The four profiles are defined under ``resources/vhosts/`` and selected by a mach
 .. _topo-vhost-x86:
 
 vhost-x86
-~~~~~~~~
+~~~~~~~~~
 
 - ``q35``, ``kvm``, ``host`` CPU, 8 GiB RAM, 4 vCPU; binary ``build/qemu/qemu-system-x86_64``.
 - ``memory_map`` describes the x86_64 PCI hole: when RAM is at least 2.75 GiB, 2 GiB stay below 4 GiB and the rest goes above 4 GiB.
@@ -102,7 +102,7 @@ vhost-x86
 .. _topo-vhost-arm:
 
 vhost-arm
-~~~~~~~~
+~~~~~~~~~
 
 - ``virt,gic-version=3``, ``kvm``, ``host`` CPU, 8 GiB RAM, 4 vCPU; binary ``build/qemu/qemu-system-aarch64``.
 - ``memory_map`` places RAM at 1 GiB.
@@ -111,7 +111,7 @@ vhost-arm
 .. _topo-vhost-x86-tcg:
 
 vhost-x86-tcg
-~~~~~~~~~~~~
+~~~~~~~~~~~~~
 
 - Inherits ``vhost-x86`` and overrides it with ``tcg``, ``qemu64``, 64 MiB RAM and 1 vCPU.
 - The binary is the bare name ``qemu-system-x86_64``, looked up in ``PATH`` during planning.
@@ -120,7 +120,7 @@ vhost-x86-tcg
 .. _topo-vhost-arm-tcg:
 
 vhost-arm-tcg
-~~~~~~~~~~~~
+~~~~~~~~~~~~~
 
 - Inherits ``vhost-arm`` and overrides it with ``tcg``, ``cortex-a72``, 64 MiB RAM and 1 vCPU.
 - The binary is the bare name ``qemu-system-aarch64``; ``args`` is ``[-S, -nodefaults]``.
