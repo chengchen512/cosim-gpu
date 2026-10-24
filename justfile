@@ -93,8 +93,22 @@ ci-prepare-image-host:
 
 # Build a GPU application from third_party/gem5-resources/src/gpu
 [group('build')]
-build-gpu-app name="square":
-    ./scripts/host/run_mi300x_fs.sh build-app "$1"
+build-gpu-app name="square": dev-rocm-sources
+    app_src="$PWD/third_party/gem5-resources/src/gpu/$1"; \
+    app_output="$PWD/build/apps/$1"; \
+    test -d "$app_src"; \
+    mkdir -p "$app_output"; \
+    if command -v docker >/dev/null && docker info >/dev/null 2>&1; then \
+        docker run --rm -u "$(id -u):$(id -g)" \
+            -v "$PWD:$PWD" -w "$app_src" {{ gpu_fs_image }} \
+            make -f Makefile.default "BIN_DIR=$app_output"; \
+    elif command -v hipcc >/dev/null; then \
+        make -C "$app_src" -f Makefile.default "BIN_DIR=$app_output"; \
+    else \
+        echo "Need Docker or hipcc (ROCm) to build GPU apps" >&2; \
+        exit 1; \
+    fi; \
+    test -f "$app_output/$1.default"
 
 # Compile the HIP test kernels under tests/ in the ROCm container
 [group('build')]
@@ -188,11 +202,6 @@ check-rocm-build-scripts:
 test-rocm-assets output=rocm_image_dir:
     python3 -m scripts.ci.verify_rocm_assets "$1"
 
-# Show which build artifacts are present
-[group('build')]
-build-status:
-    ./scripts/host/run_mi300x_fs.sh status
-
 # ---------------------------------------------------------------------------
 # Run
 # ---------------------------------------------------------------------------
@@ -237,16 +246,6 @@ run-preflight:
 run-clean-orphans:
     ./scripts/host/cosim_launch.sh --force-clean --confirm
 
-# Run standalone gem5 full-system simulation with the stdlib config
-[group('run')]
-run-gem5-fs app="":
-    ./scripts/host/run_mi300x_fs.sh run ${1:+"$1"}
-
-# Run standalone gem5 full-system simulation with the legacy gpufs config
-[group('run')]
-run-gem5-fs-legacy app="":
-    ./scripts/host/run_mi300x_fs.sh run-legacy ${1:+"$1"}
-
 # ---------------------------------------------------------------------------
 # Checks
 # ---------------------------------------------------------------------------
@@ -286,11 +285,6 @@ check-gem5-message message:
 [group('check')]
 check-gem5-ci:
     actionlint .github/workflows/build.yml third_party/gem5/.github/workflows/mi300x-ci.yaml
-
-# Check the legacy build entry against the Host's Docker daemon
-[group('test')]
-test-legacy-build-image output="artifacts/ci-check":
-    python3 scripts/ci/verify_legacy_image.py "$1"
 
 # Verify CI cancellation through the real Rust launcher and QEMU
 [group('test')]

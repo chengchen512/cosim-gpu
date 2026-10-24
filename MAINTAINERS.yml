@@ -92,15 +92,13 @@
   status: maintained
   maintainers:
     - zevorn
-  files:
-    - scripts/host/run_mi300x_fs.sh
   files-regex:
     - ^third_party/gem5$
   labels:
     - "area: gem5 GPU backend"
   description: >-
     gem5 MI300X GPU model used as the accelerator backend behind the QEMU
-    vfio-user device and the standalone gem5 full-system flow.
+    vfio-user device.
 
 "Accelerator Backend: SST Multi-node":
   status: maintained
@@ -141,7 +139,6 @@ Build System and CI:
     - scripts/host/Dockerfile.dev
     - scripts/ci/runtime_artifact.py
     - scripts/ci/verify_runtime_artifact.py
-    - scripts/ci/verify_legacy_image.py
     - scripts/ci/image_artifact.py
     - scripts/ci/verify_image_artifact.py
     - scripts/ci/prepare_image_host.sh
