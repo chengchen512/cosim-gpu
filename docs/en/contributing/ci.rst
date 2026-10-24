@@ -65,7 +65,10 @@ Build caches and artifacts
 
 - ``Build gem5 (VEGA_X86)`` builds gem5 once. The cache key comes from
   ``just ci-gem5-key`` and covers the gem5 inputs, the related just recipes and
-  configuration, the build task, helper scripts and the Dockerfile. A cache hit
+  configuration, the build task, helper scripts and the Dockerfile.
+  Only explicitly listed gem5 and development-container just settings are used;
+  vHost recipes, image output paths and other vHost configuration do not affect
+  the gem5 cache key. A cache hit
   preserves the original ``build_source`` and ``build_run``; the current
   source revision and run identity are recorded separately. Changing
   ``COSIM_GEM5_CACHE_EPOCH`` rebuilds the toolchain environment. The artifact

@@ -61,6 +61,8 @@ CI 与回归
 
 - ``Build gem5 (VEGA_X86)`` 只编译一次 gem5。缓存键由 ``just ci-gem5-key``
   计算，覆盖 gem5 输入、相关 just 配方与配置、构建任务、辅助脚本和 Dockerfile。
+  just 变量只收集明确列出的 gem5 与开发容器构建设置；vHost recipe、镜像输出
+  路径及其他 vHost 配置不参与 gem5 缓存键。
   命中缓存时保留原始的 ``build_source`` 与 ``build_run``，本轮任务的源码
   版本与运行标识单独记录。修改 ``COSIM_GEM5_CACHE_EPOCH`` 可以重新构建工具
   环境。产物包含二进制、模型测试需要的 ``libvfio-user.a``、开发容器镜像和
