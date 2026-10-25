@@ -11,8 +11,8 @@
 适用场景
 --------
 
-- macOS 与 Windows 默认使用开发容器完成构建、``plan``/``graph`` 与 TCG
-  会话；可引导的 KVM 客户机仍需要 Linux 主机。
+- macOS 与 Windows 默认使用开发容器完成构建、``cosim run --dry-run`` 预览、
+  ``cosim graph`` 和 TCG 会话；可引导的 KVM 客户机仍需要 Linux 主机。
 - Linux 主机缺少 gem5、QEMU 或 Rust 构建依赖时，可以只把构建放进容器，
   运行仍在主机上进行。
 - 需要与 CI 一致的构建环境时使用容器。

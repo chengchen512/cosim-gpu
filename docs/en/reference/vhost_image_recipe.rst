@@ -168,6 +168,16 @@ to them as ``{{ playbook_dir }}/files/<filename>``. The builder records recipe
 sources and declared input contents; changes cause it to re-evaluate whether
 an existing image can be reused.
 
+The repository's ROCm 7.0 recipe uses ``[provision.files]`` to reference
+``mi200.rom``, ``mi300.rom``, ``mi300_discovery`` and ``mi350_discovery`` under
+``third_party/gem5-resources/src/x86-ubuntu-gpu-ml/files/``. The
+``gem5-resources`` submodule supplies these files; the recipe declares their
+inputs and installation destinations. The MI300X device template, ROM test
+and regression provenance use the same ``mi300.rom`` from that submodule.
+``just build-disk``, ``just build-rocm-assets`` and ``just test-cosim-vfio-user``
+initialize it first. ``just build-gpu-app`` also reads GPU application sources
+from it.
+
 Exported files: result
 ~~~~~~~~~~~~~~~~~~~~~~
 

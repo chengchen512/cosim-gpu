@@ -88,7 +88,7 @@ vHost fields
 Shipped profiles
 ----------------
 
-The four profiles are defined under ``resources/vhosts/`` and selected by a machine through ``use``.
+The five profiles are defined under ``resources/vhosts/`` and selected by a machine through ``use``.
 
 .. _topo-vhost-x86:
 
@@ -97,7 +97,17 @@ vhost-x86
 
 - ``q35``, ``kvm``, ``host`` CPU, 8 GiB RAM, 4 vCPU; binary ``build/qemu/qemu-system-x86_64``.
 - ``memory_map`` describes the x86_64 PCI hole: when RAM is at least 2.75 GiB, 2 GiB stay below 4 GiB and the rest goes above 4 GiB.
-- The x86_64 KVM vHosts use this profile by default.
+- Provides the base x86_64 KVM runtime settings. The consuming vHost configuration declares its image and boot inputs.
+
+.. _topo-vhost-x86-rocm:
+
+vhost-x86-rocm
+~~~~~~~~~~~~~~
+
+- Inherits ``vhost-x86`` and selects ``ubuntu/24.04/x86_64/rocm/7.0`` through ``image``.
+- Configures a virtio root disk and kernel arguments for the serial console, root filesystem and ``modprobe.blacklist=amdgpu``.
+- ``single-gpu``, ``gpu-8`` and ``mixed-models`` use this profile to boot the ROCm guest.
+- The recipe defines software installation and results; this profile defines simulation-session boot settings.
 
 .. _topo-vhost-arm:
 

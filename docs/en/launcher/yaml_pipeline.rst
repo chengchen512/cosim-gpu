@@ -19,7 +19,11 @@ Pipeline Overview
        M --> P[ExecEnv and SessionLayout]
        P --> J[plan JSON]
 
-``cosim-topology`` reads only YAML documents, so its result does not depend on the system that will run them. ``cosim-runtime`` adds host facts and session paths before producing the plan, and ``run`` is the subcommand that creates resources.
+``cosim-topology`` reads only YAML documents, so its result does not depend on
+the system that will run them. ``cosim-runtime`` adds host facts and session
+paths before producing the plan. ``run --dry-run`` prints image state and the
+execution plan. Executing a session with ``run`` creates resources and starts
+simulation processes.
 
 Topology document
 -----------------
@@ -73,7 +77,11 @@ Producing the Plan
 - ``ExecEnv`` records the page size, an absolute ``PATH`` and the disk lock directory (``COSIM_DISK_LOCK_DIR``, default ``~/.cache/cosim-gpu/disk-locks``).
 - ``SessionLayout`` names every session path: the run directory defaults to ``.cosim/<name>``, and on Linux the pool directory defaults to ``/dev/shm/cosim-<name>-<hash>``.
 - The plan records executables, arguments, environments, dependencies, readiness probes, shared memory regions, disk targets and lock paths. Each device precedes its host in process order.
-- ``validate`` and ``plan`` only parse and render; ``run`` creates the run directory, the memory pools and the disk overlays.
+- ``validate`` checks the topology; ``run --dry-run`` resolves image recipes
+  and prints JSON containing ``images`` and ``launch``. Neither builds images
+  nor starts simulation processes.
+- Executing a session with ``run`` prepares images, creates the run directory,
+  memory pools and disk overlays, and starts simulation processes.
 - Device commands are rendered by an adapter: ``gem5-mi300x`` produces gem5 arguments, ``qemu-device`` produces QEMU ``x-remote`` arguments, and template kinds render the YAML command.
 
 Sources

@@ -13,8 +13,9 @@
 
 - 标准路径：Linux x86_64 主机，``/dev/kvm`` 可访问。随附的客户机镜像面向
   x86_64，启动可引导的客户机需要 KVM。
-- 没有 KVM 时仍可以构建组件、执行 ``cosim validate``/``plan``/``graph``，
-  以及运行暂停状态的 TCG host-only 会话；这类会话不启动可引导客户机。
+- 没有 KVM 时仍可以构建组件、执行 ``cosim validate``、
+  ``cosim run <topology.yaml> --dry-run`` 和 ``cosim graph``，以及运行暂停状态
+  的 TCG host-only 会话；这类会话不启动可引导客户机。
 - Linux aarch64 主机可用于构建与规划；随附的客户机镜像不是 AArch64 版本。
 - macOS 与 Windows 通过开发容器完成构建、规划和 TCG 会话；可引导客户机需要
   Linux 主机与 KVM，见 :doc:`platforms/container`。

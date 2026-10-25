@@ -24,12 +24,12 @@ mixed-models 机器
      - devices/pci/qemu-edu.yaml
    machines:
      - id: m0
-       vhost: {use: vhost-x86}
+       vhost: {use: vhost-x86-rocm}
        devices:
          - {use: mi300x, count: 2}
          - {use: qemu-edu, count: 2}
 
-- 机器数量：1（``m0``\ ）；主机使用默认 ``vhost-x86``\ 。
+- 机器数量：1（``m0``\ ）；主机使用 ``vhost-x86-rocm``。
 - 设备标识符：``mi300x-0``\ 、``mi300x-1``\ 、``qemu-edu-0``\ 、``qemu-edu-1``\ 。
 - ``qemu-edu`` 不声明私有内存区域；内存池只累加 2 × 16 GiB 的 VRAM。
 
@@ -46,7 +46,7 @@ mixed-models 机器
      - 1 台（``m0``\ ）
      - ``resources/machines/mixed-models.yaml``
    * - vHost 配置
-     - ``vhost-x86``\ ：``q35``\ 、``kvm``\ 、8 GiB RAM、4 vCPU
+     - ``vhost-x86-rocm``\ ：``q35``\ 、``kvm``\ 、8 GiB RAM、4 vCPU
      - ``resources/vhosts/qemu.yaml``
    * - gem5 设备
      - 2 × ``mi300x``\ ，各 16 GiB VRAM、40 CU
@@ -75,7 +75,7 @@ mixed-models 机器
      - 说明
    * - 客户机 OS
      - Ubuntu 24.04.2 LTS，内核 6.8.0-124-generic
-     - 可选 vHost；不启动客户机时只验证硬件与进程组合
+     - ``vhost-x86-rocm`` 通过 ``vhost.image`` 选择镜像配方
    * - GPU 驱动
      - ``amdgpu``\ ，固定参数
      - 只作用于 gem5 MI300X 设备

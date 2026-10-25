@@ -6,7 +6,7 @@
 Writing topologies
 ==================
 
-This page walks through writing a topology document: start from the document skeleton, reuse host and device definitions through imports and templates, expand machine and device counts, and check the result with ``validate``, ``plan`` and ``graph``. The complete field set and defaults are in :ref:`ref-topology-schema`.
+This page walks through writing a topology document: start from the document structure, reuse vHost and device definitions through imports and templates, expand machine and device counts, and check the result with ``validate``, ``run --dry-run`` and ``graph``. The complete field set and defaults are in :ref:`ref-topology-schema`.
 
 Document skeleton
 -----------------
@@ -22,7 +22,7 @@ A topology document is always ``version: 1`` and may contain ``imports``, ``temp
      - devices/pci/qemu-edu.yaml
    machines:
      - id: m0
-       vhost: {use: vhost-x86, memory: 32G}
+       vhost: {use: vhost-x86-rocm, memory: 32G}
        devices:
          - {use: mi300x, count: 2}
          - {use: qemu-edu, count: 2}
@@ -48,10 +48,38 @@ These four configuration directories are siblings under ``resources/``.
 ``samples/`` is reserved for programs run after a vHost boots; configuration
 files belong under ``resources/``.
 
-.. code-block:: text
+.. list-table::
+   :header-rows: 1
 
-   vhosts/ ──┐
-   devices/ ─┴──> machines/ ───> clusters/
+   * - Directory
+     - Responsibility
+   * - ``resources/vhosts/``
+     - Define QEMU vHost templates, including runtime CPU, memory, image selection and boot arguments.
+   * - ``resources/devices/``
+     - Define device models, adapters, PCI properties, ROM references and device memory regions.
+   * - ``resources/machines/``
+     - Combine one vHost and its devices into a machine.
+   * - ``resources/clusters/``
+     - Compose or expand multiple machines.
+   * - ``resources/images/recipes/``
+     - Use ``recipe.toml`` and ``provision.yml`` to define image construction, software installation and results.
+   * - ``samples/``
+     - Reserve space for guest example programs; the directory migration adds no program runner.
+   * - ``third_party/``
+     - Hold external projects; ``gem5-resources`` supplies ROMs, firmware and GPU program sources for the current ROCm recipe.
+
+.. mermaid::
+
+   flowchart LR
+       V[resources/vhosts] --> M[resources/machines]
+       D[resources/devices] --> M
+       M --> C[resources/clusters]
+
+Each machine selects a recipe through ``vhost.image`` and declares its own
+boot arguments and disks. Recipe ``provision`` parameters describe the temporary
+VM used to build the image. ``machine.vhost`` determines QEMU parameters for
+the simulation session. See :ref:`ref-vhost-image-recipe` and
+:ref:`ref-topology-schema` for the field contracts.
 
 Machines, devices and count
 ---------------------------
@@ -129,7 +157,7 @@ Validating, previewing and running
    # Start a session
    just run-topology resources/machines/single-gpu.yaml
 
-- ``validate`` starts no processes; ``plan`` prints the plan that ``run`` executes; ``graph`` only reads the document.
+- ``validate`` checks the topology, ``run --dry-run`` prints image state and the execution plan, and ``graph`` prints topology relationships. None starts simulation processes.
 - ``--assets`` and a real session start check that files such as ``runtime.binary``, ``config`` and ``pci.rom`` exist.
 - Starting a session requires Linux glibc and ``setpriv``; other systems use the development container, see :ref:`gs-platform-container`.
 

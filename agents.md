@@ -44,6 +44,10 @@ just build-disk
 
 Use `just build-gem5 1` for gem5 linking if the Host is OOM-killed.
 
+The documentation site is built with `just docs` (Chinese primary, English
+mirror); `just docs-serve` previews it at http://127.0.0.1:8010/ and
+`just docs-check` runs the bilingual and site checks.
+
 ## Launch
 
 ```bash

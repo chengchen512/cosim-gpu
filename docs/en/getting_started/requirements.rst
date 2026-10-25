@@ -15,8 +15,8 @@ Host environments
 - Standard path: a Linux x86_64 host with accessible ``/dev/kvm``. The
   shipped guest image targets x86_64 and booting it needs KVM.
 - Without KVM you can still build the components, run ``cosim validate``,
-  ``plan`` and ``graph``, and run paused TCG host-only sessions; those
-  sessions do not boot a guest.
+  ``cosim run <topology.yaml> --dry-run`` and ``cosim graph``, and run paused
+  TCG host-only sessions; those sessions do not boot a guest.
 - Linux aarch64 hosts support builds and planning; the shipped guest image
   is not an AArch64 build.
 - macOS and Windows use the development container for builds, planning and
