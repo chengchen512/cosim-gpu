@@ -28,6 +28,49 @@ Host 运行 Host-side QEMU 和独立的 gem5 或 QEMU Device Model 进程。QEMU
 或 TCG 启动 vHost 操作系统，并通过 libvfio-user 支持的 **vfio-user** 接口向
 vHost 提供 vGPU/vGPGPU。
 
+## 动态演示
+
+使用 YAML 描述单台机器或多台机器。每个 vHost 在 Host 上拥有独立的 QEMU 进程、
+GPU Device Model 和共享内存池。
+
+<table>
+  <tr>
+    <td width="50%" align="center" valign="top">
+      <h3>单节点多卡</h3>
+      <p><strong>1 个 vHost · 8 个 MI300X<br>96 GiB 内存池</strong></p>
+      <img src="docs/images/readme/single-node-multi-gpu.gif" width="440"
+           alt="一个 QEMU vHost 连接八个 gem5 MI300X 进程，
+                内存池包含 32 GiB 内存和八个 8 GiB 显存区域。">
+      <p><a href="resources/machines/gpu-8.yaml">gpu-8.yaml</a>
+         为每个 GPU 启动独立的 gem5 进程。</p>
+    </td>
+    <td width="50%" align="center" valign="top">
+      <h3>多节点多卡</h3>
+      <p><strong>4 个 vHost · 32 个 MI300X<br>4 × 96 GiB 内存池</strong></p>
+      <img src="docs/images/readme/multi-node-multi-gpu.gif" width="440"
+           alt="拓扑展开为四个独立的 QEMU vHost，
+                每台机器包含八个 gem5 MI300X 进程和独立的内存池。">
+      <p><a href="resources/clusters/cluster-4x8.yaml">cluster-4x8.yaml</a>
+         通过 <code>count: 4</code> 在同一个本地会话中创建四台独立机器。</p>
+    </td>
+  </tr>
+</table>
+
+### QEMU ↔ gem5：控制消息与共享内存
+
+寄存器访问和 Doorbell 写入通过 **vfio-user Unix socket** 传递。
+QEMU 和 gem5 将同一个内存池文件映射为 vHost 内存和显存，通过**文件描述符和 mmap**
+访问共享数据。动图展示了 8 GiB 内存和 16 GiB 显存组成的 24 GiB 内存池。
+
+<p align="center">
+  <img src="docs/images/readme/qemu-gem5-shared-memory.gif" width="864"
+       alt="QEMU 和 gem5 通过 vfio-user 交换控制消息，
+            数据通过双方映射的共享内存与显存区域传递。">
+</p>
+
+阅读[多机拓扑](https://gevico.github.io/cosim-gpu/zh/topology/multi_machine.html)和
+[共享内存模型](https://gevico.github.io/cosim-gpu/zh/architecture/memory_model.html)。
+
 ## 架构
 
 ~~~mermaid

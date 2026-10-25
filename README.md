@@ -29,6 +29,51 @@ QEMU Device Model processes. QEMU uses KVM or TCG to run the vHost OS and
 presents each vGPU/vGPGPU through the **vfio-user** interface backed by
 libvfio-user.
 
+## Architecture in motion
+
+Describe one machine or a group of machines in YAML. Each vHost has its own
+QEMU process, GPU Device Models and shared memory pool on the Host.
+
+<table>
+  <tr>
+    <td width="50%" align="center" valign="top">
+      <h3>Single-node multi-GPU</h3>
+      <p><strong>1 vHost · 8 MI300X<br>96 GiB pool</strong></p>
+      <img src="docs/images/readme/single-node-multi-gpu.gif" width="440"
+           alt="One QEMU vHost connects to eight gem5 MI300X processes,
+                with 32 GiB of RAM and eight 8 GiB VRAM regions.">
+      <p><a href="resources/machines/gpu-8.yaml">gpu-8.yaml</a> gives each
+         GPU its own gem5 process.</p>
+    </td>
+    <td width="50%" align="center" valign="top">
+      <h3>Multi-node multi-GPU</h3>
+      <p><strong>4 vHosts · 32 MI300X<br>4 × 96 GiB pools</strong></p>
+      <img src="docs/images/readme/multi-node-multi-gpu.gif" width="440"
+           alt="The topology expands into four independent QEMU vHosts,
+                each with eight gem5 MI300X processes and its own memory pool.">
+      <p><a href="resources/clusters/cluster-4x8.yaml">cluster-4x8.yaml</a>
+         uses <code>count: 4</code> to create four independent machines
+         in one local session.</p>
+    </td>
+  </tr>
+</table>
+
+### QEMU ↔ gem5: control messages and shared memory
+
+Register and Doorbell accesses travel over a **vfio-user Unix socket**.
+QEMU and gem5 map the same pool file for vHost RAM and VRAM; **file descriptors
+and mmap** give both processes access to the shared data. The animation shows
+an 8 GiB RAM region and a 16 GiB VRAM region in one 24 GiB pool.
+
+<p align="center">
+  <img src="docs/images/readme/qemu-gem5-shared-memory.gif" width="864"
+       alt="QEMU and gem5 exchange control messages through vfio-user while
+            data flows through their shared RAM and VRAM mappings.">
+</p>
+
+Explore [multi-machine topologies](https://gevico.github.io/cosim-gpu/en/topology/multi_machine.html)
+and the [shared memory model](https://gevico.github.io/cosim-gpu/en/architecture/memory_model.html).
+
 ## Architecture
 
 ~~~mermaid
