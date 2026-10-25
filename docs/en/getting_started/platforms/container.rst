@@ -14,8 +14,8 @@ When to use it
 --------------
 
 - macOS and Windows use the development container by default for builds,
-  ``plan``/``graph`` and TCG sessions; a bootable KVM guest still needs a
-  Linux host.
+  ``cosim run --dry-run`` previews, ``cosim graph`` and TCG sessions; a
+  bootable KVM guest still needs a Linux host.
 - On Linux hosts missing gem5, QEMU or Rust build dependencies, move only
   the builds into the container and keep runs on the host.
 - Use the container when a build environment identical to CI is wanted.

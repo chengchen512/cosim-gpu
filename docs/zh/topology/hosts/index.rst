@@ -6,7 +6,7 @@
 vHost 配置
 ==========
 
-每台机器有一个 QEMU vHost 进程。vHost 模板把 YAML 字段渲染成 QEMU 命令行，绑定内存池，并暴露 QMP 与串口。本页说明 vHost 在拓扑中的位置、字段、随仓库提供的 4 个 profile，以及 QEMU 命令契约、内存映射与串口就绪。完整字段表见 :ref:`ref-topology-schema`\ ，适配器实现位于 ``crates/cosim-topology/src/adapter/mod.rs``\ 。
+每台机器有一个 QEMU vHost 进程。vHost 模板把 YAML 字段渲染成 QEMU 命令行，绑定内存池，并暴露 QMP 与串口。本页说明 vHost 在拓扑中的位置、字段、随仓库提供的 5 个 profile，以及 QEMU 命令契约、内存映射与串口就绪。完整字段表见 :ref:`ref-topology-schema`\ ，适配器实现位于 ``crates/cosim-topology/src/adapter/mod.rs``\ 。
 
 vHost 在拓扑中的位置
 ---------------------
@@ -87,7 +87,7 @@ vHost 字段
 内置 profile
 ------------
 
-4 个 profile 定义在 ``resources/vhosts/`` 中，机器通过 ``use`` 选择。
+5 个 profile 定义在 ``resources/vhosts/`` 中，机器通过 ``use`` 选择。
 
 .. _topo-vhost-x86:
 
@@ -96,7 +96,17 @@ vhost-x86
 
 - ``q35``\ 、``kvm``\ 、``host`` CPU、8 GiB RAM、4 vCPU；二进制为 ``build/qemu/qemu-system-x86_64``\ 。
 - ``memory_map`` 描述 x86_64 PCI 空洞：RAM 不小于 2.75 GiB 时，4 GiB 以下保留 2 GiB，其余放到 4 GiB 以上。
-- x86_64 KVM 客户机板卡默认使用该 profile。
+- 提供 x86_64 KVM 的基础运行参数，镜像和启动输入由使用它的 vHost 配置声明。
+
+.. _topo-vhost-x86-rocm:
+
+vhost-x86-rocm
+~~~~~~~~~~~~~~
+
+- 继承 ``vhost-x86``，通过 ``image`` 选择 ``ubuntu/24.04/x86_64/rocm/7.0`` 配方。
+- 配置 virtio 启动盘，以及串口、根文件系统和 ``modprobe.blacklist=amdgpu`` 内核参数。
+- ``single-gpu``、``gpu-8`` 和 ``mixed-models`` 使用该 profile 启动 ROCm 客户机。
+- 配方定义软件安装与产物；此 profile 定义仿真会话的启动设置。
 
 .. _topo-vhost-arm:
 

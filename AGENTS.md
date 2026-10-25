@@ -7,8 +7,8 @@ Reusable agent workflows are no longer stored as `.claude/commands`; they are
 vendored in-tree under `.agents/skills/` (previously the
 `gevico/cosim-gpu-skills` submodule) and are tracked directly by this repository.
 
-`CLAUDE.md` is a symbolic mapping to this file so Claude-compatible tools read
-the same canonical rules.
+`AGENTS.md` contains the canonical rules. `CLAUDE.md` is a symbolic link to
+`AGENTS.md` so Claude-compatible tools read the same rules.
 
 ## Skill Paths
 
@@ -43,6 +43,10 @@ just build-disk
 ```
 
 Use `just build-gem5 1` for gem5 linking if the Host is OOM-killed.
+
+The documentation site is built with `just docs` (Chinese primary, English
+mirror); `just docs-serve` previews it at http://127.0.0.1:8010/ and
+`just docs-check` runs the bilingual and site checks.
 
 ## Launch
 

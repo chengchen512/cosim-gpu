@@ -9,7 +9,7 @@ gpu-8 machine
 Overview
 --------
 
-``gpu-8`` is a single-machine, multi-GPU board: one ``vhost-x86`` host with eight gem5 MI300X devices of 8 GiB VRAM each, sharing a 96 GiB memory pool. It shows the process fan-out and pool capacity arithmetic of one machine.
+``gpu-8`` is a single-machine, multi-GPU board: one ``vhost-x86-rocm`` host with eight gem5 MI300X devices of 8 GiB VRAM each, sharing a 96 GiB memory pool. It shows the process fan-out and pool capacity arithmetic of one machine.
 
 Topology
 --------
@@ -24,7 +24,7 @@ Topology
    templates:
      node8:
        vhost:
-         use: vhost-x86
+         use: vhost-x86-rocm
          memory: 32G
          cpus: 16
        devices:
@@ -52,7 +52,7 @@ Hardware resources
      - 1 (``m0``)
      - ``resources/machines/gpu-8.yaml``
    * - vHost profile
-     - ``vhost-x86``: ``q35``, ``kvm``, 16 vCPU
+     - ``vhost-x86-rocm``: ``q35``, ``kvm``, 16 vCPU
      - ``resources/vhosts/qemu.yaml``
    * - Guest RAM
      - 32 GiB
@@ -81,7 +81,7 @@ Software stack
      - Description
    * - Guest OS
      - Ubuntu 24.04.2 LTS, kernel 6.8.0-124-generic
-     - vHost optional; the board itself describes hardware only
+     - ``vhost-x86-rocm`` selects the image recipe through ``vhost.image``
    * - GPU driver
      - ``amdgpu`` with fixed parameters
      - ``ip_block_mask=0x67 ppfeaturemask=0 dpm=0 audio=0 ras_enable=0 discovery=2``

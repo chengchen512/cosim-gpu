@@ -9,7 +9,7 @@ gpu-8 机器
 概述
 ----
 
-``gpu-8`` 是单机多 GPU 板卡：一台 ``vhost-x86`` 主机带 8 个 gem5 MI300X 设备，每个设备 8 GiB VRAM，共享一个 96 GiB 内存池。它用来观察单机的设备进程扇出与内存池容量计算。
+``gpu-8`` 是单机多 GPU 板卡：一台 ``vhost-x86-rocm`` 主机带 8 个 gem5 MI300X 设备，每个设备 8 GiB VRAM，共享一个 96 GiB 内存池。它用来观察单机的设备进程扇出与内存池容量计算。
 
 拓扑
 ----
@@ -24,7 +24,7 @@ gpu-8 机器
    templates:
      node8:
        vhost:
-         use: vhost-x86
+         use: vhost-x86-rocm
          memory: 32G
          cpus: 16
        devices:
@@ -52,7 +52,7 @@ gpu-8 机器
      - 1 台（``m0``\ ）
      - ``resources/machines/gpu-8.yaml``
    * - vHost 配置
-     - ``vhost-x86``\ ：``q35``\ 、``kvm``\ 、16 vCPU
+     - ``vhost-x86-rocm``\ ：``q35``\ 、``kvm``\ 、16 vCPU
      - ``resources/vhosts/qemu.yaml``
    * - 客户机 RAM
      - 32 GiB
@@ -81,7 +81,7 @@ gpu-8 机器
      - 说明
    * - 客户机 OS
      - Ubuntu 24.04.2 LTS，内核 6.8.0-124-generic
-     - 可选 vHost；板卡本身只描述硬件
+     - ``vhost-x86-rocm`` 通过 ``vhost.image`` 选择镜像配方
    * - GPU 驱动
      - ``amdgpu``\ ，固定参数
      - ``ip_block_mask=0x67 ppfeaturemask=0 dpm=0 audio=0 ras_enable=0 discovery=2``

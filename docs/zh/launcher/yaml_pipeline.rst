@@ -19,7 +19,9 @@ YAML 加载与计划
        M --> P[ExecEnv 与 SessionLayout]
        P --> J[plan JSON]
 
-``cosim-topology``\ 只读取 YAML 文档，结果与执行它的系统无关；``cosim-runtime``\ 加入本机事实和会话路径后生成计划，``run``\ 才真正创建资源。
+``cosim-topology`` 只读取 YAML 文档，结果与执行它的系统无关；``cosim-runtime``
+加入本机事实和会话路径后生成计划。``run --dry-run`` 输出镜像状态和执行计划，
+``run`` 执行会话时创建资源并启动仿真进程。
 
 拓扑文档
 --------
@@ -72,7 +74,9 @@ YAML 加载与计划
 - ``ExecEnv``\ 记录页大小、绝对路径形式的 ``PATH``\ 和磁盘锁目录（``COSIM_DISK_LOCK_DIR``\ ，默认 ``~/.cache/cosim-gpu/disk-locks``\ ）。
 - ``SessionLayout``\ 命名所有会话路径：运行目录默认为 ``.cosim/<name>``\ ，Linux 上内存池目录默认为 ``/dev/shm/cosim-<name>-<hash>``\ 。
 - 计划记录程序、参数、环境、依赖、就绪探测、共享内存区域、磁盘目标和锁文件路径；进程按“每个设备排在它的 host 之前”排序。
-- ``validate``\ 和 ``plan``\ 只做解析与渲染，不启动进程；``run``\ 才会创建运行目录、内存池和磁盘 overlay。
+- ``validate`` 校验拓扑；``run --dry-run`` 解析镜像配方，输出包含 ``images`` 和
+  ``launch`` 的 JSON。两者均不构建镜像或启动仿真进程。
+- ``run`` 执行会话时准备镜像、创建运行目录、内存池和磁盘 overlay，并启动仿真进程。
 - 设备命令由适配器渲染：``gem5-mi300x``\ 生成 gem5 参数，``qemu-device``\ 生成 QEMU ``x-remote``\ 参数，模板 kind 则按 YAML 命令渲染。
 
 源码与依据

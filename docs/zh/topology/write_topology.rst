@@ -6,7 +6,7 @@
 如何编写拓扑 YAML
 =================
 
-本页给出编写拓扑文档的步骤：从文档骨架开始，用导入和模板复用主机与设备定义，展开机器与设备数量，最后用 ``validate``\ 、``plan``\ 、``graph`` 检查结果。字段全集与默认值见 :ref:`ref-topology-schema`\ 。
+本页给出编写拓扑文档的步骤：从文档结构开始，用导入和模板复用 vHost 与设备定义，展开机器与设备数量，最后用 ``validate``、``run --dry-run`` 和 ``graph`` 检查结果。字段全集与默认值见 :ref:`ref-topology-schema`。
 
 文档骨架
 --------
@@ -22,7 +22,7 @@
      - devices/pci/qemu-edu.yaml
    machines:
      - id: m0
-       vhost: {use: vhost-x86, memory: 32G}
+       vhost: {use: vhost-x86-rocm, memory: 32G}
        devices:
          - {use: mi300x, count: 2}
          - {use: qemu-edu, count: 2}
@@ -46,10 +46,37 @@
 这四个配置目录在 ``resources/`` 下并列。``samples/`` 留给 vHost 启动后运行的
 示例程序，配置文件放在 ``resources/`` 中。
 
-.. code-block:: text
+.. list-table::
+   :header-rows: 1
 
-   vhosts/ ──┐
-   devices/ ─┴──> machines/ ───> clusters/
+   * - 目录
+     - 职责
+   * - ``resources/vhosts/``
+     - 定义 QEMU vHost 模板，包括运行时 CPU、内存、镜像选择和启动参数。
+   * - ``resources/devices/``
+     - 定义设备模型、适配器、PCI 属性、ROM 引用和设备内存区域。
+   * - ``resources/machines/``
+     - 把一个 vHost 与设备组合成一台机器。
+   * - ``resources/clusters/``
+     - 组合或展开多台机器。
+   * - ``resources/images/recipes/``
+     - 用 ``recipe.toml`` 和 ``provision.yml`` 定义镜像构建、软件安装和产物。
+   * - ``samples/``
+     - 预留给客户机中的示例程序；当前没有随目录迁移增加程序运行入口。
+   * - ``third_party/``
+     - 保存外部项目；``gem5-resources`` 提供当前 ROCm 配方的 ROM、固件和 GPU 程序源码。
+
+.. mermaid::
+
+   flowchart LR
+       V[resources/vhosts] --> M[resources/machines]
+       D[resources/devices] --> M
+       M --> C[resources/clusters]
+
+每台机器通过 ``vhost.image`` 选择配方，分别声明自己的启动参数和磁盘。
+配方中的 ``provision`` 参数描述构建镜像时使用的临时虚拟机；仿真会话中的
+QEMU 参数由 ``machine.vhost`` 决定。字段说明见 :ref:`ref-vhost-image-recipe`
+和 :ref:`ref-topology-schema`。
 
 机器、设备与 count
 ------------------
@@ -126,7 +153,7 @@ vHost 与磁盘字段的权威说明见 :ref:`ref-topology-schema`\ 。
    # 启动会话
    just run-topology resources/machines/single-gpu.yaml
 
-- ``validate`` 不启动进程；``plan`` 输出 ``run`` 将要执行的计划；``graph`` 只读取文档。
+- ``validate`` 校验拓扑；``run --dry-run`` 输出镜像状态和执行计划；``graph`` 输出拓扑关系。三者均不启动仿真进程。
 - ``--assets`` 与真正的会话启动会检查 ``runtime.binary``\ 、``config``\ 、``pci.rom`` 等文件是否存在。
 - 运行会话需要 Linux glibc 与 ``setpriv``\ ；其他系统通过开发容器执行，见 :ref:`gs-platform-container`\ 。
 

@@ -147,6 +147,14 @@ Ansible 通过 ``cosim_recipe_variables.<变量名>`` 读取它们。软件包�
 ``{{ playbook_dir }}/files/<文件名>`` 引用。构建器会记录配方源文件和声明输入的内容，
 输入变化后重新判断已有镜像是否可以复用。
 
+仓库中的 ROCm 7.0 配方通过 ``[provision.files]`` 引用
+``third_party/gem5-resources/src/x86-ubuntu-gpu-ml/files/`` 下的
+``mi200.rom``、``mi300.rom``、``mi300_discovery`` 和 ``mi350_discovery``。
+这些文件由 ``gem5-resources`` 子模块提供，配方负责声明输入和安装位置。
+MI300X 设备模板、ROM 测试和回归记录使用同一份子模块中的 ``mi300.rom``。
+``just build-disk``、``just build-rocm-assets`` 和 ``just test-cosim-vfio-user``
+会先初始化该子模块；``just build-gpu-app`` 也从其中读取 GPU 程序源码。
+
 导出文件：result
 ~~~~~~~~~~~~~~~~
 

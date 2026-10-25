@@ -94,7 +94,7 @@ Differences from QEMU's checkpatch.pl
      - Repository behavior
    * - Tree detection
      - Recognizes the repository root (``LICENSE``, ``README.md``,
-       ``agents.md``, ``.gitmodules``, ``docs``,
+       ``AGENTS.md``, ``.gitmodules``, ``docs``,
        ``scripts``, ``tests``)
    * - SPDX licenses
      - Prefers ``Apache-2.0``; also accepts ``MIT``,
