@@ -7,8 +7,8 @@ Reusable agent workflows are no longer stored as `.claude/commands`; they are
 vendored in-tree under `.agents/skills/` (previously the
 `gevico/cosim-gpu-skills` submodule) and are tracked directly by this repository.
 
-`CLAUDE.md` is a symbolic mapping to this file so Claude-compatible tools read
-the same canonical rules.
+`AGENTS.md` contains the canonical rules. `CLAUDE.md` is a symbolic link to
+`AGENTS.md` so Claude-compatible tools read the same rules.
 
 ## Skill Paths
 

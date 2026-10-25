@@ -118,7 +118,7 @@ Agent Skills:
     - zevorn
   files:
     - .agents/
-    - agents.md
+    - AGENTS.md
     - CLAUDE.md
   labels:
     - "area: agent skills"

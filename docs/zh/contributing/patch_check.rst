@@ -86,7 +86,7 @@ QEMU 补丁风格：
      - 本仓库行为
    * - 源码树识别
      - 识别本仓库根目录（``LICENSE``、``README.md``、
-       ``agents.md``、``.gitmodules``、``docs``、
+       ``AGENTS.md``、``.gitmodules``、``docs``、
        ``scripts``、``tests``）
    * - SPDX 许可证
      - 首选 ``Apache-2.0``；同时接受 ``MIT``、``BSD-2-Clause``、

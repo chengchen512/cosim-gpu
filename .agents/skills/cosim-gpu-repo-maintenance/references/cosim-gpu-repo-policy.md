@@ -26,8 +26,9 @@ Reusable workflows live in `.agents/skills/` and are tracked directly by this
 repository. Do not add new project-specific command implementations under
 `.claude/commands`.
 
-`AGENTS.md` and `CLAUDE.md` map to the top-level agent rules. Keep skill path
-references current when skill folders are renamed.
+`AGENTS.md` contains the top-level agent rules. `CLAUDE.md` is a symbolic link
+to `AGENTS.md`. Keep skill path references current when skill folders are
+renamed.
 
 ## Commit Ownership
 

@@ -538,7 +538,7 @@ sub top_of_kernel_tree {
 	my ($root) = @_;
 
 	my @tree_check = (
-		"LICENSE", "README.md", "agents.md",
+		"LICENSE", "README.md", "AGENTS.md",
 		".gitmodules", "docs", "scripts", "tests"
 	);
 
